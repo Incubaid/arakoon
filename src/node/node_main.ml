@@ -297,7 +297,7 @@ end
 let _main_2 (type s)
     (module S : Store.STORE with type t = s)
     make_tlog_coll make_config get_snapshot_name ~name
-    ~daemonize ~catchup_only : int Lwt.t =
+    ~daemonize ~catchup_only ~stop : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
   let control  = {
     minor_heap_size = 32 * 1024;
@@ -418,7 +418,6 @@ let _main_2 (type s)
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
-      let stop = ref false in
       let messaging  = _config_messaging me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size ~stop in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       Lwt_list.iter_s (fun m -> Logger.info_f_ "other: %s" m)
@@ -561,7 +560,7 @@ let _main_2 (type s)
 		        end
 	        | _ -> Multi_paxos_fsm.enter_simple_paxos
 	    in
-        to_run constants buffers new_i vo
+        to_run ~stop constants buffers new_i vo
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
@@ -693,12 +692,12 @@ let main_t make_config name daemonize catchup_only : int Lwt.t =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop:(ref false)
 
-let test_t make_config name =
+let test_t make_config name ~stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
   let make_tlog_coll = fun a b _ d -> Mem_tlogcollection.make_mem_tlog_collection a b d in
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false
   and catchup_only = false in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop

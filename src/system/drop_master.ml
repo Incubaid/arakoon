@@ -32,16 +32,22 @@ let wait_until_master cluster_cfg =
       Lwt.fail (Failure "no master found in 60 seconds"));
      inner ()]
 
+let stop = ref (ref false)
+
 let setup tn master base () =
   let lease_period = 2 in
+  let stop = !stop in
   let make_config () = Node_cfg.Node_cfg.make_test_config ~base 3 master lease_period in
-  let t0 = Node_main.test_t make_config "t_arakoon_0" >>= fun _ -> Lwt.return () in
-  let t1 = Node_main.test_t make_config "t_arakoon_1" >>= fun _ -> Lwt.return () in
+  let t0 = Node_main.test_t ~stop make_config "t_arakoon_0" >>= fun _ -> Lwt.return () in
+  let t1 = Node_main.test_t ~stop make_config "t_arakoon_1" >>= fun _ -> Lwt.return () in
   (* let t2 = Node_main.test_t make_config "t_arakoon_2" >>= fun _ -> Lwt.return () in *)
   let all_t = [t0;t1(* ;t2 *)] in
   Lwt.return (tn, make_config (), all_t)
 
-let teardown (_tn, _, _all_t) = Lwt.return ()
+let teardown (_tn, _, _all_t) =
+  !stop := true;
+  stop := ref false;
+  Lwt.return ()
 
 let _drop_master do_maintenance (_tn, cluster_cfg, _) =
   let lease_period = cluster_cfg._lease_period in

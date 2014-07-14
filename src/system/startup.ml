@@ -86,6 +86,8 @@ let _make_tlog_coll tlcs values tlc_name tlf_dir head_dir use_compression _fsync
   Hashtbl.add tlcs tlc_name tlc;
   Lwt.return tlc
 
+let stop = ref (ref false)
+
 let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
   let module S =
       struct
@@ -105,6 +107,7 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
     ~name
     ~daemonize:false
     ~catchup_only:false
+    ~stop:!stop
     >>= fun _ -> Lwt.return ()
 
 let _dump_tlc ~tlcs node =
@@ -400,7 +403,10 @@ let interrupted_election () =
 
 
 let setup () = Lwt.return ()
-let teardown () = Logger.debug_ "teardown"
+let teardown () =
+  !stop := true;
+  stop := ref false;
+  Logger.debug_ "teardown"
 
 let w f = Extra.lwt_bracket setup f teardown
 
