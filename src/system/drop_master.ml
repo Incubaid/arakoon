@@ -115,7 +115,7 @@ let make_suite base name w =
   let make_el n base f = n >:: w n base f in
   name >:::
     [make_el "drop_master" base drop_master;
-     make_el "drop_master_while_maintenance" base drop_master_while_maintenance;
+     make_el "drop_master_while_maintenance" (base + 100) drop_master_while_maintenance;
     ]
 
 
