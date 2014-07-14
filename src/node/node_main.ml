@@ -617,19 +617,28 @@ let _main_2 (type s)
             (Lwt_unix.sleep 2.0 >>= fun () ->
              Logger.warning_ "timeout (2.0s) while waiting for threads to finish") ] >>= fun () ->
           let count_thread m =
+            let stop = ref false in
             let rec inner i =
-              Logger.info_f_ m i >>= fun () ->
-              Lwt_unix.sleep 1.0 >>= fun () ->
-              inner (succ i) in
-            inner 0 in
+              if !stop
+              then
+                Lwt.return ()
+              else
+                Logger.info_f_ m i >>= fun () ->
+                Lwt_unix.sleep 1.0 >>= fun () ->
+                inner (succ i) in
+            inner 0, stop in
+          let count_close_store, stop = count_thread "Closing store (%is)" in
           Lwt.pick [ S.close ~flush:false ~sync:true store ;
-                     count_thread "Closing store (%is)" ] >>= fun () ->
+                     count_close_store ] >>= fun () ->
+          stop := true;
           Logger.fatal_f_
             ">>> Closing the store @ %S succeeded: everything seems OK <<<"
             (S.get_location store) >>= fun () ->
+          let count_close_tlogcoll, stop = count_thread "Closing tlog (%is)" in
           Lwt.pick [ constants.Multi_paxos.tlog_coll # close () ;
-                     count_thread "Closing tlog (%is)" ]
+                     count_close_tlogcoll ]
           >>= fun () ->
+          stop := true;
           Logger.info_ "Completed shutdown"
           >>= fun () ->
           Lwt.return 0
