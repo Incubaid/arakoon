@@ -104,7 +104,7 @@ def test_max_value_size_tinkering ():
     C.assert_running_nodes(1)
     client = C.get_client()
     assert_raises (X.arakoon_client.ArakoonException, client.set, key, value)
-    
+
 
 @C.with_custom_setup(C.setup_1_node,C.basic_teardown)
 def test_marker_presence_required ():
@@ -129,15 +129,30 @@ def test_marker_presence_required ():
     C.assert_running_nodes(0)
 
     #check the exit code:
+    cfgp = "%s.cfg" % (cluster._getConfigFileName()) # OMG
+    logging.debug("cfgp=%s",cfgp)
     try:
-       cfgp = "%s.cfg" % (cluster._getConfigFileName()) # OMG
-       logging.debug("cfgp=%s",cfgp)
        subprocess.check_call([_arakoon, '--node', nn, '-config', cfgp])
     except subprocess.CalledProcessError,e:
         assert_equals(e.returncode,42)
 
     # add the marker and start again:
     subprocess.call([_arakoon,'--mark-tlog', tlog, 'closed:%s' % nn])
+    cluster.start()
+    time.sleep(1.0)
+    C.assert_running_nodes(1)
+
+    # now do the same steps to test ./arakoon --mark-tlog /path/to/tlog nodename -close
+    cluster.stop()
+    subprocess.call([_arakoon,'--strip-tlog', tlog])
+
+    try:
+       subprocess.check_call([_arakoon, '--node', nn, '-config', cfgp])
+    except subprocess.CalledProcessError,e:
+        assert_equals(e.returncode,42)
+
+    # add the marker and start again:
+    subprocess.call([_arakoon,'--mark-tlog', tlog, '%s' % nn, '-close'])
     cluster.start()
     time.sleep(1.0)
     C.assert_running_nodes(1)
