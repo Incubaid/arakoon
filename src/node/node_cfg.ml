@@ -194,7 +194,7 @@ module Node_cfg = struct
         fsync = false;
         is_test = true;
         reporting = 300;
-        head_copy_throttling = 0.;
+        head_copy_throttling = default_head_copy_throttling;
       }
     in
     let rec loop acc = function
@@ -388,7 +388,7 @@ module Node_cfg = struct
     in
     let head_copy_throttling =
       Ini.get inifile node_name "head_copy_throttling"
-              Ini.p_float (Ini.default 0.0)
+              Ini.p_float (Ini.default default_head_copy_throttling)
     in
     {node_name;
      ips;

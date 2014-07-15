@@ -437,7 +437,7 @@ let _main_2 (type s)
             (fun () ->
               S.copy_store2 full_snapshot_path db_name
                             ~overwrite:false
-                            ~throttling:me.head_copy_throttling
+                            ~throttling:Node_cfg.default_head_copy_throttling
             )
             (function
               | Not_found -> Lwt.return ()
