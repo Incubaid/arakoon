@@ -180,7 +180,7 @@ let promises_check_done constants state () =
   let bv,bf =
   begin
     match v_s with
-      | [] ->  (Value.create_master_value (me, 0L), 0)
+      | [] ->  (Value.create_master_value (me, 0.), 0)
       | hd::_tl -> hd
   end in
   let nnodes = List.length constants.others + 1 in
@@ -615,8 +615,7 @@ let wait_for_accepteds (type s) constants ((ms,ballot) as state)
                      match S.who_master constants.store with
                      | None -> false
                      | Some (_,al) -> let now = Unix.gettimeofday () in
-                                      let alf = Int64.to_float al in
-                                      let diff = now -. alf in
+                                      let diff = now -. al in
                                       diff < (float constants.lease_expiration)
                    in
                    if is_still_master ()
@@ -942,25 +941,44 @@ let enter_forced_master constants buffers current_i _vo =
       >>= fun () -> Lwt.fail e
     )
 
-let enter_simple_paxos constants buffers current_i vo =
+let enter_simple_paxos (type s) constants buffers current_i vo =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
   let current_n = Sn.start in
   let trace = trace_transition in
   let produce = paxos_produce buffers constants in
-  Lwt.catch
-    (fun () ->
-      Fsm.loop ~trace
-        (_execute_effects constants)
-        produce
-	(machine constants)
-	(election_suggest constants (current_n, current_i, vo))
-    )
-    (fun e ->
-      Logger.debug_f_ "%s: FSM BAILED (run_election) due to uncaught exception %s" me
-	(Printexc.to_string e)
-      >>= fun () -> Lwt.fail e
-    )
+  let module S = (val constants.store_module : Store.STORE with type t = s) in
+  let other_master = match S.who_master constants.store with
+    | None -> false
+    | Some (_, ls) ->
+      let diff = (Unix.gettimeofday ()) -. ls in
+      diff < float constants.lease_expiration in
+  let run start_state =
+    Lwt.catch
+      (fun () ->
+         Fsm.loop ~trace
+           (_execute_effects constants)
+           produce
+           (machine constants)
+           start_state
+      )
+      (fun e ->
+         Logger.debug_f_ "%s: FSM BAILED (run_election) due to uncaught exception %s" me
+           (Printexc.to_string e)
+         >>= fun () -> Lwt.fail e
+      ) in
+  if other_master
+  then
+    begin
+      Logger.debug_f_ "%s: +starting slave_fake_prepare." me >>= fun () ->
+      start_lease_expiration_thread constants current_n ~slave:true >>= fun () ->
+      run (Slave.slave_fake_prepare constants (current_i,current_n))
+    end
+  else
+    begin
+      Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
+      run (election_suggest constants (current_n, current_i, vo))
+    end
 
 let enter_read_only constants buffers current_i vo =
   let me = constants.me in

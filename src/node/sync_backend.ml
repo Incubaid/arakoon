@@ -395,11 +395,11 @@ object(self: #backend)
         match Node_cfg.get_master cfg with
         | Elected | Preferred _ | Forced _ ->
           begin
-            let now = Int64.of_float (Unix.time()) in
-            let diff = Int64.sub now ls in
-            if diff < Int64.of_int lease_expiration then
+            let now = Unix.gettimeofday () in
+            let diff = now -. ls in
+            if diff < float lease_expiration then
               (Some m,"inside lease")
-            else (None,Printf.sprintf "(%Li < (%Li = now) lease expired" ls now)
+            else (None,Printf.sprintf "(%f < (%f = now) lease expired" ls now)
           end
         | ReadOnly -> Some my_name, "readonly"
 

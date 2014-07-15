@@ -28,7 +28,7 @@ module Update = struct
   type t =
     | Set of string * string
     | Delete of string
-    | MasterSet of string * int64
+    | MasterSet of string * float
     | TestAndSet of string * string option * string option
     | Sequence of t list
     | SetInterval of Interval.t
@@ -44,7 +44,7 @@ module Update = struct
 
   let make_master_set me maybe_lease =
     match maybe_lease with
-      | None -> MasterSet (me,0L)
+      | None -> MasterSet (me,0.)
       | Some lease -> MasterSet (me,lease)
 
   let _size_of = function
@@ -60,8 +60,8 @@ module Update = struct
     let rec _inner = function
       | Set (k,v)                 -> Printf.sprintf "Set            ;%S;%i;%S" k (String.length v) (maybe v)
       | Delete k                  -> Printf.sprintf "Delete         ;%S" k
-      | MasterSet (m,i)           -> Printf.sprintf "MasterSet      ;%S;%Ld" m i
-      | TestAndSet (k, _, wo) -> 
+      | MasterSet (m,i)           -> Printf.sprintf "MasterSet      ;%S;%f" m i
+      | TestAndSet (k, _, wo) ->
         let ws = _size_of wo in      Printf.sprintf "TestAndSet     ;%S;%i;%S" k ws (maybe_o wo)
       | Sequence updates ->
         let buf = Buffer.create (64 * List.length updates) in
@@ -110,14 +110,14 @@ module Update = struct
 	    Llio.string_to b k;
 	    Llio.string_option_to b e;
 	    Llio.string_option_to b w
-      | MasterSet (m,i) ->
+      | MasterSet (m,_) ->
 	    Llio.int_to    b 4;
 	    Llio.string_to b m;
-	    Llio.int64_to b i
+	    Llio.int64_to b 0L
       | Sequence us ->
 	    Llio.int_to b 5;
         _us_to b us
-      | Nop -> 
+      | Nop ->
 	    Llio.int_to b 6
       | UserFunction (name, param) ->
 	    Llio.int_to b 7;
@@ -179,10 +179,10 @@ module Update = struct
         let e, pos3 = Llio.string_option_from b pos2 in
         let w, pos4 = Llio.string_option_from b pos3 in
         TestAndSet(k,e,w), pos4
-      | 4 -> 
+      | 4 ->
         let m,pos2 = Llio.string_from b pos1 in
-        let i,pos3 = Llio.int64_from b pos2 in
-        MasterSet (m,i), pos3
+        let _,pos3 = Llio.int64_from b pos2 in
+        MasterSet (m,0.), pos3
       | 5 ->
         let us, pos2 = _us_from b pos1 in
         Sequence us, pos2

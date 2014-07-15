@@ -50,9 +50,9 @@ let paxos_fatal me fmt =
 let can_promise (type s) (module S : Store.STORE with type t = s) store lease_expiration requester =
   match S.who_master store with
     | Some (m, ml) ->
-      let l64 = Int64.of_int lease_expiration in
+      let lfloat = float lease_expiration in
       if (
-        ( (Int64.add ml l64) > Int64.of_float (Unix.time()) )
+        ( (ml +. lfloat) > Unix.gettimeofday () )
         &&
           (String.compare requester m) <> 0
       )
@@ -192,7 +192,7 @@ let start_lease_expiration_thread (type s) constants n ~slave =
   let id = constants.lease_expiration_id in
   let rec inner () =
     let lease_start = match S.who_master constants.store with
-      | None -> 0L
+      | None -> 0.
       | Some(_m, ls) -> ls in
     let lease_expiration = float_of_int constants.lease_expiration in
     let factor =
@@ -216,7 +216,7 @@ let start_lease_expiration_thread (type s) constants n ~slave =
         then
           begin
             let t1 = Unix.gettimeofday () in
-            Logger.debug_f_ "%s: lease expired (%2.1f passed, %2.1f intended)=> injecting LeaseExpired event for %Li"
+            Logger.debug_f_ "%s: lease expired (%2.1f passed, %2.1f intended)=> injecting LeaseExpired event for %f"
               constants.me (t1 -. t0) sleep_sec lease_start >>= fun () ->
             constants.inject_event (LeaseExpired n) >>= fun () ->
             inner ()
