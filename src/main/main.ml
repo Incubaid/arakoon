@@ -32,6 +32,7 @@ type local_action =
   | DumpStore
   | MakeTlog
   | MarkTlog
+  | CloseTlog
   | TruncateTlog
   | CompressTlog
   | UncompressTlog
@@ -196,7 +197,6 @@ let main () =
   and right = ref None
   and rinc = ref false
   and scenario = ref (String.concat ", " Benchmark.default_scenario)
-  and close_tlog = ref false
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -234,8 +234,11 @@ let main () =
                                Arg.Set_string key;
                              ],
      "<filename> <key>: add a marker to a tlog");
-    ("-close", Arg.Set close_tlog,
-     "write the close marker for the node specified as key (in --mark-tlog)");
+    ("--close-tlog", Arg.Tuple[ set_laction CloseTlog;
+                               Arg.Set_string filename;
+                               Arg.Set_string node_id;
+                             ],
+     "<filename> <node_name>: marks the tlog with 'closed:node_name'");
     ("--replay-tlogs", Arg.Tuple[ set_laction ReplayTlogs;
                                   Arg.Set_string tlog_dir;
                                   Arg.Set_string tlf_dir;
@@ -403,9 +406,8 @@ let main () =
     | DumpTlog -> Tlog_main.dump_tlog !filename !dump_values
     | StripTlog -> Tlog_main.strip_tlog !filename
     | MakeTlog -> Tlog_main.make_tlog !filename !counter
-    | MarkTlog -> Tlog_main.mark_tlog !filename (if !close_tlog
-                                                 then Tlc2._make_close_marker !key
-                                                 else !key)
+    | MarkTlog -> Tlog_main.mark_tlog !filename !key
+    | CloseTlog -> Tlog_main.mark_tlog !filename (Tlc2._make_close_marker !node_id)
     | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !tlf_dir !filename !end_i
     | DumpStore -> Dump_store.dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename
