@@ -159,6 +159,22 @@ end = struct
     let array = id
 end
 
+module CountedList : sig
+    type 'a t
+
+    val make : length:int -> list:'a list -> 'a t
+    val of_list : 'a list -> 'a t
+    val length : 'a t -> int
+    val list : 'a t -> 'a list
+end = struct
+    type 'a t = T of int * 'a list
+
+    let make ~length ~list = T (length, list)
+    let of_list l = T (List.length l, l)
+    let length (T (l, _)) = l
+    let list (T (_, l)) = l
+end
+
 module Protocol = struct
     open Lwt
 
@@ -189,6 +205,8 @@ module Protocol = struct
         val range_request : RangeRequest.t t
         val reversed_array : 'a t -> 'a ReversedArray.t t
         val key : Key.t t
+        val counted_list : 'a t -> 'a CountedList.t t
+        val update : Update.Update.t t
     end = struct
         type 'a t = { from_channel : (Lwt_io.input_channel -> 'a Lwt.t)
                     ; to_channel : (Lwt_io.output_channel -> 'a -> unit Lwt.t)
@@ -330,6 +348,30 @@ module Protocol = struct
                 Lwt.return (Key.make (Simple_store.__prefix ^ s))
             and to_channel = Llio.output_key in
             make ~from_channel ~to_channel
+
+        let counted_list at =
+            let from_channel ic =
+                from_channel ic (list at) >>= fun l ->
+                Lwt.return (CountedList.of_list l)
+            and to_channel oc l =
+                let count = CountedList.length l
+                and list = CountedList.list l in
+                Llio.output_counted_list (fun oc v -> to_channel oc at v) oc (count, list)
+            in
+            make ~from_channel ~to_channel
+
+        let update =
+            let from_channel ic =
+                from_channel ic string >>= fun data ->
+                let buf = Llio.make_buffer data 0 in
+                let update = Update.Update.from_buffer buf in
+                Lwt.return update
+            and to_channel oc u =
+                let buf = Buffer.create 64 in
+                let () = Update.Update.to_buffer buf u in
+                to_channel oc string (Buffer.contents buf)
+            in
+            make ~from_channel ~to_channel
     end
 
     type ('req, 'res) t =
@@ -340,18 +382,25 @@ module Protocol = struct
       | Set : ((string * string), unit Result.t) t
       | Delete : (string, unit Result.t) t
       | Range : ((Arakoon_client.consistency * RangeRequest.t), Key.t ReversedArray.t Result.t) t
+      | Prefix_keys : ((Arakoon_client.consistency * string * int), Key.t CountedList.t Result.t) t
       | Test_and_set : ((string * string option * string option), string option Result.t) t
+      | Range_entries : ((Arakoon_client.consistency * RangeRequest.t), (Key.t * string) CountedList.t Result.t) t
+      | Sequence : (Update.Update.t, unit Result.t) t
+      | Multi_get : ((Arakoon_client.consistency * string CountedList.t), string list Result.t) t
       | Expect_progress_possible : (unit, bool Result.t) t
       | User_function : ((string * string option), string option Result.t) t
       | Assert : ((Arakoon_client.consistency * string * string option), unit Result.t) t
       | Get_key_count : (unit, int64 Result.t) t
       | Confirm : ((string * string), unit Result.t) t
+      | Rev_range_entries : ((Arakoon_client.consistency * RangeRequest.t), (Key.t * string) CountedList.t Result.t) t
+      | Synced_sequence : (Update.Update.t, unit Result.t) t
       | Optimize_db : (unit, unit Result.t) t
       | Defrag_db : (unit, unit Result.t) t
       | Delete_prefix : (string, int Result.t) t
       | Version : (unit, (int * int * int * string) Result.t) t
       | Assert_exists : ((Arakoon_client.consistency * string), unit Result.t) t
       | Drop_master : (unit, unit Result.t) t
+      | Multi_get_option : ((Arakoon_client.consistency * string CountedList.t), string option list Result.t) t
       | Current_state : (unit, string Result.t) t
       | Replace : ((string * string option), string option Result.t) t
       | Nop : (unit, unit Result.t) t
@@ -369,18 +418,25 @@ module Protocol = struct
           | Set -> tuple2 string string, result unit
           | Delete -> string, result unit
           | Range -> tuple2 consistency range_request, result (reversed_array key)
+          | Prefix_keys -> tuple3 consistency string int, result (counted_list key)
           | Test_and_set -> tuple3 string (option string) (option string), result (option string)
+          | Range_entries -> tuple2 consistency range_request, result (counted_list (tuple2 key string))
+          | Sequence -> update, result unit
+          | Multi_get -> tuple2 consistency (counted_list string), result (list string)
           | Expect_progress_possible -> unit, result bool
           | User_function -> tuple2 string (option string), result (option string)
           | Assert -> tuple3 consistency string (option string), result unit
           | Get_key_count -> unit, result int64
           | Confirm -> tuple2 string string, result unit
+          | Rev_range_entries -> tuple2 consistency range_request, result (counted_list (tuple2 key string))
+          | Synced_sequence -> update, result unit
           | Optimize_db -> unit, result unit
           | Defrag_db -> unit, result unit
           | Delete_prefix -> string, result int
           | Version -> unit, result (tuple4 int int int string)
           | Assert_exists -> tuple2 consistency string, result unit
           | Drop_master -> unit, result unit
+          | Multi_get_option -> tuple2 consistency (counted_list string), result (list (option string))
           | Current_state -> unit, result string
           | Replace -> tuple2 string (option string), result (option string)
           | Nop -> unit, result unit
@@ -421,18 +477,25 @@ module Protocol = struct
                       ; Some_t Set, 0x09l
                       ; Some_t Delete, 0x0al
                       ; Some_t Range, 0x0bl
+                      ; Some_t Prefix_keys, 0x0cl
                       ; Some_t Test_and_set, 0x0dl
+                      ; Some_t Range_entries, 0x0fl
+                      ; Some_t Sequence, 0x10l
+                      ; Some_t Multi_get, 0x11l
                       ; Some_t Expect_progress_possible, 0x12l
                       ; Some_t User_function, 0x15l
                       ; Some_t Assert, 0x16l
                       ; Some_t Get_key_count, 0x1al
                       ; Some_t Confirm, 0x1cl
+                      ; Some_t Rev_range_entries, 0x23l
+                      ; Some_t Synced_sequence, 0x24l
                       ; Some_t Optimize_db, 0x25l
                       ; Some_t Defrag_db, 0x26l
                       ; Some_t Delete_prefix, 0x27l
                       ; Some_t Version, 0x28l
                       ; Some_t Assert_exists, 0x29l
                       ; Some_t Drop_master, 0x30l
+                      ; Some_t Multi_get_option, 0x31l
                       ; Some_t Current_state, 0x32l
                       ; Some_t Replace, 0x33l
                       ; Some_t Nop, 0x41l

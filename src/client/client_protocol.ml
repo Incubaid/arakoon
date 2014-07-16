@@ -96,14 +96,10 @@ let handle_exceptions f =
               then Lwt.return (Rpc.Server.Result.Continue res)
               else Lwt.return (Rpc.Server.Result.Close res))
 
-let decode_sequence ic =
+let decode_sequence update =
   begin
-    Llio.input_string ic >>= fun data ->
-    Logger.debug_f_ "Read out %d bytes" (String.length data) >>= fun () ->
-    let update = Update.from_buffer (Llio.make_buffer data 0) in
     match update with
-      | Update.Sequence updates ->
-        Lwt.return updates
+      | Update.Sequence updates -> updates
       | Update.Set _
       | Update.Delete _
       | Update.TestAndSet _
@@ -122,19 +118,10 @@ let decode_sequence ic =
                                      "should have been a sequence"))
   end
 
-(*let handle_sequence ~sync ic oc backend =
-  begin
-    Lwt.catch
-      (fun () ->
-         begin
-           decode_sequence ic >>= fun updates ->
-           backend # sequence ~sync updates >>= fun () ->
-           response_ok_unit oc
-         end )
-      ( Lwt.fail) (*handle_exception oc )*)
+let handle_sequence ~sync backend update =
+    let updates = decode_sequence update in
+    backend # sequence ~sync updates
 
-  end
-*)
 open Arakoon_protocol
 
 let ok v = Lwt.return (Result.Ok v)
@@ -193,43 +180,25 @@ let handle_command :
         id (consistency2s consistency) (p_option first) finc (p_option last) linc max >>= fun () ->
       let keys = backend # range ~consistency first finc last linc max in
       ok (Arakoon_protocol.ReversedArray.make keys))
-  (*| RANGE_ENTRIES ->
-    begin
-      Common.input_consistency ic >>= fun consistency ->
-      Llio.input_string_option ic >>= fun first ->
-      Llio.input_bool          ic >>= fun finc  ->
-      Llio.input_string_option ic >>= fun last  ->
-      Llio.input_bool          ic >>= fun linc  ->
-      Llio.input_int           ic >>= fun max   ->
+  | Protocol.Range_entries -> handle_exceptions (fun () ->
+      let (consistency, rreq) = req in
+      let open Arakoon_protocol.RangeRequest in
+      let (first, finc, last, linc, max) = (rreq.first, rreq.finc, rreq.last, rreq.linc, rreq.max) in
       Logger.debug_f_ "connection=%s RANGE_ENTRIES: consistency=%s first=%s finc=%B last=%s linc=%B max=%i"
         id (consistency2s consistency) (p_option first) finc (p_option last) linc max >>= fun () ->
-      wrap_exception
-        (fun () ->
-           let kvs = backend # range_entries ~consistency first finc last linc max in
-           response_ok oc >>= fun () ->
-           Llio.output_counted_list Llio.output_key_value_pair oc kvs >>= fun () ->
-           Lwt.return false
-        )
-    end
-  | REV_RANGE_ENTRIES ->
-    begin
-      Common.input_consistency ic >>= fun consistency ->
-      Llio.input_string_option ic >>= fun first ->
-      Llio.input_bool          ic >>= fun finc  ->
-      Llio.input_string_option ic >>= fun last  ->
-      Llio.input_bool          ic >>= fun linc  ->
-      Llio.input_int           ic >>= fun max   ->
+       let (length, list) = backend # range_entries ~consistency first finc last linc max in
+       let l = Arakoon_protocol.CountedList.make ~length ~list in
+       ok l)
+  | Protocol.Rev_range_entries -> handle_exceptions (fun () ->
+      let (consistency, rreq) = req in
+      let open Arakoon_protocol.RangeRequest in
+      let (first, finc, last, linc, max) = (rreq.first, rreq.finc, rreq.last, rreq.linc, rreq.max) in
       Logger.debug_f_ "connection=%s REV_RANGE_ENTRIES: consistency=%s first=%s finc=%B last=%s linc=%B max=%i"
         id (consistency2s consistency) (p_option first) finc (p_option last) linc max >>= fun () ->
-      wrap_exception
-        (fun () ->
-           let kvs = backend # rev_range_entries ~consistency first finc last linc max in
-           response_ok oc >>= fun () ->
-           Llio.output_counted_list Llio.output_key_value_pair oc kvs >>= fun () ->
-           Lwt.return false
-        )
-    end
-  | LAST_ENTRIES ->
+      let (length, list) = backend # rev_range_entries ~consistency first finc last linc max in
+      let l = Arakoon_protocol.CountedList.make ~length ~list in
+      ok l)
+(*  | LAST_ENTRIES ->
     begin
       Sn.input_sn ic >>= fun i ->
       Logger.debug_f_ "connection=%s LAST_ENTRIES: i=%Li" id i >>= fun () ->
@@ -265,54 +234,35 @@ let handle_command :
       let (name, po) = req in
       Logger.debug_f_ "connection=%s USER_FUNCTION: name=%S" id name >>= fun () ->
       backend # user_function name po >>= ok)
-(*  | PREFIX_KEYS ->
-    begin
-      Common.input_consistency ic >>= fun consistency ->
-      Llio.input_string ic >>= fun key ->
-      Llio.input_int    ic >>= fun max ->
-      Logger.debug_f_ "connection=%s PREFIX_KEYS: consistency=%s key=%S max=%i" id (consistency2s consistency) key max
-      >>= fun () ->
-      wrap_exception
-        (fun () ->
-         let keys = backend # prefix_keys ~consistency key max in
-         response_ok oc >>= fun () ->
-         Llio.output_counted_list Llio.output_key oc keys >>= fun () ->
-         Lwt.return false)
-    end
-  | MULTI_GET ->
-    begin
-      Common.input_consistency ic >>= fun consistency ->
-      Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
+  | Protocol.Prefix_keys -> handle_exceptions (fun () ->
+      let (consistency, key, max) = req in
+      Logger.debug_f_ "connection=%s PREFIX_KEYS: consistency=%s key=%S max=%i" id (consistency2s consistency) key max >>= fun () ->
+      let (length, list) = backend # prefix_keys ~consistency key max in
+      let l = CountedList.make ~length ~list in
+      ok l)
+  | Protocol.Multi_get -> handle_exceptions (fun () ->
+      let (consistency, clist) = req in
+      let length = CountedList.length clist
+      and keys = CountedList.list clist in
       Logger.debug_f_ "connection=%s MULTI_GET: consistency=%s length=%i keys=%S" id (consistency2s consistency) length
         (String.concat ";" keys) >>= fun () ->
-      wrap_exception
-        (fun () ->
-           let values = backend # multi_get ~consistency keys in
-           response_ok oc >>= fun () ->
-           Llio.output_string_list oc values >>= fun () ->
-           Lwt.return false
-        )
-    end
-  | MULTI_GET_OPTION ->
-    begin
-      Common.input_consistency ic >>= fun consistency ->
-      Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
+      let values = backend # multi_get ~consistency keys in
+      ok values)
+  | Protocol.Multi_get_option -> handle_exceptions (fun () ->
+      let (consistency ,clist) = req in
+      let length = CountedList.length clist
+      and keys = CountedList.list clist in
       Logger.debug_f_ "connection=%s MULTI_GET_OPTION: consistency=%s length=%i keys=%S"
         id (consistency2s consistency) length (String.concat ";" keys) >>= fun () ->
-      wrap_exception
-        (fun () ->
-           let vos = backend # multi_get_option ~consistency keys in
-           response_ok oc >>= fun () ->
-           Llio.output_list Llio.output_string_option oc (List.rev vos) >>= fun () ->
-           Lwt.return false)
-    end
-  | SEQUENCE ->
-    Logger.debug_f_ "connection=%s SEQUENCE" id >>= fun () ->
-    handle_sequence ~sync:false ic oc backend
-  | SYNCED_SEQUENCE ->
-    Logger.debug_f_ "connection=%s SYNCED_SEQUENCE" id >>= fun () ->
-    handle_sequence ~sync:true ic oc backend
-  | MIGRATE_RANGE ->
+      let vos = backend # multi_get_option ~consistency keys in
+      ok vos)
+  | Protocol.Sequence -> handle_exceptions (fun () ->
+      Logger.debug_f_ "connection=%s SEQUENCE" id >>= fun () ->
+      handle_sequence ~sync:false backend req >>= ok)
+  | Protocol.Synced_sequence -> handle_exceptions (fun () ->
+      Logger.debug_f_ "connection=%s SYNCED_SEQUENCE" id >>= fun () ->
+      handle_sequence ~sync:true backend req >>= ok)
+(*  | MIGRATE_RANGE ->
     begin
       wrap_exception
         (fun () ->

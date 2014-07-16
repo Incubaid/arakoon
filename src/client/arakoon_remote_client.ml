@@ -44,6 +44,18 @@ let compat =
       | Max_connections s -> error E_MAX_CONNECTIONS s
       | Unknown_failure s -> error E_UNKNOWN_FAILURE s
 
+let change_to_update =
+  let open Update in
+  let rec f = function
+    | Set (k, v) -> Update.Set (k, v)
+    | Delete k -> Update.Delete k
+    | Assert (k, vo) -> Update.Assert (k, vo)
+    | Assert_exists k -> Update.Assert_exists k
+    | TestAndSet (k, vo, v) -> Update.TestAndSet (k, vo, v)
+    | Sequence l -> Update.Sequence (List.map f l)
+  in
+  f
+
 class remote_client ((ic,oc) as conn) =
 
   (object
@@ -96,18 +108,25 @@ class remote_client ((ic,oc) as conn) =
       compat (Result.map f r)
 
     method range_entries ?(consistency=Consistent) ~first ~finc ~last ~linc ~max =
-      request oc (fun buf -> range_entries_to buf ~consistency first finc last linc max)
-      >>= fun () ->
-      response ic Llio.input_kv_list
+      Client.request ic oc Protocol.Range_entries (consistency, RangeRequest.t ~first ~finc ~last ~linc ~max) >>= fun r ->
+      let f cl =
+        List.map (fun (k, v) -> (Key.sub k 0 (Key.length k), v)) (CountedList.list cl)
+      in
+      compat (Result.map f r)
 
     method rev_range_entries ?(consistency=Consistent) ~first ~finc ~last ~linc ~max =
-      request oc (fun buf -> rev_range_entries_to buf ~consistency first finc last linc max)
-      >>= fun () ->
-      response ic Llio.input_kv_list
+      Client.request ic oc Protocol.Rev_range_entries (consistency, RangeRequest.t ~first ~finc ~last ~linc ~max) >>= fun r ->
+      let f cl =
+        List.map (fun (k, v) -> (Key.sub k 0 (Key.length k), v)) (CountedList.list cl)
+      in
+      compat (Result.map f r)
 
     method prefix_keys ?(consistency=Consistent) pref max =
-      request  oc (fun buf -> prefix_keys_to buf ~consistency pref max) >>= fun () ->
-      response ic Llio.input_string_list
+      Client.request ic oc Protocol.Prefix_keys (consistency, pref, max) >>= fun r ->
+      let f cl =
+        List.map (fun k -> Key.sub k 0 (Key.length k)) (CountedList.list cl)
+      in
+      compat (Result.map f r)
 
     method test_and_set key expected wanted =
       Client.request ic oc Protocol.Test_and_set (key, expected, wanted) >>=
@@ -122,18 +141,24 @@ class remote_client ((ic,oc) as conn) =
       compat
 
     method multi_get ?(consistency=Consistent) keys =
-      request  oc (fun buf -> multiget_to buf ~consistency keys) >>= fun () ->
-      response ic
-        (fun ic -> Llio.input_string_list ic >>= fun x ->
-          Lwt.return (List.rev x))
+      let keys' = CountedList.of_list keys in
+      Client.request ic oc Protocol.Multi_get (consistency, keys') >>=
+      compat
 
     method multi_get_option ?(consistency=Consistent) keys =
-      request oc (fun buf -> multiget_option_to buf ~consistency keys) >>= fun () ->
-      response ic (Llio.input_list Llio.input_string_option)
+      let keys' = CountedList.of_list keys in
+      Client.request ic oc Protocol.Multi_get_option (consistency, keys') >>=
+      compat
 
-    method sequence changes = Common.sequence conn changes
+    method sequence changes =
+      let changes' = Update.Update.Sequence (List.map change_to_update changes) in
+      Client.request ic oc Protocol.Sequence changes' >>=
+      compat
 
-    method synced_sequence changes = Common.synced_sequence conn changes
+    method synced_sequence changes =
+      let changes' = Update.Update.Sequence (List.map change_to_update changes) in
+      Client.request ic oc Protocol.Synced_sequence changes' >>=
+      compat
 
     method who_master () =
       Client.request ic oc Protocol.Who_master () >>=
