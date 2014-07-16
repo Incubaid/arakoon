@@ -380,18 +380,12 @@ let handle_command :
            Lwt.return false
         )
         (Lwt.fail) (*handle_exception oc)*)
-    end
-  | COPY_DB_TO_HEAD ->
-     begin
-       Llio.input_int ic >>= fun tlogs_to_keep ->
-       wrap_exception
-         (fun () ->
-          Logger.debug_f_ "connection=%s COPY_DB_TO_HEAD: tlogs_to_keep=%i" id tlogs_to_keep >>= fun () ->
-          backend # copy_db_to_head tlogs_to_keep >>= fun () ->
-          response_ok_unit oc
-         )
-     end
-  | SET_INTERVAL ->
+    end *)
+  | Protocol.Copy_db_to_head -> handle_exceptions (fun () ->
+      let tlogs_to_keep = req in
+      Logger.debug_f_ "connection=%s COPY_DB_TO_HEAD: tlogs_to_keep=%i" id tlogs_to_keep >>= fun () ->
+      backend # copy_db_to_head tlogs_to_keep >>= ok)
+  (*| SET_INTERVAL ->
     begin
       wrap_exception
         (fun () ->
@@ -521,13 +515,9 @@ let handle_command :
           Arakoon_version.minor,
           Arakoon_version.patch,
           rest))
-(* | DROP_MASTER ->
-    begin
+  | Protocol.Drop_master -> handle_exceptions (fun () ->
       Logger.info_f_ "connection=%s DROP_MASTER" id >>= fun () ->
-      wrap_exception
-        (fun () -> backend # drop_master () >>= fun () ->
-          response_ok_unit oc)
-    end*)
+      backend # drop_master () >>= ok)
   | Protocol.Current_state -> handle_exceptions (fun () ->
       Logger.debug_f_ "connection=%s CURRENT_STATE" id >>= fun () ->
       let state = backend # get_current_state () in

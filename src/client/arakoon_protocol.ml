@@ -278,11 +278,13 @@ module Protocol = struct
       | Delete_prefix : (string, int Result.t) t
       | Version : (unit, (int * int * int * string) Result.t) t
       | Assert_exists : ((Arakoon_client.consistency * string), unit Result.t) t
+      | Drop_master : (unit, unit Result.t) t
       | Current_state : (unit, string Result.t) t
       | Replace : ((string * string option), string option Result.t) t
       | Nop : (unit, unit Result.t) t
       | Flush_store : (unit, unit Result.t) t
       | Get_txid : (unit, Arakoon_client.consistency Result.t) t
+      | Copy_db_to_head : (int, unit Result.t) t
 
     let meta : type r s. (r, s) t -> (r Type.t * s Type.t) =
         let open Type in
@@ -305,11 +307,13 @@ module Protocol = struct
           | Delete_prefix -> string, result int
           | Version -> unit, result (tuple4 int int int string)
           | Assert_exists -> tuple2 consistency string, result unit
+          | Drop_master -> unit, result unit
           | Current_state -> unit, result string
           | Replace -> tuple2 string (option string), result (option string)
           | Nop -> unit, result unit
           | Flush_store -> unit, result unit
           | Get_txid -> unit, result consistency
+          | Copy_db_to_head -> int, result unit
 
     type some_t = Some_t : (_, _) t -> some_t
 
@@ -356,11 +360,13 @@ module Protocol = struct
                       ; Some_t Delete_prefix, 0x27l
                       ; Some_t Version, 0x28l
                       ; Some_t Assert_exists, 0x29l
+                      ; Some_t Drop_master, 0x30l
                       ; Some_t Current_state, 0x32l
                       ; Some_t Replace, 0x33l
                       ; Some_t Nop, 0x41l
                       ; Some_t Flush_store, 0x42l
                       ; Some_t Get_txid, 0x43l
+                      ; Some_t Copy_db_to_head, 0x44l
                       ]
 end
 
