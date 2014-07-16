@@ -207,6 +207,7 @@ module Protocol = struct
         val key : Key.t t
         val counted_list : 'a t -> 'a CountedList.t t
         val update : Update.Update.t t
+        val statistics : Statistics.Statistics.t t
     end = struct
         type 'a t = { from_channel : (Lwt_io.input_channel -> 'a Lwt.t)
                     ; to_channel : (Lwt_io.output_channel -> 'a -> unit Lwt.t)
@@ -372,6 +373,19 @@ module Protocol = struct
                 to_channel oc string (Buffer.contents buf)
             in
             make ~from_channel ~to_channel
+
+        let statistics =
+            let from_channel ic =
+                from_channel ic string >>= fun s ->
+                let buf = Llio.make_buffer s 0 in
+                let stats = Statistics.Statistics.from_buffer buf in
+                Lwt.return stats
+            and to_channel oc s =
+                let buf = Buffer.create 100 in
+                let () = Statistics.Statistics.to_buffer buf s in
+                to_channel oc string (Buffer.contents buf)
+            in
+            make ~from_channel ~to_channel
     end
 
     type ('req, 'res) t =
@@ -388,6 +402,7 @@ module Protocol = struct
       | Sequence : (Update.Update.t, unit Result.t) t
       | Multi_get : ((Arakoon_client.consistency * string CountedList.t), string list Result.t) t
       | Expect_progress_possible : (unit, bool Result.t) t
+      | Statistics : (unit, Statistics.Statistics.t Result.t) t
       | User_function : ((string * string option), string option Result.t) t
       | Assert : ((Arakoon_client.consistency * string * string option), unit Result.t) t
       | Get_key_count : (unit, int64 Result.t) t
@@ -424,6 +439,7 @@ module Protocol = struct
           | Sequence -> update, result unit
           | Multi_get -> tuple2 consistency (counted_list string), result (list string)
           | Expect_progress_possible -> unit, result bool
+          | Statistics -> unit, result statistics
           | User_function -> tuple2 string (option string), result (option string)
           | Assert -> tuple3 consistency string (option string), result unit
           | Get_key_count -> unit, result int64
@@ -483,6 +499,7 @@ module Protocol = struct
                       ; Some_t Sequence, 0x10l
                       ; Some_t Multi_get, 0x11l
                       ; Some_t Expect_progress_possible, 0x12l
+                      ; Some_t Statistics, 0x13l
                       ; Some_t User_function, 0x15l
                       ; Some_t Assert, 0x16l
                       ; Some_t Get_key_count, 0x1al

@@ -275,20 +275,12 @@ let handle_command :
           backend # sequence ~sync:false updates' >>= fun () ->
           response_ok_unit oc
         )
-    end
-  | STATISTICS ->
-    begin
-      Logger.debug_f_ "connection=%s STATISTICS" id
-      >>= fun () ->
+    end *)
+  | Protocol.Statistics -> handle_exceptions (fun () ->
+      Logger.debug_f_ "connection=%s STATISTICS" id >>= fun () ->
       let s = backend # get_statistics () in
-      response_ok oc >>= fun () ->
-      let b = Buffer.create 100 in
-      Statistics.to_buffer b s;
-      let bs = Buffer.contents b in
-      Llio.output_string oc bs >>= fun () ->
-      Lwt.return false
-    end
-  | COLLAPSE_TLOGS ->
+      ok s)
+(*  | COLLAPSE_TLOGS ->
     begin
       let sw () = Int64.bits_of_float (Unix.gettimeofday()) in
       let t0 = sw() in

@@ -15,8 +15,6 @@ limitations under the License.
 *)
 
 open Lwt
-open Common
-open Statistics
 open Arakoon_client
 
 open Arakoon_protocol
@@ -169,12 +167,8 @@ class remote_client ((ic,oc) as conn) =
       compat
 
     method statistics () =
-      request oc (fun buf -> command_to buf STATISTICS) >>= fun () ->
-      response ic
-        (fun ic -> Llio.input_string ic >>= fun ss ->
-          let s = Statistics.from_buffer (Llio.make_buffer ss 0) in
-          Lwt.return s
-        )
+      Client.request ic oc Protocol.Statistics () >>=
+      compat
 
     method ping client_id cluster_id =
       Client.request ic oc Protocol.Ping (client_id, cluster_id) >>=
