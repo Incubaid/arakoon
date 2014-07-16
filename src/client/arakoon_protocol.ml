@@ -127,107 +127,136 @@ end
 module Protocol = struct
     open Lwt
 
-    module Type = struct
-        type _ t =
-          | String : string t
-          | Unit : unit t
-          | Option : 'a t -> 'a option t
-          | Tuple2 : ('a t * 'b t) -> ('a * 'b) t
-          | Tuple3 : ('a t * 'b t * 'c t) -> ('a * 'b * 'c) t
-          | Tuple4 : ('a t * 'b t * 'c t * 'd t) -> ('a * 'b * 'c * 'd) t
-          | Result : 'a t -> ('a Result.t) t
-          | Consistency : Arakoon_client.consistency t
-          | Bool : bool t
-          | Int64 : int64 t
-          | Int : int t
-          | List : 'a t -> 'a list t
-          | RangeRequest : RangeRequest.t t
+    module Type : sig
+        type 'a t
 
-        let from_channel =
-            let rec loop : type a. Lwt_io.input_channel -> a t -> a Lwt.t = fun ic -> function
-              | String -> Llio.input_string ic
-              | Unit -> Lwt.return ()
-              | Tuple2 (a, b) -> begin
-                  loop ic a >>= fun a' ->
-                  loop ic b >>= fun b' ->
-                  Lwt.return (a', b')
-              end
-              | Tuple3 (a, b, c) -> begin
-                  loop ic a >>= fun a' ->
-                  loop ic b >>= fun b' ->
-                  loop ic c >>= fun c' ->
-                  Lwt.return (a', b', c')
-              end
-              | Tuple4 (a, b, c, d) -> begin
-                  loop ic a >>= fun a' ->
-                  loop ic b >>= fun b' ->
-                  loop ic c >>= fun c' ->
-                  loop ic d >>= fun d' ->
-                  Lwt.return (a', b', c', d')
-              end
-              | Result a -> Result.from_channel (fun ic' -> loop ic' a) ic
-              | Consistency -> Common.input_consistency ic
-              | Bool -> Llio.input_bool ic
-              | Option t -> begin
-                  Llio.input_bool ic >>= function
-                    | false -> Lwt.return None
-                    | true -> loop ic t >>= fun v -> Lwt.return (Some v)
-              end
-              | Int64 -> Llio.input_int64 ic
-              | Int -> Llio.input_int ic
-              | List t -> Llio.input_list (fun ic' -> loop ic' t) ic
-              | RangeRequest -> begin
-                  Llio.input_string_option ic >>= fun first ->
-                  Llio.input_bool ic >>= fun finc ->
-                  Llio.input_string_option ic >>= fun last ->
-                  Llio.input_bool ic >>= fun linc ->
-                  Llio.input_int ic >>= fun max ->
-                  Lwt.return (RangeRequest.t ~first ~finc ~last ~linc ~max)
+        val to_channel : Lwt_io.output_channel -> 'a t -> 'a -> unit Lwt.t
+        val from_channel : Lwt_io.input_channel -> 'a t -> 'a Lwt.t
+
+        val make :  from_channel:(Lwt_io.input_channel -> 'a Lwt.t)
+                 -> to_channel:(Lwt_io.output_channel -> 'a -> unit Lwt.t)
+                 -> 'a t
+
+        val unit : unit t
+        val int : int t
+        val int32 : int32 t
+        val int64 : int64 t
+        val string : string t
+        val bool : bool t
+        val option : 'a t -> 'a option t
+        val tuple2 : 'a t -> 'b t -> ('a * 'b) t
+        val tuple3 : 'a t -> 'b t -> 'c t -> ('a * 'b * 'c) t
+        val tuple4 : 'a t -> 'b t -> 'c t -> 'd t -> ('a * 'b * 'c * 'd) t
+        val list : 'a t -> 'a list t
+
+        val result : 'a t -> 'a Result.t t
+        val consistency : Arakoon_client.consistency t
+        val range_request : RangeRequest.t t
+    end = struct
+        type 'a t = { from_channel : (Lwt_io.input_channel -> 'a Lwt.t)
+                    ; to_channel : (Lwt_io.output_channel -> 'a -> unit Lwt.t)
+                    }
+
+        let make ~from_channel ~to_channel = { from_channel
+                                             ; to_channel
+                                             }
+
+        let to_channel oc t a = t.to_channel oc a
+        let from_channel ic t = t.from_channel ic
+
+        let unit =
+            let from_channel _ = Lwt.return ()
+            and to_channel _ () = Lwt.return () in
+            make ~from_channel ~to_channel
+
+        let string = make ~from_channel:Llio.input_string ~to_channel:Llio.output_string
+        let int = make ~from_channel:Llio.input_int ~to_channel:Llio.output_int
+        let int32 = make ~from_channel:Llio.input_int32 ~to_channel:Llio.output_int32
+        let int64 = make ~from_channel:Llio.input_int64 ~to_channel:Llio.output_int64
+
+        let bool = make ~from_channel:Llio.input_bool ~to_channel:Llio.output_bool
+
+        let option at =
+            let from_channel ic =
+                from_channel ic bool >>= function
+                  | false -> Lwt.return None
+                  | true -> begin
+                      from_channel ic at >>= fun a ->
+                      Lwt.return (Some a)
+                  end
+            and to_channel oc = function
+              | None -> to_channel oc bool false
+              | Some a -> begin
+                  to_channel oc bool true >>= fun () ->
+                  to_channel oc at a
               end
             in
-            loop
+            make ~from_channel ~to_channel
 
-        let to_channel =
-            let rec loop : type a. Lwt_io.output_channel -> a t -> a -> unit Lwt.t = fun oc t a ->
-                match t with
-                  | String -> Llio.output_string oc a
-                  | Unit -> Lwt.return ()
-                  | Tuple2 (a', b') -> begin
-                      let (a'', b'') = a in
-                      loop oc a' a'' >>= fun () ->
-                      loop oc b' b''
-                  end
-                  | Tuple3 (a', b', c') -> begin
-                      let (a'', b'', c'') = a in
-                      loop oc a' a'' >>= fun () ->
-                      loop oc b' b'' >>= fun () ->
-                      loop oc c' c''
-                  end
-                  | Tuple4 (a', b', c', d') -> begin
-                      let (a'', b'', c'', d'') = a in
-                      loop oc a' a'' >>= fun () ->
-                      loop oc b' b'' >>= fun () ->
-                      loop oc c' c'' >>= fun () ->
-                      loop oc d' d''
-                  end
-                  | Result a' -> Result.to_channel (fun oc' a'' -> loop oc' a' a'') oc a
-                  | Consistency -> Common.output_consistency oc a
-                  | Bool -> Llio.output_bool oc a
-                  | Option t -> begin match a with
-                      | None -> Llio.output_bool oc false
-                      | Some v -> Llio.output_bool oc true >>= fun () -> loop oc t v
-                  end
-                  | Int64 -> Llio.output_int64 oc a
-                  | Int -> Llio.output_int oc a
-                  | List t -> Llio.output_list (fun ic' -> loop ic' t) oc a
-                  | RangeRequest -> RangeRequest.(
-                      Llio.output_string_option oc a.first >>= fun () ->
-                      Llio.output_bool oc a.finc >>= fun () ->
-                      Llio.output_string_option oc a.last >>= fun () ->
-                      Llio.output_bool oc a.linc >>= fun () ->
-                      Llio.output_int oc a.max)
+        let tuple2 at bt =
+            let from_channel ic =
+                from_channel ic at >>= fun a ->
+                from_channel ic bt >>= fun b ->
+                Lwt.return (a, b)
+            and to_channel oc (a, b) =
+                to_channel oc at a >>= fun () ->
+                to_channel oc bt b
             in
-            loop
+            make ~from_channel ~to_channel
+        let tuple3 at bt ct =
+            let inner = tuple2 (tuple2 at bt) ct in
+            let from_channel ic =
+                from_channel ic inner >>= fun ((a, b), c) ->
+                Lwt.return (a, b, c)
+            and to_channel oc (a, b, c) =
+                to_channel oc inner ((a, b), c)
+            in
+            make ~from_channel ~to_channel
+        let tuple4 at bt ct dt =
+            let inner1 = tuple2 at bt
+            and inner2 = tuple2 ct dt in
+            let from_channel ic =
+                from_channel ic inner1 >>= fun (a, b) ->
+                from_channel ic inner2 >>= fun (c, d) ->
+                Lwt.return (a, b, c, d)
+            and to_channel oc (a, b, c, d) =
+                to_channel oc inner1 (a, b) >>= fun () ->
+                to_channel oc inner2 (c, d)
+            in
+            make ~from_channel ~to_channel
+
+        let list at =
+            let from_channel = Llio.input_list (fun ic -> from_channel ic at)
+            and to_channel = Llio.output_list (fun oc v -> to_channel oc at v) in
+            make ~from_channel ~to_channel
+
+        let result at =
+            let from_channel = Result.from_channel (fun ic -> from_channel ic at)
+            and to_channel = Result.to_channel (fun oc a -> to_channel oc at a) in
+            make ~from_channel ~to_channel
+
+        let consistency =
+            let from_channel = Common.input_consistency
+            and to_channel = Common.output_consistency in
+            make ~from_channel ~to_channel
+
+        let range_request =
+            let from_channel ic =
+                from_channel ic (option string) >>= fun first ->
+                from_channel ic bool >>= fun finc ->
+                from_channel ic (option string) >>= fun last ->
+                from_channel ic bool >>= fun linc ->
+                from_channel ic int >>= fun max ->
+                Lwt.return (RangeRequest.t ~first ~finc ~last ~linc ~max)
+            and to_channel oc a =
+                let open RangeRequest in
+                to_channel oc (option string) a.first >>= fun () ->
+                to_channel oc bool a.finc >>= fun () ->
+                to_channel oc (option string) a.last >>= fun () ->
+                to_channel oc bool a.linc >>= fun () ->
+                to_channel oc int a.max
+            in
+            make ~from_channel ~to_channel
     end
 
     type ('req, 'res) t =
@@ -258,29 +287,29 @@ module Protocol = struct
     let reify_types : type r s. (r, s) t -> (r Type.t * s Type.t) =
         let open Type in
         function
-          | Ping -> Tuple2 (String, String), Result String
-          | Who_master -> Unit, Result (Option String)
-          | Exists -> Tuple2 (Consistency, String), Result Bool
-          | Get -> Tuple2 (Consistency, String), Result String
-          | Set -> Tuple2 (String, String), Result Unit
-          | Delete -> String, Result Unit
-          | Range -> Tuple2 (Consistency, RangeRequest), Result (List String)
-          | Test_and_set -> Tuple3 (String, Option String, Option String), Result (Option String)
-          | Expect_progress_possible -> Unit, Result Bool
-          | User_function -> Tuple2 (String, Option String), Result (Option String)
-          | Assert -> Tuple3 (Consistency, String, Option String), Result Unit
-          | Get_key_count -> Unit, Result Int64
-          | Confirm -> Tuple2 (String, String), Result Unit
-          | Optimize_db -> Unit, Result Unit
-          | Defrag_db -> Unit, Result Unit
-          | Delete_prefix -> String, Result Int
-          | Version -> Unit, Result (Tuple4 (Int, Int, Int, String))
-          | Assert_exists -> Tuple2 (Consistency, String), Result Unit
-          | Current_state -> Unit, Result String
-          | Replace -> Tuple2 (String, Option String), Result (Option String)
-          | Nop -> Unit, Result Unit
-          | Flush_store -> Unit, Result Unit
-          | Get_txid -> Unit, Result Consistency
+          | Ping -> tuple2 string string, result string
+          | Who_master -> unit, result (option string)
+          | Exists -> tuple2 consistency string, result bool
+          | Get -> tuple2 consistency string, result string
+          | Set -> tuple2 string string, result unit
+          | Delete -> string, result unit
+          | Range -> tuple2 consistency range_request, result (list string)
+          | Test_and_set -> tuple3 string (option string) (option string), result (option string)
+          | Expect_progress_possible -> unit, result bool
+          | User_function -> tuple2 string (option string), result (option string)
+          | Assert -> tuple3 consistency string (option string), result unit
+          | Get_key_count -> unit, result int64
+          | Confirm -> tuple2 string string, result unit
+          | Optimize_db -> unit, result unit
+          | Defrag_db -> unit, result unit
+          | Delete_prefix -> string, result int
+          | Version -> unit, result (tuple4 int int int string)
+          | Assert_exists -> tuple2 consistency string, result unit
+          | Current_state -> unit, result string
+          | Replace -> tuple2 string (option string), result (option string)
+          | Nop -> unit, result unit
+          | Flush_store -> unit, result unit
+          | Get_txid -> unit, result consistency
 
     type some_t = Some_t : (_, _) t -> some_t
 
