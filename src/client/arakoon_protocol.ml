@@ -167,12 +167,12 @@ module CountedList : sig
     val length : 'a t -> int
     val list : 'a t -> 'a list
 end = struct
-    type 'a t = T of int * 'a list
+    type 'a t = int * 'a list
 
-    let make ~length ~list = T (length, list)
-    let of_list l = T (List.length l, l)
-    let length (T (l, _)) = l
-    let list (T (_, l)) = l
+    let make ~length ~list = (length, list)
+    let of_list l = (List.length l, l)
+    let length (l, _) = l
+    let list (_, l) = l
 end
 
 module Protocol = struct
