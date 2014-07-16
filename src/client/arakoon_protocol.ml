@@ -313,26 +313,30 @@ module Protocol = struct
 
     type some_t = Some_t : (_, _) t -> some_t
 
-    let mAGIC = Common._MAGIC
-    let mASK = Common._MASK
+    module Tag = struct
+        let mAGIC = Common._MAGIC
+        let mASK = Common._MASK
 
-    type tag = Int32.t
+        type t = Int32.t
 
-    exception Invalid_magic of tag
+        let compare = compare
 
-    let tag_from_channel ic =
-        Llio.input_int32 ic >>= fun masked ->
-        let magic = Int32.logand masked mAGIC in
-        if magic <> mAGIC
-        then
-            (* TODO Return No_magic to client *)
-            Lwt.fail (Invalid_magic magic)
-        else
-            Lwt.return (Int32.logand masked mASK)
+        exception Invalid_magic of t
 
-    let tag_to_channel oc t =
-        let masked = Int32.logor t mAGIC in
-        Llio.output_int32 oc masked
+        let from_channel ic =
+            Llio.input_int32 ic >>= fun masked ->
+            let magic = Int32.logand masked mAGIC in
+            if magic <> mAGIC
+            then
+                (* TODO Return No_magic to client *)
+                Lwt.fail (Invalid_magic magic)
+            else
+                Lwt.return (Int32.logand masked mASK)
+
+        let to_channel oc t =
+            let masked = Int32.logor t mAGIC in
+            Llio.output_int32 oc masked
+    end
 
     let command_map = [ Some_t Ping, 0x01l
                       ; Some_t Who_master, 0x02l

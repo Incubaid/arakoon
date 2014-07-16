@@ -3,12 +3,6 @@ module type Protocol = sig
 
     type some_t = Some_t : (_, _) t -> some_t
 
-    type tag
-    val tag_from_channel : Lwt_io.input_channel -> tag Lwt.t
-    val tag_to_channel : Lwt_io.output_channel -> tag -> unit Lwt.t
-
-    val command_map : (some_t * tag) list
-
     module Type : sig
         type 'a t
 
@@ -16,7 +10,17 @@ module type Protocol = sig
         val to_channel : Lwt_io.output_channel -> 'a t -> 'a -> unit Lwt.t
     end
 
+    module Tag : sig
+        type t
+
+        val from_channel : Lwt_io.input_channel -> t Lwt.t
+        val to_channel : Lwt_io.output_channel -> t -> unit Lwt.t
+
+        val compare : t -> t -> int
+    end
+
     val meta : ('req, 'res) t -> ('req Type.t * 'res Type.t)
+    val command_map : (some_t * Tag.t) list
 end
 
 module Client(Protocol : Protocol) : sig
@@ -47,7 +51,7 @@ end= struct
           | None -> Lwt.fail (Unknown_command (Protocol.Some_t cmd))
           | Some tag -> begin
               let (req, res) = Protocol.meta cmd in
-              Protocol.tag_to_channel oc tag >>= fun () ->
+              Protocol.Tag.to_channel oc tag >>= fun () ->
               Protocol.Type.to_channel oc req r >>= fun () ->
               Lwt_io.flush oc >>= fun () ->
               Protocol.Type.from_channel ic res
@@ -70,7 +74,7 @@ module Server = struct
         include Protocol
 
         val handle : ('req, 'res) t -> 'req -> 'res Result.t Lwt.t
-        val handle_unknown_tag : Lwt_io.input_channel -> Lwt_io.output_channel -> tag -> unit Result.t Lwt.t
+        val handle_unknown_tag : Lwt_io.input_channel -> Lwt_io.output_channel -> Tag.t -> unit Result.t Lwt.t
     end) : sig
         val session :  Lwt_io.input_channel
                     -> Lwt_io.output_channel
@@ -78,7 +82,7 @@ module Server = struct
     end = struct
         open Lwt
 
-        module M = Map.Make(struct type t = P.tag let compare = compare end)
+        module M = Map.Make(struct type t = P.Tag.t let compare = P.Tag.compare end)
         let command_map = List.fold_left (fun m (k, v) -> M.add v k m) M.empty P.command_map
 
         let lookup t =
@@ -103,7 +107,7 @@ module Server = struct
             in
 
             let rec loop () =
-                P.tag_from_channel ic >>= fun tag ->
+                P.Tag.from_channel ic >>= fun tag ->
                 begin match lookup tag with
                   | None -> begin
                       P.handle_unknown_tag ic oc tag
