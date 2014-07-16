@@ -16,7 +16,7 @@ module type Protocol = sig
         val to_channel : Lwt_io.output_channel -> 'a t -> 'a -> unit Lwt.t
     end
 
-    val reify_types : ('req, 'res) t -> ('req Type.t * 'res Type.t)
+    val meta : ('req, 'res) t -> ('req Type.t * 'res Type.t)
 end
 
 module Client(Protocol : Protocol) : sig
@@ -46,7 +46,7 @@ end= struct
         match lookup (Protocol.Some_t cmd) with
           | None -> Lwt.fail (Unknown_command (Protocol.Some_t cmd))
           | Some tag -> begin
-              let (req, res) = Protocol.reify_types cmd in
+              let (req, res) = Protocol.meta cmd in
               Protocol.tag_to_channel oc tag >>= fun () ->
               Protocol.Type.to_channel oc req r >>= fun () ->
               Lwt_io.flush oc >>= fun () ->
@@ -90,7 +90,7 @@ module Server = struct
 
         let session ic oc =
             let go  cmd =
-                let (req, res) = P.reify_types cmd in
+                let (req, res) = P.meta cmd in
                 P.Type.from_channel ic req >>= fun req' ->
                 P.handle cmd req' >>= fun res' ->
                 match res' with

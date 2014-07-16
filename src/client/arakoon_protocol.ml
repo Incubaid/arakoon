@@ -284,7 +284,7 @@ module Protocol = struct
       | Flush_store : (unit, unit Result.t) t
       | Get_txid : (unit, Arakoon_client.consistency Result.t) t
 
-    let reify_types : type r s. (r, s) t -> (r Type.t * s Type.t) =
+    let meta : type r s. (r, s) t -> (r Type.t * s Type.t) =
         let open Type in
         function
           | Ping -> tuple2 string string, result string
