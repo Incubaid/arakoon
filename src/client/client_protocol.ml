@@ -124,6 +124,38 @@ open Arakoon_protocol
 
 let ok v = Lwt.return (Rpc.Server.Result.Continue (Result.Ok v))
 
+
+let collapse_tlogs id ic oc backend =
+  let sw () = Int64.bits_of_float (Unix.gettimeofday()) in
+  let t0 = sw() in
+  let output_ok_value f oc n =
+    let r = Arakoon_protocol.Result.Ok n in
+    Arakoon_protocol.Result.to_channel (fun oc v ->
+      Arakoon_protocol.Protocol.Type.to_channel oc f v) oc r >>= fun () ->
+    Lwt_io.flush oc
+  in
+  let output_ok_int = output_ok_value Arakoon_protocol.Protocol.Type.int
+  and output_ok_int64 = output_ok_value Arakoon_protocol.Protocol.Type.int64 in
+  let cb' n =
+    Logger.debug_f_ "CB' %i" n >>= fun () ->
+    output_ok_int oc n
+  in
+  let cb  =
+    let count = ref 0 in
+    fun () ->
+      Logger.debug_f_ "CB %i" !count >>= fun () ->
+      let () = incr count in
+      let ts = sw() in
+      let d = Int64.sub ts t0 in
+      output_ok_int64 oc d
+  in
+  Llio.input_int ic >>= fun n ->
+  Logger.info_f_ "connection=%s COLLAPSE_TLOGS: n=%i" id n >>= fun () ->
+  Logger.info_f_ "... Start collapsing ... (n=%i)" n >>= fun () ->
+  backend # collapse n cb' cb >>= fun () ->
+  Logger.info_ "... Finished collapsing ..." >>=
+  ok
+
 let handle_command :
   type r s. Backend.backend -> string -> (r, s) Protocol.t -> r -> s Rpc.Server.Result.t Lwt.t =
   fun backend id cmd req ->
@@ -278,38 +310,6 @@ let handle_command :
       Logger.debug_f_ "connection=%s STATISTICS" id >>= fun () ->
       let s = backend # get_statistics () in
       ok s)
-(*  | COLLAPSE_TLOGS ->
-    begin
-      let sw () = Int64.bits_of_float (Unix.gettimeofday()) in
-      let t0 = sw() in
-      let cb' n =
-        Logger.debug_f_ "CB' %i" n >>= fun () ->
-        response_ok oc >>= fun () ->
-        Llio.output_int oc n >>= fun () ->
-        Lwt_io.flush oc
-      in
-      let cb  =
-        let count = ref 0 in
-        fun () ->
-          Logger.debug_f_ "CB %i" !count >>= fun () ->
-          let () = incr count in
-          let ts = sw() in
-          let d = Int64.sub ts t0 in
-          response_ok oc >>= fun () ->
-          Llio.output_int64 oc d >>= fun () ->
-          Lwt_io.flush oc
-      in
-      Llio.input_int ic >>= fun n ->
-      Logger.info_f_ "connection=%s COLLAPSE_TLOGS: n=%i" id n >>= fun () ->
-      Lwt.catch
-        (fun () ->
-           Logger.info_f_ "... Start collapsing ... (n=%i)" n >>= fun () ->
-           backend # collapse n cb' cb >>= fun () ->
-           Logger.info_ "... Finished collapsing ..." >>= fun () ->
-           Lwt.return false
-        )
-        (Lwt.fail) (*handle_exception oc)*)
-    end *)
   | Protocol.Copy_db_to_head -> handle_exceptions (fun () ->
       let tlogs_to_keep = req in
       Logger.debug_f_ "connection=%s COPY_DB_TO_HEAD: tlogs_to_keep=%i" id tlogs_to_keep >>= fun () ->
@@ -487,37 +487,41 @@ let protocol stop backend connection =
         else
             handle_command backend id cmd req
 
+    let handle_single_call_result r = begin match r with
+        | Rpc.Server.Result.Continue res
+        | Rpc.Server.Result.Close res -> begin
+            match res with
+              | Result.Ok () -> Lwt.return ()
+              | Result.No_magic _
+              | Result.No_hello _
+              | Result.Not_master _
+              | Result.Not_found _
+              | Result.Wrong_cluster _
+              | Result.Assertion_failed _
+              | Result.Read_only _
+              | Result.Outside_interval _
+              | Result.Going_down _
+              | Result.Not_supported _
+              | Result.No_longer_master _
+              | Result.Bad_input _
+              | Result.Inconsistent_read _
+              | Result.Userfunction_failure _
+              | Result.Max_connections _
+              | Result.Unknown_failure _ as res ->
+                  Result.to_channel (fun _ () -> Lwt.return ()) oc res
+        end
+        | Rpc.Server.Result.Die -> Lwt.return ()
+      end >>= fun () ->
+      Lwt.return (Rpc.Server.Result.Die)
+
+
     let handle_unknown_tag oc = function
       | 0x1bl -> handle_exceptions (fun () ->
           Logger.info_f_ "connection=%s GET_DB" id >>= fun () ->
           backend # get_db (Some oc) >>= fun () ->
-          ok ()) >>= begin function
-            | Rpc.Server.Result.Continue res
-            | Rpc.Server.Result.Close res -> begin
-                match res with
-                  | Result.Ok () -> Lwt.return ()
-                  | Result.No_magic _
-                  | Result.No_hello _
-                  | Result.Not_master _
-                  | Result.Not_found _
-                  | Result.Wrong_cluster _
-                  | Result.Assertion_failed _
-                  | Result.Read_only _
-                  | Result.Outside_interval _
-                  | Result.Going_down _
-                  | Result.Not_supported _
-                  | Result.No_longer_master _
-                  | Result.Bad_input _
-                  | Result.Inconsistent_read _
-                  | Result.Userfunction_failure _
-                  | Result.Max_connections _
-                  | Result.Unknown_failure _ as res ->
-                      Result.to_channel (fun _ () -> Lwt.return ()) oc res
-            end
-            | Rpc.Server.Result.Die -> Lwt.return ()
-          end >>= fun () ->
-          Lwt.return (Rpc.Server.Result.Die)
-
+          ok ()) >>= handle_single_call_result
+      | 0x14l -> handle_exceptions (fun () ->
+          collapse_tlogs id ic oc backend) >>= handle_single_call_result
       | tag -> begin
           let m = Printf.sprintf "%lx: command not found" tag in
           let r = Result.Not_found m in
