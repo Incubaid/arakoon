@@ -1,3 +1,5 @@
+external id : 'a -> 'a = "%identity"
+
 module Result = struct
     type 'a t = Ok of 'a
               | No_magic of string
@@ -16,6 +18,25 @@ module Result = struct
               | Userfunction_failure of string
               | Max_connections of string
               | Unknown_failure of string
+
+    let map f = function
+      | Ok a -> Ok (f a)
+      | No_magic _
+      | No_hello _
+      | Not_master _
+      | Not_found _
+      | Wrong_cluster _
+      | Assertion_failed _
+      | Read_only _
+      | Outside_interval _
+      | Going_down _
+      | Not_supported _
+      | No_longer_master _
+      | Bad_input _
+      | Inconsistent_read _
+      | Userfunction_failure _
+      | Max_connections _
+      | Unknown_failure _ as e -> e
 
     let to_string f = function
       | Ok a -> Printf.sprintf "Ok (%s)" (f a)
@@ -124,6 +145,20 @@ module RangeRequest = struct
                ]
 end
 
+module ReversedArray : sig
+    type 'a t
+
+    val make : 'a array -> 'a t
+    val length : 'a t -> int
+    val array : 'a t -> 'a array
+end = struct
+    type 'a t = 'a array
+
+    let make = id
+    let length a = Array.length a
+    let array = id
+end
+
 module Protocol = struct
     open Lwt
 
@@ -152,6 +187,8 @@ module Protocol = struct
         val result : 'a t -> 'a Result.t t
         val consistency : Arakoon_client.consistency t
         val range_request : RangeRequest.t t
+        val reversed_array : 'a t -> 'a ReversedArray.t t
+        val key : Key.t t
     end = struct
         type 'a t = { from_channel : (Lwt_io.input_channel -> 'a Lwt.t)
                     ; to_channel : (Lwt_io.output_channel -> 'a -> unit Lwt.t)
@@ -257,6 +294,42 @@ module Protocol = struct
                 to_channel oc int a.max
             in
             make ~from_channel ~to_channel
+
+        let reversed_array at =
+            let from_channel ic =
+                from_channel ic int >>= fun len ->
+                let rec loop acc = function
+                  | 0 -> Lwt.return acc
+                  | n -> begin
+                      from_channel ic at >>= fun a ->
+                      loop (a :: acc) (n - 1)
+                  end
+                in
+                loop [] len >>= fun l ->
+                let a = Array.of_list l in
+                Lwt.return (ReversedArray.make a)
+            and to_channel oc a =
+                let a' = ReversedArray.array a in
+                let l = Array.length a' in
+                to_channel oc int l >>= fun () ->
+                let rec loop = function
+                  | 0 -> Lwt.return ()
+                  | n -> begin
+                      let v = Array.get a' (n - 1) in
+                      to_channel oc at v >>= fun () ->
+                      loop (n - 1)
+                  end
+                in
+                loop l
+            in
+            make ~from_channel ~to_channel
+
+        let key =
+            let from_channel ic =
+                from_channel ic string >>= fun s ->
+                Lwt.return (Key.make (Simple_store.__prefix ^ s))
+            and to_channel = Llio.output_key in
+            make ~from_channel ~to_channel
     end
 
     type ('req, 'res) t =
@@ -266,7 +339,7 @@ module Protocol = struct
       | Get : ((Arakoon_client.consistency * string), string Result.t) t
       | Set : ((string * string), unit Result.t) t
       | Delete : (string, unit Result.t) t
-      | Range : ((Arakoon_client.consistency * RangeRequest.t), string list Result.t) t
+      | Range : ((Arakoon_client.consistency * RangeRequest.t), Key.t ReversedArray.t Result.t) t
       | Test_and_set : ((string * string option * string option), string option Result.t) t
       | Expect_progress_possible : (unit, bool Result.t) t
       | User_function : ((string * string option), string option Result.t) t
@@ -295,7 +368,7 @@ module Protocol = struct
           | Get -> tuple2 consistency string, result string
           | Set -> tuple2 string string, result unit
           | Delete -> string, result unit
-          | Range -> tuple2 consistency range_request, result (list string)
+          | Range -> tuple2 consistency range_request, result (reversed_array key)
           | Test_and_set -> tuple3 string (option string) (option string), result (option string)
           | Expect_progress_possible -> unit, result bool
           | User_function -> tuple2 string (option string), result (option string)
@@ -332,7 +405,6 @@ module Protocol = struct
             let magic = Int32.logand masked mAGIC in
             if magic <> mAGIC
             then
-                (* TODO Return No_magic to client *)
                 Lwt.fail (Invalid_magic magic)
             else
                 Lwt.return (Int32.logand masked mASK)

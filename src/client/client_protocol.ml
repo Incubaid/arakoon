@@ -17,7 +17,7 @@ limitations under the License.
 open Std
 open Common
 open Lwt
-(*open Log_extra*)
+open Log_extra
 open Update
 (*open Interval
 open Routing
@@ -185,26 +185,15 @@ let handle_command :
       let (key : string) = req in
       Logger.debug_f_ "connection=%s DELETE: key=%S" id key >>= fun () ->
       backend # delete key >>= ok)
-  | Protocol.Range -> failwith "Not implemented" (* TODO *)
-(*  | RANGE ->
-    begin
-      Common.input_consistency ic >>= fun consistency ->
-      Llio.input_string_option ic >>= fun (first:string option) ->
-      Llio.input_bool          ic >>= fun finc  ->
-      Llio.input_string_option ic >>= fun (last:string option)  ->
-      Llio.input_bool          ic >>= fun linc  ->
-      Llio.input_int           ic >>= fun max   ->
+  | Protocol.Range -> handle_exceptions (fun () ->
+      let (consistency, rreq) = req in
+      let open Arakoon_protocol.RangeRequest in
+      let (first, finc, last, linc, max) = (rreq.first, rreq.finc, rreq.last, rreq.linc, rreq.max) in
       Logger.debug_f_ "connection=%s RANGE: consistency=%s first=%s finc=%B last=%s linc=%B max=%i"
         id (consistency2s consistency) (p_option first) finc (p_option last) linc max >>= fun () ->
-      wrap_exception
-        (fun () ->
-         let keys = backend # range ~consistency first finc last linc max in
-         response_ok oc >>= fun () ->
-         Llio.output_array_reversed Llio.output_key oc keys >>= fun () ->
-         Lwt.return false
-        )
-    end
-  | RANGE_ENTRIES ->
+      let keys = backend # range ~consistency first finc last linc max in
+      ok (Arakoon_protocol.ReversedArray.make keys))
+  (*| RANGE_ENTRIES ->
     begin
       Common.input_consistency ic >>= fun consistency ->
       Llio.input_string_option ic >>= fun first ->

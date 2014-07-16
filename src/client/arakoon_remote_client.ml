@@ -80,9 +80,20 @@ class remote_client ((ic,oc) as conn) =
       compat
 
     method range ?(consistency=Consistent) first finc last linc max =
-      request oc (fun buf -> range_to buf ~consistency first finc last linc max)
-      >>= fun () ->
-      response ic Llio.input_string_list
+      Client.request ic oc Protocol.Range (consistency, RangeRequest.t ~first ~finc ~last ~linc ~max) >>= fun r ->
+      let f a =
+        let a' = ReversedArray.array a in
+        let rec loop acc = function
+          | 0 -> acc
+          | n -> begin
+              let v = Array.get a' (n - 1) in
+              let k = Key.sub v 0 (Key.length v) in
+              loop (k :: acc) (n - 1)
+          end
+        in
+        loop [] (Array.length a')
+      in
+      compat (Result.map f r)
 
     method range_entries ?(consistency=Consistent) ~first ~finc ~last ~linc ~max =
       request oc (fun buf -> range_entries_to buf ~consistency first finc last linc max)
