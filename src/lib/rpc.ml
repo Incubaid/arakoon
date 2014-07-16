@@ -71,10 +71,12 @@ module Server = struct
     end
 
     module Make(P : sig
-        include Protocol
+        module Protocol : Protocol
 
-        val handle : ('req, 'res) t -> 'req -> 'res Result.t Lwt.t
-        val handle_unknown_tag : Lwt_io.input_channel -> Lwt_io.output_channel -> Tag.t -> unit Result.t Lwt.t
+        exception Unknown_tag of Protocol.Tag.t
+
+        val handle : ('req, 'res) Protocol.t -> 'req -> 'res Result.t Lwt.t
+        val handle_exception : (Lwt_io.input_channel * Lwt_io.output_channel) -> exn -> unit Result.t Lwt.t
     end) : sig
         val session :  Lwt_io.input_channel
                     -> Lwt_io.output_channel
@@ -82,8 +84,11 @@ module Server = struct
     end = struct
         open Lwt
 
-        module M = Map.Make(struct type t = P.Tag.t let compare = P.Tag.compare end)
-        let command_map = List.fold_left (fun m (k, v) -> M.add v k m) M.empty P.command_map
+        module M = Map.Make(struct
+            type t = P.Protocol.Tag.t
+            let compare = P.Protocol.Tag.compare
+        end)
+        let command_map = List.fold_left (fun m (k, v) -> M.add v k m) M.empty P.Protocol.command_map
 
         let lookup t =
             try
@@ -93,29 +98,30 @@ module Server = struct
                 None
 
         let session ic oc =
-            let go  cmd =
-                let (req, res) = P.meta cmd in
-                P.Type.from_channel ic req >>= fun req' ->
+            let go cmd =
+                let (req, res) = P.Protocol.meta cmd in
+                P.Protocol.Type.from_channel ic req >>= fun req' ->
                 P.handle cmd req' >>= fun res' ->
                 match res' with
                   | Result.Continue r
                   | Result.Close r ->
-                      P.Type.to_channel oc res r >>= fun () ->
+                      P.Protocol.Type.to_channel oc res r >>= fun () ->
                       Lwt_io.flush oc >>= fun () ->
                       Lwt.return res'
                   | Result.Die -> Lwt.return res'
             in
 
             let rec loop () =
-                P.Tag.from_channel ic >>= fun tag ->
-                begin match lookup tag with
-                  | None -> begin
-                      P.handle_unknown_tag ic oc tag
-                  end
-                  | Some (P.Some_t c) -> begin
-                      go c >>= fun r -> Lwt.return (Result.map (fun _ -> ()) r)
-                  end
-                end>>= function
+                begin Lwt.catch (fun () ->
+                    P.Protocol.Tag.from_channel ic >>= fun tag ->
+                    begin match lookup tag with
+                      | None -> Lwt.fail (P.Unknown_tag tag)
+                      | Some (P.Protocol.Some_t c) -> begin
+                          go c >>= fun r -> Lwt.return (Result.map (fun _ -> ()) r)
+                      end
+                    end)
+                    (fun exn -> P.handle_exception (ic, oc) exn)
+                end >>= function
                   | Result.Continue _ -> loop ()
                   | Result.Close _
                   | Result.Die -> Lwt.return ()

@@ -555,9 +555,11 @@ let protocol stop backend connection =
   prologue () >>= fun () ->
 
   let module H = struct
-    include Protocol
+    module Protocol = Arakoon_protocol.Protocol
 
-    let handle : type r s. (r, s) t -> r -> s Rpc.Server.Result.t Lwt.t = fun cmd req ->
+    exception Unknown_tag of Protocol.Tag.t
+
+    let handle : type r s. (r, s) Protocol.t -> r -> s Rpc.Server.Result.t Lwt.t = fun cmd req ->
         if !stop
         then begin
             Logger.debug_ "Leaving client loop" >>= fun () ->
@@ -566,7 +568,7 @@ let protocol stop backend connection =
         else
             handle_command backend id cmd req
 
-    let handle_unknown_tag _ oc = function
+    let handle_unknown_tag oc = function
       | 0x1bl -> (* TODO handle_exceptions (fun () -> *)
           Logger.info_f_ "connection=%s GET_DB" id >>= fun () ->
           backend # get_db (Some oc) >>= fun () ->
@@ -575,6 +577,25 @@ let protocol stop backend connection =
           let m = Printf.sprintf "%lx: command not found" tag in
           let r = Result.Not_found m in
           Result.to_channel (fun _ _ -> Lwt.fail (Failure "Can't happen")) oc r >>= fun () ->
+          Lwt.return (Rpc.Server.Result.Die)
+      end
+
+    let handle_exception (_ic, oc) = function
+      | Unknown_tag tag -> handle_unknown_tag oc tag
+      | Protocol.Tag.Invalid_magic _ as exn -> begin
+          Logger.debug_ ~exn "Invalid magic" >>= fun () ->
+          Arakoon_protocol.Result.to_channel
+              (fun _ () -> Lwt.return ())
+              oc
+              (Arakoon_protocol.Result.no_magic "Invalid magic") >>= fun () ->
+          Lwt.return (Rpc.Server.Result.Die)
+      end
+      | exn -> begin
+          Logger.warning_ ~exn "Unknown failure" >>= fun () ->
+          Arakoon_protocol.Result.to_channel
+              (fun _ () -> Lwt.return ())
+              oc
+              (Arakoon_protocol.Result.unknown_failure "Unknown failure") >>= fun () ->
           Lwt.return (Rpc.Server.Result.Die)
       end
 
