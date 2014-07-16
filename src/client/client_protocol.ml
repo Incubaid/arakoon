@@ -33,9 +33,7 @@ let section =
 
 let handle_exceptions f =
     Lwt.catch
-      (fun () ->
-          f () >>= fun r ->
-          Lwt.return (Rpc.Server.Result.Continue r))
+      f
       (fun exn ->
           let open Arakoon_protocol in
           begin match exn with
@@ -124,7 +122,7 @@ let handle_sequence ~sync backend update =
 
 open Arakoon_protocol
 
-let ok v = Lwt.return (Result.Ok v)
+let ok v = Lwt.return (Rpc.Server.Result.Continue (Result.Ok v))
 
 let handle_command :
   type r s. Backend.backend -> string -> (r, s) Protocol.t -> r -> s Rpc.Server.Result.t Lwt.t =
@@ -490,10 +488,36 @@ let protocol stop backend connection =
             handle_command backend id cmd req
 
     let handle_unknown_tag oc = function
-      | 0x1bl -> (* TODO handle_exceptions (fun () -> *)
+      | 0x1bl -> handle_exceptions (fun () ->
           Logger.info_f_ "connection=%s GET_DB" id >>= fun () ->
           backend # get_db (Some oc) >>= fun () ->
-          Lwt.return (Rpc.Server.Result.Continue ())
+          ok ()) >>= begin function
+            | Rpc.Server.Result.Continue res
+            | Rpc.Server.Result.Close res -> begin
+                match res with
+                  | Result.Ok () -> Lwt.return ()
+                  | Result.No_magic _
+                  | Result.No_hello _
+                  | Result.Not_master _
+                  | Result.Not_found _
+                  | Result.Wrong_cluster _
+                  | Result.Assertion_failed _
+                  | Result.Read_only _
+                  | Result.Outside_interval _
+                  | Result.Going_down _
+                  | Result.Not_supported _
+                  | Result.No_longer_master _
+                  | Result.Bad_input _
+                  | Result.Inconsistent_read _
+                  | Result.Userfunction_failure _
+                  | Result.Max_connections _
+                  | Result.Unknown_failure _ as res ->
+                      Result.to_channel (fun _ () -> Lwt.return ()) oc res
+            end
+            | Rpc.Server.Result.Die -> Lwt.return ()
+          end >>= fun () ->
+          Lwt.return (Rpc.Server.Result.Die)
+
       | tag -> begin
           let m = Printf.sprintf "%lx: command not found" tag in
           let r = Result.Not_found m in
