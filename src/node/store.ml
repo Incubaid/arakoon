@@ -98,7 +98,11 @@ module type Simple_store = sig
   val optimize : t -> bool -> unit Lwt.t
   val defrag : t -> unit Lwt.t
   val copy_store : t -> bool -> Lwt_io.output_channel -> unit Lwt.t
-  val copy_store2 : string -> string -> bool -> unit Lwt.t
+
+  val copy_store2 : string -> string ->
+                    overwrite:bool ->
+                    throttling: float -> unit Lwt.t
+
   val get_fringe : t -> string option -> Routing.range_direction -> (string * string) list Lwt.t
 end
 
@@ -127,7 +131,10 @@ module type STORE =
     val optimize : t -> unit Lwt.t
     val defrag : t -> unit Lwt.t
     val copy_store : t -> Lwt_io.output_channel -> unit Lwt.t
-    val copy_store2 : string -> string -> bool -> unit Lwt.t
+    val copy_store2 : string -> string ->
+                      overwrite:bool ->
+                      throttling:float
+                      -> unit Lwt.t
 
     val get_succ_store_i : t -> int64
     val get_catchup_start_i : t -> int64
@@ -411,9 +418,9 @@ struct
       let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
       raise ex
 
-  let copy_store2 old_location new_location overwrite =
+  let copy_store2 old_location new_location ~overwrite ~throttling =
     (* TODO quiesced checking *)
-    S.copy_store2 old_location new_location overwrite
+    S.copy_store2 old_location new_location ~overwrite ~throttling
 
   let defrag store =
     S.defrag store.s

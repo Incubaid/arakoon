@@ -117,7 +117,7 @@ let catchup_tlog (type s) other_configs ~cluster_id mr_name ((module S : Store.S
     let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
       let target_name = S.get_location store in
-      File_system.copy_file hfn target_name ~overwrite:true
+      File_system.copy_file hfn target_name ~overwrite:true ~throttling:0.0
     in
     S.reopen store when_closed >>= fun () ->
     Lwt.return ()
@@ -270,7 +270,7 @@ let verify_n_catchup_store (type s) me ?(apply_last_tlog_value=false) ((module S
    match too_far_i, si_o with
     | i, None when i <= 0L -> Lwt.return ()
     | i, Some j when i = j -> Lwt.return ()
-    | i, Some j when i > j -> 
+    | i, Some j when i > j ->
       catchup_store me ((module S),store,tlog_coll) too_far_i
     | _i, None ->
       catchup_store me ((module S),store,tlog_coll) too_far_i

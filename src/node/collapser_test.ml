@@ -74,7 +74,7 @@ let test_collapse_until (dn, tlf_dir, head_dir) =
         Lwt.return ()
   end
   >>= fun () ->
-  let store_methods = (Batched_store.Local_store.copy_store2, storename)
+  let store_methods = (Batched_store.Local_store.copy_store2, storename, 0.0)
   in
   let future_i = Sn.of_int 1001 in
   let cb = fun _s -> Lwt.return () in
@@ -115,7 +115,7 @@ let test_collapse_many (dn, tlf_dir, head_dir) =
 	    Lwt.return ()
   end
   >>= fun () ->
-  let store_methods = (Batched_store.Local_store.copy_store2, storename) in
+  let store_methods = (Batched_store.Local_store.copy_store2, storename, 0.0) in
   Collapser.collapse_many tlc (module S) store_methods 5 cb' cb >>= fun () ->
   Logger.debug_ "collapsed 000" >>= fun () ->
   Collapser.collapse_many tlc (module S) store_methods 3 cb' cb >>= fun () ->
@@ -148,4 +148,3 @@ let suite =
     "collapse_until" >:: wrapTest test_collapse_until;
     "collapse_many" >:: wrapTest test_collapse_many;
   ]
-
