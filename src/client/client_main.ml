@@ -81,6 +81,7 @@ exception No_connection
 let with_connection' ~tls addrs f =
   let count = List.length addrs in
   let res = Lwt_mvar.create_empty () in
+  let err = Lwt_mvar.create None in
   let l = Lwt_mutex.create () in
   let cd = CountDownLatch.create ~count in
 
@@ -96,8 +97,13 @@ let with_connection' ~tls addrs f =
               (fun () -> f addr c >>= fun v -> Lwt_mvar.put res (`Success v))
               (fun exn -> Lwt_mvar.put res (`Failure exn))))
       (fun exn ->
-        CountDownLatch.count_down cd >>= fun () ->
-        Logger.warning_f_ ~exn "Failed to connect" >>= fun () ->
+        Lwt.protected (
+          Logger.warning_f_ ~exn "Failed to connect to %s" (Network.a2s addr) >>= fun () ->
+          Lwt_mvar.take err >>= begin function
+            | Some _ as v -> Lwt_mvar.put err v
+            | None -> Lwt_mvar.put err (Some exn)
+          end >>= fun () ->
+          CountDownLatch.count_down cd) >>= fun () ->
         Lwt.fail exn)
   in
 
@@ -109,7 +115,9 @@ let with_connection' ~tls addrs f =
                    | `Failure exn -> Lwt.fail exn
                  end
                ; CountDownLatch.await cd >>= fun () ->
-                   Lwt.fail No_connection
+                 Lwt_mvar.take err >>= function
+                   | None -> Lwt.fail No_connection
+                   | Some e -> Lwt.fail e
                ]
     )
     (fun () ->
