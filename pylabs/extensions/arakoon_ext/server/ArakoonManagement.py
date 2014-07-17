@@ -27,6 +27,7 @@ import string
 import logging
 
 from arakoon import Arakoon
+from arakoon_ext.client import ArakoonClient
 from arakoon.ArakoonExceptions import ArakoonNodeNotLocal
 
 def which_arakoon():
@@ -1648,7 +1649,8 @@ class ArakoonCluster:
             config.remove_section("nursery")
             return
 
-        cliCfg = q.clients.arakoon.getClientConfig(clusterId)
+        client = ArakoonClient.ArakoonClient()
+        cliCfg = client.getClientConfig( clusterId )
         nurseryNodes = cliCfg.getNodes()
 
         if len(nurseryNodes) == 0:
