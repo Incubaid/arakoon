@@ -32,6 +32,7 @@ type local_action =
   | DumpStore
   | MakeTlog
   | MarkTlog
+  | CloseTlog
   | TruncateTlog
   | CompressTlog
   | UncompressTlog
@@ -234,6 +235,11 @@ let main () =
                                Arg.Set_string key;
                              ],
      "<filename> <key>: add a marker to a tlog");
+    ("--close-tlog", Arg.Tuple[ set_laction CloseTlog;
+                               Arg.Set_string filename;
+                               Arg.Set_string node_id;
+                             ],
+     "<filename> <node_name>: marks the tlog with 'closed:node_name'");
     ("--replay-tlogs", Arg.Tuple[ set_laction ReplayTlogs;
                                   Arg.Set_string tlog_dir;
                                   Arg.Set_string tlf_dir;
@@ -403,6 +409,7 @@ let main () =
     | StripTlog -> Tlog_main.strip_tlog !filename
     | MakeTlog -> Tlog_main.make_tlog !filename !counter
     | MarkTlog -> Tlog_main.mark_tlog !filename !key
+    | CloseTlog -> Tlog_main.mark_tlog !filename (Tlc2._make_close_marker !node_id)
     | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !tlf_dir !filename !end_i
     | DumpStore -> Dump_store.dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename
