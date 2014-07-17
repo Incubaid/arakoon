@@ -87,11 +87,22 @@ let show_version ()=
     Printf.printf "dependencies:\n%s\n" dependencies in
   ()
 
+let interpret_test_results =
+  List.fold_left
+    (fun acc r ->
+     match r with
+     | RSuccess _ -> acc
+     | RFailure _
+     | RError _
+     | RSkip _
+     | RTodo _ -> 1)
+    0
 
 let run_all_tests () =
   All_test.configure_logging();
   let tests = All_test.suite in
-  let _ = OUnit.run_test_tt tests in 0
+  let results = run_test_tt tests in
+  interpret_test_results results
 
 let run_all_tests_xml filename =
   All_test.configure_logging();
@@ -105,15 +116,15 @@ let run_all_tests_xml filename =
                  tmp_start = 0.0;
                  tmp_result = RSuccess []
                } in
-  let (_:test_result list) = perform_timed_tests result tests in
+  let results = perform_timed_tests result tests in
   let () = print_xml result filename in
-  0
+  interpret_test_results results
 
 let run_system_tests () =
   All_test.configure_logging();
   let tests = System_tests.suite in
-  let _ = OUnit.run_test_tt tests in
-  0
+  let results = OUnit.run_test_tt tests in
+  interpret_test_results results
 
 
 let run_some_tests repeat_count filter =
@@ -123,19 +134,19 @@ let run_some_tests repeat_count filter =
   let show_count num =
     if repeat_count > 1 then Printf.printf "-- iteration %d\n" (repeat_count - num + 1)
   in
-  let rec do_n_times f = function
-    | 0 -> ()
+  let rec do_n_times f results = function
+    | 0 -> results
     | n ->
       let () = show_count n in
-      let (_:OUnit.test_result list) = f () in
-      do_n_times f (n-1)
+      let results' = f () in
+      do_n_times f (List.append results' results) (n-1)
   in
   match OUnit.test_filter parts All_test.suite  with
     | Some test ->
       begin
         List.iter do_path (OUnit.test_case_paths test);
-        let () = do_n_times (fun () -> OUnit.run_test_tt_main test) repeat_count in
-        0
+        let results = do_n_times (fun () -> OUnit.run_test_tt_main test) [] repeat_count in
+        interpret_test_results results
       end
 
     | None -> failwith (Printf.sprintf "no test matches '%s'" filter);;
