@@ -33,6 +33,7 @@ open Update
 open Interval
 open Common
 open Master_type
+open Arakoon_client
 
 let section = Logger.Section.main
 
@@ -110,7 +111,8 @@ class sync_backend = fun cfg
   ~expect_reachable
   ~test
   ~(read_only:bool)
-  ~max_value_size ->
+  ~max_value_size
+  ~act_not_preferred ->
   let my_name =  Node_cfg.node_name cfg in
   let locked_tlogs = Hashtbl.create 8 in
   let blockers_cond = Lwt_condition.create() in
@@ -260,7 +262,14 @@ object(self: #backend)
     let update_sets (_update_result:Store.update_result) = Statistics.new_set _stats key value start in
     _update_rendezvous self update update_sets push_update ~so_post:_mute_so
 
+  method nop () =
+    let update = Update.Nop in
+    _update_rendezvous self update no_stats push_update ~so_post:_mute_so
 
+  method get_txid () =
+    let io = S.consensus_i store in
+    let i = match io with None -> Sn.zero | Some i -> i in
+    At_least i
 
   method confirm key value =
     log_o self "confirm %S" key >>= fun () ->
@@ -588,6 +597,7 @@ object(self: #backend)
         Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
 
   method private unquiesce_db () =
+    act_not_preferred := false;
     Logger.info_ "unquiesce_db: Leaving quisced state" >>= fun () ->
     let update = Multi_paxos.Unquiesce in
     push_node_msg update
@@ -687,6 +697,7 @@ object(self: #backend)
             then Lwt.return ()
             else
               begin
+                act_not_preferred := true;
                 let (sleep, awake) = Lwt.wait () in
                 let update = Multi_paxos.DropMaster (sleep, awake) in
                 Logger.debug_ "drop_master: pushing update" >>= fun () ->

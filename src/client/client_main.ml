@@ -24,17 +24,76 @@ open Node_cfg.Node_cfg
 open Network
 open Statistics
 open Lwt
+open Lwt_extra
 
-let _address_to_use ips port = make_address (List.hd ips) port
+let section = Logger.Section.main
 
-let with_client cfg (cluster:string) f =
-  let sa = _address_to_use cfg.ips cfg.client_port in
-  let do_it connection =
-    Arakoon_remote_client.make_remote_client cluster connection
-    >>= fun (client: Arakoon_client.client) ->
-    f client
+exception No_connection
+
+let with_connection' addrs f =
+  let count = List.length addrs in
+  let res = Lwt_mvar.create_empty () in
+  let err = Lwt_mvar.create None in
+  let l = Lwt_mutex.create () in
+  let cd = CountDownLatch.create ~count in
+
+  let f' addr =
+    Lwt.catch
+      (fun () ->
+        Lwt_io.with_connection addr (fun c ->
+          if Lwt_mutex.is_locked l
+          then Lwt.return ()
+          else
+          Lwt_mutex.lock l >>= fun () ->
+            Lwt.catch
+              (fun () -> f addr c >>= fun v -> Lwt_mvar.put res (`Success v))
+              (fun exn -> Lwt_mvar.put res (`Failure exn))))
+      (fun exn ->
+        Lwt.protected (
+          Logger.warning_f_ ~exn "Failed to connect to %s" (Network.a2s addr) >>= fun () ->
+          Lwt_mvar.take err >>= begin function
+            | Some _ as v -> Lwt_mvar.put err v
+            | None -> Lwt_mvar.put err (Some exn)
+          end >>= fun () ->
+          CountDownLatch.count_down cd) >>= fun () ->
+        Lwt.fail exn)
   in
-    Lwt_io.with_connection sa do_it
+
+  let ts = List.map f' addrs in
+  Lwt.finalize
+    (fun () ->
+      Lwt.pick [ Lwt_mvar.take res >>= begin function
+                   | `Success v -> Lwt.return v
+                   | `Failure exn -> Lwt.fail exn
+                 end
+               ; CountDownLatch.await cd >>= fun () ->
+                 Lwt_mvar.take err >>= function
+                   | None -> Lwt.fail No_connection
+                   | Some e -> Lwt.fail e
+               ]
+    )
+    (fun () ->
+      Lwt_list.iter_p (fun t ->
+        let () = try
+          Lwt.cancel t
+        with _ -> () in
+        Lwt.return ())
+        ts)
+
+
+let with_client node_cfg cluster_id f =
+  let addrs = List.map (fun ip -> make_address ip node_cfg.client_port) node_cfg.ips in
+  let do_it _addr connection =
+    Arakoon_remote_client.make_remote_client cluster_id connection >>= f
+  in
+  with_connection' addrs do_it
+
+let with_remote_nodestream node_cfg cluster_id f =
+  let addrs = List.map (fun ip -> make_address ip node_cfg.client_port) node_cfg.ips in
+  let do_it _addr connection =
+    Remote_nodestream.make_remote_nodestream cluster_id connection >>= f
+  in
+  with_connection' addrs do_it
 
 let ping ip port cluster_id =
   let do_it connection =
@@ -60,14 +119,11 @@ let find_master cluster_cfg =
         begin
           let section = Logger.Section.main in
           Logger.info_f_ "cfg=%s" cfg.node_name >>= fun () ->
-          let sa = _address_to_use cfg.ips cfg.client_port in
           Lwt.catch
             (fun () ->
-              Lwt_io.with_connection sa
-                (fun connection ->
-                  Arakoon_remote_client.make_remote_client
-                    cluster_cfg.cluster_id connection
-                  >>= fun client ->
+              with_client
+                cfg cluster_cfg.cluster_id
+                (fun client ->
                   client # who_master ())
               >>= function
                 | None -> Lwt.fail (Failure "No Master")

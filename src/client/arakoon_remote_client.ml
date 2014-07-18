@@ -122,6 +122,8 @@ class remote_client ((ic,oc) as conn) =
     Common.version (ic,oc)
 
   method current_state () = Common.current_state (ic,oc)
+  method nop () = Common.nop conn
+  method get_txid () = Common.get_txid conn
 end: Arakoon_client.client )
 
 let make_remote_client cluster connection =

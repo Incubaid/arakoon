@@ -25,6 +25,7 @@ open Interval
 open Routing
 open Statistics
 open Client_cfg
+open Arakoon_client
 
 type kvs = (string * string) list
 
@@ -102,4 +103,6 @@ class type backend = object
 
   method drop_master: unit -> unit Lwt.t
   method get_current_state : unit -> string Lwt.t
+  method nop : unit -> unit Lwt.t
+  method get_txid: unit -> consistency
 end

@@ -213,6 +213,23 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
 	    )
 	    (handle_exception oc)
 	end
+    | NOP ->
+      begin
+        Logger.debug_f_ "connection=%s NOP" id >>= fun () ->
+        Lwt.catch
+          (fun () ->
+           backend # nop () >>= fun () ->
+           response_ok_unit oc)
+          (handle_exception oc)
+      end
+    | GET_TXID ->
+       begin
+         Logger.debug_f_ "connection=%s GET_TXID" id >>= fun () ->
+         let txid = backend # get_txid () in
+         Llio.output_int32 oc 0l >>= fun () ->
+         Common.output_consistency oc txid >>= fun () ->
+         Lwt.return false
+       end
     | DELETE ->
 	begin
           Llio.input_string ic >>= fun key ->

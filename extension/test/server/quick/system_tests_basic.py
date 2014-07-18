@@ -348,6 +348,12 @@ def test_who_master () :
     assert_true ( node in C.node_names )
     client.dropConnections()
 
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_nop():
+    client = C.get_client()
+    for i in xrange(10):
+        client.nop()
+    client.dropConnections()
 
 @C.with_custom_setup (C.setup_3_nodes, C.basic_teardown)
 def test_get_version():
