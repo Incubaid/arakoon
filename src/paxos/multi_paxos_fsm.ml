@@ -83,6 +83,7 @@ let promises_check_done constants state () =
       Logger.info_f_ "%s: promises_check_done: consensus on %s" me (Sn.string_of i)
       >>= fun () ->
       push_value constants bv n i >>= fun () ->
+      constants.respect_run_master <- Some (constants.me, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
       let new_ballot = (needed-1 , [me] ) in
       let ms = {mo = None;v = bv;n;i;lew = lease_expire_waiters} in
       Fsm.return (Accepteds_check_done (ms, new_ballot))
