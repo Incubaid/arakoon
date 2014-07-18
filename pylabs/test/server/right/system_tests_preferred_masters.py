@@ -67,7 +67,7 @@ def test_preferred_master():
     # perform maintenance on node to make it behave in a preferred manner again
     Common.defragDb(pm)
 
-    time.sleep(Common.lease_duration)
+    time.sleep(2 * Common.lease_duration)
     client.nop()
     master5 = client.whoMaster()
     NT.assert_equals(master5, pm)
