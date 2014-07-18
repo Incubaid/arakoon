@@ -349,7 +349,6 @@ let handle_prepare (type s) constants dest n n' i' =
             begin
               (* Ok, we can make a Promise to the other node, if we want to *)
               let make_promise () =
-                constants.respect_run_master <- Some (dest, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
                 let lv = constants.get_value nak_max in
                 let reply = Promise(n',nak_max,lv) in
                 Logger.info_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->

@@ -149,8 +149,11 @@ let slave_steady_state (type s) constants state event =
                     | None ->
                       if Sn.sub i store_i = 1L
                       then
-                        Logger.debug_f_ "%s: slave: no previous, so not pushing anything" constants.me >>= fun () ->
-                        Lwt.return []
+                        begin
+                          constants.respect_run_master <- Some (source, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
+                          Logger.debug_f_ "%s: slave: no previous, so not pushing anything" constants.me >>= fun () ->
+                          Lwt.return []
+                        end
                       else
                         paxos_fatal constants.me "slave: no previous, mismatch store_i = %Li, i = %Li" store_i i
                     | Some previous ->
