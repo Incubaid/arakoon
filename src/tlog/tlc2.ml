@@ -213,8 +213,8 @@ let fold_read tlog_dir tlf_dir file_name
 
 type validation_result = (Entry.t option * Index.index)
 
-let _make_close_marker node_id = Some ("closed:" ^ node_id)
-let _make_open_marker node_id =  Some ("opened:" ^ node_id)
+let _make_close_marker node_id = "closed:" ^ node_id
+let _make_open_marker node_id =  "opened:" ^ node_id
 
 let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
   Logger.debug_f_ "Tlc2._validate_one %s" tlog_name >>= fun () ->
@@ -243,7 +243,7 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
              match eo with
                | None -> None
                | Some e ->
-                 let s = _make_close_marker node_id in
+                 let s = Some (_make_close_marker node_id) in
                  if Entry.check_marker e s
                  then !prev_entry
                  else raise (TLCNotProperlyClosed (Entry.entry2s e))
@@ -732,7 +732,7 @@ class tlc2
           | Some(v,i) ->
             begin
               let oc = F.oc_of file in
-              let marker = _make_close_marker node_id in
+              let marker = Some (_make_close_marker node_id) in
               Tlogcommon.write_marker oc i v marker >>= fun () ->
               Logger.debug_f_ "wrote %S marker @i=%s for %S"
                 (Log_extra.string_option2s marker) (Sn.string_of i) node_id
@@ -876,7 +876,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_d
         (* for some reason this will cause mayhem 'test_243' *)
         let i = Entry.i_of e in
         let v = Entry.v_of e in
-        let marker = _make_open_marker node_id in
+        let marker = Some (_make_open_marker node_id) in
         _init_file fsync_tlog_dir tlog_dir tlf_dir new_c >>= fun file ->
         let oc = F.oc_of file in
         Tlogcommon.write_marker oc i v marker >>= fun () ->
