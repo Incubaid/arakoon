@@ -71,11 +71,10 @@ let network_of_messaging (m:messaging) =
 let update_votes (nones,somes) = function
   | None -> (nones+1, somes)
   | Some x ->
-    let is_master_set = Value.is_master_set x in
     let rec build_new acc = function
       | [] -> (x,1)::acc
       | (a,fa) :: afs ->
-        if a = x || (is_master_set && Value.is_master_set a)
+        if a = x
         then ((a,fa+1) :: afs) @ acc
         else let acc' = (a,fa) :: acc  in build_new acc' afs
     in
@@ -224,7 +223,7 @@ let start_lease_expiration_thread (type s) ?(immediate_lease_expiration=false) c
            to prevent a node thinking it's still the master
            while some slaves have elected a new master amongst them
            (in case the clocks don't all run at the same speed) *)
-        1.1
+        1.1 +. Random.float 0.1
       else
         0.5 in
     let sleep_sec = lease_expiration *. factor in
@@ -258,11 +257,12 @@ let start_lease_expiration_thread (type s) ?(immediate_lease_expiration=false) c
 
 let start_election_timeout ?(from_master=false) constants n i =
   let sleep_sec =
+    let factor = 1. +. Random.float 0.1 in
     if from_master
     then
-      float_of_int (constants.lease_expiration) /. 4.0
+      float_of_int (constants.lease_expiration)  *. factor /. 4.0
     else
-      float_of_int (constants.lease_expiration) /. 2.0 in
+      float_of_int (constants.lease_expiration) *. factor /. 2.0 in
   let () = match constants.election_timeout with
     | None ->
       begin

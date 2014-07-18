@@ -605,10 +605,11 @@ let _main_2 (type s)
                                     (List.filter
                                        (fun ncfg -> ncfg.node_name = master)
                                        cfgs) in
-                 Client_main.with_connection
+                 let addrs = List.map (fun ip -> Network.make_address ip master_cfg.client_port) master_cfg.ips in
+                 Client_main.with_connection'
                    ~tls:ssl_context
-                   (Client_main._address_to_use master_cfg.ips master_cfg.client_port)
-                   (fun conn ->
+                   addrs
+                   (fun _addr conn ->
                     Arakoon_remote_client.make_remote_client cluster_id conn >>= fun client ->
                     let open Arakoon_client in
                     client # get_txid ()

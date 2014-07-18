@@ -54,6 +54,8 @@ let read_only constants (_state : unit) () =
   Lwt_unix.sleep 60.0 >>= fun () ->
   Logger.debug_f_ "%s: read_only ..." constants.me >>= fun () ->
   Fsm.return Read_only
+
+
 (* a potential master is waiting for promises and if enough
    promises are received the value is accepted and Accept is broadcasted *)
 let promises_check_done constants state () =
@@ -70,11 +72,7 @@ let promises_check_done constants state () =
     begin
       match v_s with
         | [] ->  Value.create_master_value (me, 0.0), 0
-        | hd::_ ->
-          let bv, bf = hd in
-          if Value.is_master_set bv
-          then Value.create_master_value (me, 0.0), bf
-          else bv, bf
+        | hd::_ -> hd
     end in
   let nnodes = List.length constants.others + 1 in
   let needed = constants.quorum_function nnodes in
