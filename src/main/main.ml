@@ -510,8 +510,8 @@ let main () =
           | "" -> None
           | s -> Some (s, !tls_key)
         in
-        let cfg = Client_main.TLSConfig.make ~ca_cert ~creds ~protocol in
-        Some cfg
+        let ctx = Client_main.default_create_client_context ~ca_cert ~creds ~protocol in
+        Some ctx
       end
   in
 

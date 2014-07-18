@@ -19,52 +19,29 @@ open Network
 open Statistics
 open Lwt
 
+
 open Lwt_extra
 
 let section = Logger.Section.main
 
-module TLSConfig : sig
-    type t
+let default_create_client_context ~ca_cert ~creds ~protocol =
+  let ctx = Typed_ssl.create_client_context protocol in
+  Typed_ssl.set_verify ctx
+                       [Ssl.Verify_peer; Ssl.Verify_fail_if_no_peer_cert]
+                       (Some Ssl.client_verify_callback);
+  Typed_ssl.load_verify_locations ctx ca_cert "";
+  begin
+    match creds with
+    | None -> ()
+    | Some (cert, key) ->
+       Typed_ssl.use_certificate ctx cert key
+  end;
+  ctx
 
-    type path = string
-
-    val make : ca_cert : path
-             -> creds : (path * path) option
-             -> protocol : Ssl.protocol
-             -> t
-
-    val ca_cert : t -> path
-    val creds : t -> (path * path) option
-    val protocol : t -> Ssl.protocol
-end = struct
-    type path = string
-
-    type t = { ca_cert : path
-             ; creds : (path * path) option
-             ; protocol : Ssl.protocol
-             }
-
-    let make ~ca_cert ~creds ~protocol =
-        { ca_cert; creds; protocol }
-
-    let ca_cert t = t.ca_cert
-    let creds t = t.creds
-    let protocol t = t.protocol
-end
 
 let with_connection ~tls sa do_it = match tls with
   | None -> Lwt_io.with_connection sa do_it
-  | Some tls_config ->
-    let ctx = Typed_ssl.create_client_context (TLSConfig.protocol tls_config) in
-    Typed_ssl.set_verify ctx
-      [Ssl.Verify_peer; Ssl.Verify_fail_if_no_peer_cert]
-      (Some Ssl.client_verify_callback);
-    Typed_ssl.load_verify_locations ctx (TLSConfig.ca_cert tls_config) "";
-    begin match (TLSConfig.creds tls_config) with
-      | None -> ()
-      | Some (cert, key) ->
-          Typed_ssl.use_certificate ctx cert key
-    end;
+  | Some ctx ->
     let fd = Lwt_unix.socket (Unix.domain_of_sockaddr sa) Unix.SOCK_STREAM 0 in
     Lwt_unix.set_close_on_exec fd;
     Lwt_unix.connect fd sa >>= fun () ->
@@ -129,12 +106,17 @@ let with_connection' ~tls addrs f =
         ts)
 
 
-let with_client ~tls node_cfg (cluster:string) f =
+let with_client ~tls node_cfg cluster_id f =
   let addrs = List.map (fun ip -> make_address ip node_cfg.client_port) node_cfg.ips in
-  let do_it _ connection =
-    Arakoon_remote_client.make_remote_client cluster connection
-    >>= fun (client: Arakoon_client.client) ->
-    f client
+  let do_it _addr connection =
+    Arakoon_remote_client.make_remote_client cluster_id connection >>= f
+  in
+  with_connection' ~tls addrs do_it
+
+let with_remote_nodestream ~tls node_cfg cluster_id f =
+  let addrs = List.map (fun ip -> make_address ip node_cfg.client_port) node_cfg.ips in
+  let do_it _addr connection =
+    Remote_nodestream.make_remote_nodestream cluster_id connection >>= f
   in
   with_connection' ~tls addrs do_it
 
