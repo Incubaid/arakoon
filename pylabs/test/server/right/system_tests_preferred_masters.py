@@ -59,7 +59,6 @@ def test_preferred_master():
 
     # node should no longer be preferred after the dropMaster call
     Common.dropMaster(pm)
-    time.sleep(Common.lease_duration)
     client.nop()
     master4 = client.whoMaster()
     NT.assert_not_equals(master4, pm)
