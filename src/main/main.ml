@@ -492,8 +492,9 @@ let main () =
           | "" -> None
           | s -> Some (s, !tls_key)
         in
-        let cfg = Client_main.TLSConfig.make ~ca_cert ~creds ~protocol in
-        Some cfg
+        let ctx = Typed_ssl.create_client_context protocol in
+        let () = Client_main.default_initialize_client_context ~ca_cert ~creds ctx in
+        Some ctx
       end
   in
 

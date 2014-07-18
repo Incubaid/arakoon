@@ -182,8 +182,12 @@ class remote_nodestream ((ic,oc) as conn) =
 end :nodestream)
 
 
-let make_remote_nodestream cluster connection =
-  prologue cluster connection >>= fun () ->
+let make_remote_nodestream ?(skip_prologue=false) cluster connection =
+  begin
+    if skip_prologue
+    then Lwt.return_unit
+    else prologue cluster connection
+  end >>= fun () ->
   let rns = new remote_nodestream connection in
   let a = (rns :> nodestream) in
   Lwt.return a

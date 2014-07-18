@@ -595,11 +595,35 @@ let _main_2 (type s)
 
           let start_preferred_master_loop fuse =
             match master with
-            | Preferred ps when (List.mem my_name ps) ->
-               (* only run this loop for nodes which are preferred master *)
+            | Preferred ps ->
+               let is_preferred_master n =
+                 List.mem n ps in
 
                let lease_period = float lease_period in
-
+               let get_txid_maybe_drop_master store_i master =
+                 let master_cfg = List.hd
+                                    (List.filter
+                                       (fun ncfg -> ncfg.node_name = master)
+                                       cfgs) in
+                 Client_main.with_connection
+                   ~tls:ssl_context
+                   (Client_main._address_to_use master_cfg.ips master_cfg.client_port)
+                   (fun conn ->
+                    Arakoon_remote_client.make_remote_client cluster_id conn >>= fun client ->
+                    let open Arakoon_client in
+                    client # get_txid ()
+                    >>= function
+                      | Consistent
+                      | No_guarantees -> failwith "preferred_master_loop: should never receive this from get_txid"
+                      | At_least master_i ->
+                         if (Sn.diff master_i store_i) < (Sn.of_int 5)
+                         then
+                           (* in sync (or close enough) with the current not-preferred master *)
+                           Remote_nodestream.make_remote_nodestream
+                             ~skip_prologue:true cluster_id conn >>= fun client' ->
+                           client' # drop_master ()
+                         else
+                           Lwt.return_unit) in
                let rec inner () =
                  Lwt.catch
                    (fun () ->
@@ -611,46 +635,20 @@ let _main_2 (type s)
                         match S.who_master store with
                         | None -> Lwt.return_unit
                         | Some (m, ls) ->
-                           if (List.mem m ps)
-                              || ((Unix.gettimeofday ()) -. ls > lease_period)
+                           if m = my_name
+                              || is_preferred_master m
+                              || (Unix.gettimeofday ()) -. ls > lease_period
                            then
-                             (* current master is also preferred or no active master *)
+                             (* no master or the current master is also preferred *)
                              Lwt.return_unit
                            else
                              begin
-                               (* get txid, compare to store i *)
                                match S.consensus_i store with
                                | None ->
                                   Lwt.return_unit
                                | Some store_i ->
-                                  let master_cfg = List.hd
-                                                     (List.filter
-                                                        (fun ncfg -> ncfg.node_name = m)
-                                                        cfgs) in
-                                  (* TODO error handling (e.g. not master)*)
-                                  Client_main.with_client
-                                    ~tls:None (* TODO *)
-                                    master_cfg
-                                    cluster_id
-                                    (fun client ->
-                                     client # get_txid ()) >>= fun txid ->
-                                  begin
-                                    let open Arakoon_client in
-                                    match txid with
-                                    | Consistent
-                                    | No_guarantees -> failwith "should never receive this from get_txid"
-                                    | At_least master_i ->
-                                       if (Sn.diff master_i store_i) < (Sn.of_int 5)
-                                       then
-                                         Client_main.with_remote_nodestream
-                                           ~tls:None
-                                           master_cfg
-                                           cluster_id
-                                           (fun client ->
-                                            client # drop_master ())
-                                       else
-                                         Lwt.return_unit
-                                  end
+                                  (* if we're in sync we should become the master... *)
+                                  get_txid_maybe_drop_master store_i m
                              end
                       end)
                    (function
@@ -664,8 +662,11 @@ let _main_2 (type s)
                  else
                    inner ()
                in
-               Lwt.ignore_result (inner ())
-            | Preferred _
+
+               (* only run this loop for nodes which are preferred master *)
+               if is_preferred_master my_name
+               then
+                 Lwt.ignore_result (inner ())
             | Elected
             | Forced _
             | ReadOnly ->
