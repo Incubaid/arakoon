@@ -836,4 +836,5 @@ let test_t make_config name stop =
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false
   and catchup_only = false in
+  Lwt_unix.sleep (Random.float 1.) >>= fun () ->
   _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only stop
