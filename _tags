@@ -21,6 +21,7 @@ true: package(snappy)
 "src/toy":include
 "src/msg":include
 "src/paxos": include
+"src/raft": include
 "src/tlog": include
 "src/node": include
 "src/system": include

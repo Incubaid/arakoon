@@ -16,6 +16,7 @@ limitations under the License.
 
 open OUnit_XML
 open OUnit
+open Raft
 open Node_cfg
 
 type local_action =
