@@ -127,7 +127,6 @@ type 'a constants =
    catchup_tls_ctx : [ `Client | `Server ] Typed_ssl.t option;
    mutable election_timeout : (Sn.t * Sn.t * float) option;
    mutable lease_expiration_id : int;
-   mutable respect_run_master : (string * float) option;
   }
 
 let am_forced_master constants me =
@@ -170,7 +169,6 @@ let make (type s) ~catchup_tls_ctx me is_learner others send get_value
     catchup_tls_ctx;
     election_timeout = None;
     lease_expiration_id = 0;
-    respect_run_master = None;
   }
 
 let mcast constants msg =
@@ -349,7 +347,6 @@ let handle_prepare (type s) constants dest n n' i' =
             begin
               (* Ok, we can make a Promise to the other node, if we want to *)
               let make_promise () =
-                constants.respect_run_master <- Some (dest, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
                 let lv = constants.get_value nak_max in
                 let reply = Promise(n',nak_max,lv) in
                 Logger.info_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
@@ -361,29 +358,7 @@ let handle_prepare (type s) constants dest n n' i' =
                 else (* i' = i *)
                   (* Send Promise, we are in sync *)
                   Lwt.return(Promise_sent_up2date, Some reply) in
-              match constants.respect_run_master with
-                | None ->
-                  make_promise ()
-                | Some (other, until) ->
-                  let now = Unix.gettimeofday () in
-                  if until < now || dest = other
-                  then
-                    begin
-                      (* handle the prepare by making a promise *)
-                      (* old respect_run_master info
-                           (which we can safely ignore, it will be overwritten in make_promise)
-                         or a prepare from the same node again
-                           (this ensures no prepares from the same node queue up here) *)
-                      make_promise ()
-                    end
-                  else
-                    begin
-                      (* drop the prepare to give the other node that is running
-                         for master some time to do it's thing
-                      *)
-                      Logger.info_f_ "%s: handle_prepare: dropping prepare to respect another potential master" me >>= fun () ->
-                      Lwt.return (Prepare_dropped, None)
-                    end
+              make_promise ()
             end
         end >>= fun (ret_val, reply) ->
         match reply with

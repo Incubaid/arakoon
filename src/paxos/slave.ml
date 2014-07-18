@@ -36,21 +36,7 @@ let time_for_elections ?invalidate_lease_start_until (type s) constants =
         in
         let return need_elections =
           need_elections, Printf.sprintf "%f >= %f" invalidate_lease_start_until lease_start in
-        if invalidate_lease_start_until >= lease_start
-        then
-          begin
-            match constants.respect_run_master with
-            | None ->
-              return true
-            | Some(_, until) ->
-              if Unix.gettimeofday () < until
-              then
-                false, "lease expired, but respecting another node running for master"
-              else
-                return true
-          end
-        else
-          return false
+        return (invalidate_lease_start_until >= lease_start)
       end
   end
 

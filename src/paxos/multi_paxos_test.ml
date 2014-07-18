@@ -85,7 +85,6 @@ let test_generic network_factory n_nodes () =
               stop = ref false;
               election_timeout = None;
               lease_expiration_id = 0;
-              respect_run_master = None;
               catchup_tls_ctx = None;
              }
   in
@@ -283,7 +282,6 @@ let test_master_loop network_factory ()  =
                    stop = ref false;
                    election_timeout = None;
                    lease_expiration_id = 0;
-                   respect_run_master = None;
                    catchup_tls_ctx = None;
                   } in
   let continue = ref 2 in
@@ -421,7 +419,6 @@ let test_simulation filters () =
     stop = ref false;
     election_timeout = None;
     lease_expiration_id = 0;
-    respect_run_master = None;
     catchup_tls_ctx = None;
   } in
   let c0_t () =
