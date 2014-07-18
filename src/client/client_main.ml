@@ -24,15 +24,19 @@ open Lwt_extra
 
 let section = Logger.Section.main
 
-let default_initialize_client_context ~ca_cert ~creds ctx =
+let default_create_client_context ~ca_cert ~creds ~protocol =
+  let ctx = Typed_ssl.create_client_context protocol in
   Typed_ssl.set_verify ctx
                        [Ssl.Verify_peer; Ssl.Verify_fail_if_no_peer_cert]
                        (Some Ssl.client_verify_callback);
   Typed_ssl.load_verify_locations ctx ca_cert "";
-  match creds with
-  | None -> ()
-  | Some (cert, key) ->
-     Typed_ssl.use_certificate ctx cert key
+  begin
+    match creds with
+    | None -> ()
+    | Some (cert, key) ->
+       Typed_ssl.use_certificate ctx cert key
+  end;
+  ctx
 
 
 let with_connection ~tls sa do_it = match tls with
@@ -105,18 +109,14 @@ let with_connection' ~tls addrs f =
 let with_client ~tls node_cfg cluster_id f =
   let addrs = List.map (fun ip -> make_address ip node_cfg.client_port) node_cfg.ips in
   let do_it _addr connection =
-    Arakoon_remote_client.make_remote_client cluster_id connection
-    >>= fun (client: Arakoon_client.client) ->
-    f client
+    Arakoon_remote_client.make_remote_client cluster_id connection >>= f
   in
   with_connection' ~tls addrs do_it
 
 let with_remote_nodestream ~tls node_cfg cluster_id f =
   let addrs = List.map (fun ip -> make_address ip node_cfg.client_port) node_cfg.ips in
   let do_it _addr connection =
-    Remote_nodestream.make_remote_nodestream cluster_id connection
-    >>= fun (client : Remote_nodestream.nodestream) ->
-    f client
+    Remote_nodestream.make_remote_nodestream cluster_id connection >>= f
   in
   with_connection' ~tls addrs do_it
 
