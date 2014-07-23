@@ -647,7 +647,7 @@ struct
       method copy_db_to_head tlogs_to_keep =
         if tlogs_to_keep < 1 then
           let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-          and msg = Printf.sprintf "%i is not acceptable" tlogs_to_keep
+          and msg = Printf.sprintf "tlogs_to_keep=%i is not acceptable" tlogs_to_keep
           in
           Lwt.fail (XException(rc,msg))
         else
@@ -667,7 +667,7 @@ struct
               | None -> failwith "impossible i for copied head"
               | Some i -> Tlc2.get_file_number i
             in
-            let keep_bottom_n = Sn.sub head_n (Sn.of_int tlogs_to_keep) in
+            let keep_bottom_n = Sn.succ (Sn.sub head_n (Sn.of_int tlogs_to_keep)) in
             if Sn.compare keep_bottom_n Sn.zero = 1
             then
               begin
