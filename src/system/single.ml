@@ -575,6 +575,8 @@ let assert_exists3 tpl =
 
 let _node_name tn n = Printf.sprintf "%s_%i" tn n
 
+let stop = ref (ref false)
+
 let setup make_master tn base () =
   _start tn >>= fun () ->
   let lease_period = 10 in
@@ -585,13 +587,16 @@ let setup make_master tn base () =
     ~node_name:(_node_name tn)
     3 master lease_period
   in
-  let t0 = Node_main.test_t make_config (_node_name tn 0) >>= fun _ -> Lwt.return () in
-  let t1 = Node_main.test_t make_config (_node_name tn 1) >>= fun _ -> Lwt.return () in
-  let t2 = Node_main.test_t make_config (_node_name tn 2) >>= fun _ -> Lwt.return () in
+  let stop = !stop in
+  let t0 = Node_main.test_t ~stop make_config (_node_name tn 0) >>= fun _ -> Lwt.return () in
+  let t1 = Node_main.test_t ~stop make_config (_node_name tn 1) >>= fun _ -> Lwt.return () in
+  let t2 = Node_main.test_t ~stop make_config (_node_name tn 2) >>= fun _ -> Lwt.return () in
   let all_t = [t0;t1;t2] in
   Lwt.return (tn, make_config (), all_t)
 
 let teardown (tn, _, _all_t) =
+  !stop := true;
+  stop := ref false;
   Logger.info_f_ "++++++++++++++++++++ %s +++++++++++++++++++" tn >>= fun () ->
   Lwt.return ()
 

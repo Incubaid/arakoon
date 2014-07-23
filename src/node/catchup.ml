@@ -142,6 +142,16 @@ let catchup_tlog (type s) other_configs ~cluster_id mr_name ((module S : Store.S
   >>= fun () ->
   Lwt.return (tlog_coll # get_last_i ())
 
+let prepare_and_insert_value (type s) (module S : Store.STORE with type t = s) me store i v =
+  (* assume consensus for the masterset has only now been reached,
+               this is playing it safe *)
+  let v' = Value.fill_other_master_set me v in
+  (* but do clear the master set if it's about the node itself,
+               so the node can't erronously think it's master while it's not *)
+  let v'' = Value.clear_self_master_set me v' in
+  S.safe_insert_value store i v'' >>= fun _ ->
+  Lwt.return ()
+
 let make_f (type s) (module S : Store.STORE with type t = s) me log_i acc store entry =
   let i = Entry.i_of entry
   and value = Entry.v_of entry
@@ -156,13 +166,7 @@ let make_f (type s) (module S : Store.STORE with type t = s) me log_i acc store 
         then
           begin
             log_i pi >>= fun () ->
-            (* assume consensus for the masterset has only now been reached,
-               this is playing it safe *)
-            let pv' = Value.fill_if_master_set pv in
-            (* but do clear the master set if it's about the node itself,
-               so the node can't erronously think it's master while it's not *)
-            let pv'' = Value.clear_self_master_set me pv' in
-            S.safe_insert_value store pi pv'' >>= fun _ ->
+            prepare_and_insert_value (module S) me store pi pv >>= fun () ->
             let () = acc := Some(i,value) in
             Lwt.return ()
           end
@@ -174,13 +178,13 @@ let make_f (type s) (module S : Store.STORE with type t = s) me log_i acc store 
           end
 
 
-let epilogue (type s) (module S : Store.STORE with type t = s) acc store =
+let epilogue (type s) (module S : Store.STORE with type t = s) me acc store =
   match !acc with
     | None -> Lwt.return ()
     | Some(i,value) ->
       begin
         Logger.debug_f_ "%s => store" (Sn.string_of i) >>= fun () ->
-        S.safe_insert_value store i value >>= fun _ -> Lwt.return ()
+        prepare_and_insert_value (module S) me store i value
       end
 
 
@@ -222,7 +226,7 @@ let catchup_store (type s) me ((module S : Store.STORE with type t = s), store,t
       in
       let f = make_f (module S) me maybe_log_progress acc store in
       tlog_coll # iterate start_i too_far_i f >>= fun () ->
-      epilogue (module S) acc store >>= fun () ->
+      epilogue (module S) me acc store >>= fun () ->
       let store_i' = S.consensus_i store in
       Logger.info_f_ "catchup_store completed, store is @ %s"
         ( option2s Sn.string_of store_i')
