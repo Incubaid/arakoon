@@ -246,11 +246,11 @@ let main () =
                                Arg.Set_string key;
                              ],
      "<filename> <key>: add a marker to a tlog");
-    ("--close-tlog", Arg.Tuple[ set_laction CloseTlog;
+    ("--unsafe-close-tlog", Arg.Tuple[ set_laction CloseTlog;
                                Arg.Set_string filename;
                                Arg.Set_string node_id;
                              ],
-     "<filename> <node_name>: marks the tlog with 'closed:node_name'");
+     "<filename> <node_name>: marks the tlog with 'closed:node_name'. Note when a tlog marker is missing, the node Tokyo Cabinet database could be silently corrupted, which is not fixed by this command.");
     ("--replay-tlogs", Arg.Tuple[ set_laction ReplayTlogs;
                                   Arg.Set_string tlog_dir;
                                   Arg.Set_string tlf_dir;
