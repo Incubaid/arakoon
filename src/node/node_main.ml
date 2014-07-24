@@ -558,6 +558,7 @@ let _main_2 (type s)
           let inject_push v = Lwt_buffer.add v inject_buffer in
           let read_only = master = ReadOnly in
           let module SB = Sync_backend.Sync_backend(S) in
+          let act_not_preferred = ref false in
           let sb =
             let test = Node_cfg.Node_cfg.test cluster_cfg in
             new SB.sync_backend me
@@ -571,6 +572,7 @@ let _main_2 (type s)
               ~read_only
               ~max_value_size:cluster_cfg.max_value_size
               ~collapse_slowdown:me.collapse_slowdown
+              ~act_not_preferred
           in
           let backend = (sb :> Backend.backend) in
 
@@ -585,10 +587,11 @@ let _main_2 (type s)
             let period = ((float lease_period) /. 2.) in
             let send_message_loop other =
               let rec inner () =
+                send msg me.node_name other >>= fun () ->
                 Lwt_unix.sleep period >>= fun () ->
                 if !fuse
                 then
-                  send msg me.node_name other
+                  Lwt.return ()
                 else
                   inner () in
               inner () in
@@ -596,6 +599,88 @@ let _main_2 (type s)
             then
               List.iter (fun other -> Lwt.ignore_result (send_message_loop other.node_name)) others in
           start_liveness_detection_loop stop;
+
+          let start_preferred_master_loop fuse =
+            match master with
+            | Preferred ps ->
+               let is_preferred_master n =
+                 List.mem n ps in
+
+               let lease_period = float lease_period in
+               let get_txid_maybe_drop_master store_i master =
+                 let master_cfg = List.hd
+                                    (List.filter
+                                       (fun ncfg -> ncfg.node_name = master)
+                                       cfgs) in
+                 let addrs = List.map (fun ip -> Network.make_address ip master_cfg.client_port) master_cfg.ips in
+                 Client_main.with_connection'
+                   ~tls:ssl_context
+                   addrs
+                   (fun _addr conn ->
+                    Arakoon_remote_client.make_remote_client cluster_id conn >>= fun client ->
+                    let open Arakoon_client in
+                    client # get_txid ()
+                    >>= function
+                      | Consistent
+                      | No_guarantees -> failwith "preferred_master_loop: should never receive this from get_txid"
+                      | At_least master_i ->
+                         if (Sn.diff master_i store_i) < (Sn.of_int 5)
+                         then
+                           (* in sync (or close enough) with the current not-preferred master *)
+                           Remote_nodestream.make_remote_nodestream
+                             ~skip_prologue:true cluster_id conn >>= fun client' ->
+                           client' # drop_master ()
+                         else
+                           Lwt.return_unit) in
+               let rec inner () =
+                 Lwt.catch
+                   (fun () ->
+                    if (S.quiesced store) || !act_not_preferred
+                    then
+                      Lwt.return_unit
+                    else
+                      begin
+                        match S.who_master store with
+                        | None -> Lwt.return_unit
+                        | Some (m, ls) ->
+                           if m = my_name
+                              || is_preferred_master m
+                              || (Unix.gettimeofday ()) -. ls > lease_period
+                           then
+                             (* no master or the current master is also preferred *)
+                             Lwt.return_unit
+                           else
+                             begin
+                               match S.consensus_i store with
+                               | None ->
+                                  Lwt.return_unit
+                               | Some store_i ->
+                                  (* if we're in sync we should become the master... *)
+                                  get_txid_maybe_drop_master store_i m
+                             end
+                      end)
+                   (function
+                     | Canceled -> Lwt.fail Canceled
+                     | exn -> Logger.info_f_ ~exn "Ignoring exception in preferred_master_loop")
+                 >>= fun () ->
+                 Lwt_unix.sleep lease_period >>= fun () ->
+                 if !fuse
+                 then
+                   Lwt.return ()
+                 else
+                   inner ()
+               in
+
+               (* only run this loop for nodes which are preferred master *)
+               if is_preferred_master my_name
+               then
+                 Lwt.ignore_result (inner ())
+            | Elected
+            | Forced _
+            | ReadOnly ->
+               ()
+          in
+          start_preferred_master_loop stop;
 
           let on_consensus = X.on_consensus my_name (module S) store in
           let on_witness (name:string) (i: Sn.t) = backend # witness name i in
