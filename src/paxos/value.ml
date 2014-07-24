@@ -23,7 +23,10 @@ type t =
   | Vm of (string * float)
 
 let create_client_value (us:Update.t list) (synced:bool) = Vc (us, synced)
-let create_master_value (m,l) = Vm (m,l)
+let create_master_value
+      ?(lease_start = Unix.gettimeofday ())
+      m =
+  Vm (m,lease_start)
 
 let is_master_set  = function
   | Vc _ -> false
@@ -43,10 +46,12 @@ let clear_self_master_set me = function
   | Vc _
   | Vm _ as v -> v
 
-let fill_if_master_set = function
-  | Vm (m,_) -> let now = Unix.gettimeofday () in
-                Vm(m,now)
-  | Vc _ as v -> v
+let fill_other_master_set me = function
+  | Vm (m,_) when m <> me ->
+     let now = Unix.gettimeofday () in
+     Vm(m,now)
+  | Vc _
+  | Vm _ as v -> v
 
 let updates_from_value = function
   | Vc (us,_)     -> us

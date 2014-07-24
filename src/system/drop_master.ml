@@ -21,14 +21,14 @@ open Node_cfg.Node_cfg
 
 let section = Logger.Section.main
 
-let stop = ref false
+let stop = ref (ref false)
 
 let setup tn master base () =
   let lease_period = 2 in
-  stop := false;
+  let stop = !stop in
   let make_config () = Node_cfg.Node_cfg.make_test_config ~base 3 master lease_period in
-  let t0 = Node_main.test_t make_config "t_arakoon_0" stop >>= fun _ -> Lwt.return () in
-  let t1 = Node_main.test_t make_config "t_arakoon_1" stop >>= fun _ -> Lwt.return () in
+  let t0 = Node_main.test_t make_config "t_arakoon_0" ~stop >>= fun _ -> Lwt.return () in
+  let t1 = Node_main.test_t make_config "t_arakoon_1" ~stop >>= fun _ -> Lwt.return () in
   (* let t2 = Node_main.test_t make_config "t_arakoon_2" stop >>= fun _ -> Lwt.return () in *)
   let all_t = [t0;t1(* ;t2 *)] in
   Lwt.return (tn, make_config (), all_t)
@@ -60,7 +60,8 @@ let wait_until_master cluster_cfg =
      inner ()]
 
 let teardown (_tn, _, all_t) =
-  stop := true;
+  !stop := true;
+  stop := ref false;
   Lwt.join all_t
 
 let _drop_master do_maintenance (_tn, cluster_cfg, _) =
@@ -129,7 +130,7 @@ let make_suite base name w =
   let make_el n base f = n >:: w n base f in
   name >:::
     [make_el "drop_master" base drop_master;
-     make_el "drop_master_while_maintenance" base drop_master_while_maintenance;
+     make_el "drop_master_while_maintenance" (base + 100) drop_master_while_maintenance;
     ]
 
 
