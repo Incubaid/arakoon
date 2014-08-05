@@ -59,7 +59,7 @@ let setup factory test_name () =
 let teardown (dn, tlf_dir, _factory) =
   Logger.info_f_ "teardown %s,%s" dn tlf_dir
 
-let _make_set_v k v= Value.create_client_value [Update.Set (k,v)] false
+let _make_set_v k v= Value.create_client_value_zero [Update.Set (k,v)] false
 
 let _log_repeat tlc (value:Value.t) n =
   let rec loop i =
@@ -100,7 +100,7 @@ let test_rollover_1002 (dn, tlf_dir, factory) =
 let test_get_value_bug (dn, _tlf_dir, factory) =
   Logger.info_ "test_get_value_bug" >>= fun () ->
   factory dn "node_name" >>= fun (c0:tlog_collection) ->
-  let v0 = Value.create_master_value ("XXXX",0.0) in
+  let v0 = Value.create_master_value_zero ("XXXX",0.0) in
   c0 # log_value 0L v0 >>= fun _wr_result ->
   c0 # close () >>= fun () ->
   factory dn "node_name" >>= fun c1 ->

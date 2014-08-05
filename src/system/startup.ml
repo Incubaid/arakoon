@@ -156,8 +156,8 @@ let post_failure () =
   }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value (node0,0.0)  in
-  let v1 = Value.create_client_value [Update.Set("x","y")] false in
+  let v0 = Value.create_master_value_zero (node0,0.0)  in
+  let v1 = Value.create_client_value_zero [Update.Set("x","y")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
@@ -216,8 +216,8 @@ let restart_slaves () =
     }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value (node2, 0.0) in
-  let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
+  let v0 = Value.create_master_value_zero (node2, 0.0) in
+  let v1 = Value.create_client_value_zero [Update.Set("xxx","xxx")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
@@ -274,9 +274,9 @@ let ahead_master_loses_role () =
     }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value (node0, 0.0) in
-  let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
-  let v2 = Value.create_client_value [Update.Set("invalidkey", "shouldnotbepresent")] false in
+  let v0 = Value.create_master_value_zero (node0, 0.0) in
+  let v1 = Value.create_client_value_zero [Update.Set("xxx","xxx")] false in
+  let v2 = Value.create_client_value_zero [Update.Set("invalidkey", "shouldnotbepresent")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
@@ -346,7 +346,7 @@ let interrupted_election () =
     }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value (wannabe_master, 0.0) in
+  let v0 = Value.create_master_value_zero (wannabe_master, 0.0) in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
