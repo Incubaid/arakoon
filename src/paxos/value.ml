@@ -90,7 +90,7 @@ let checksum tlog_coll i c =
   let s = _string_of_content c in
   match tlog_coll # get_last_value (Sn.pred i) with
   | None -> Checksum.calculate s
-  | Some ((pcs, _) as pv) -> Checksum.update pcs s
+  | Some (pcs, _) -> Checksum.update pcs s
 
 let create_first_value c =
   let s = _string_of_content c in
