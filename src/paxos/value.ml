@@ -24,9 +24,9 @@ type content =
 
 type t = Checksum.t * content
 
-(* Temporary solution *)
-let create_client_value_zero us synced = (Checksum.zero, Vc (us, synced))
-let create_master_value_zero (m, l) = (Checksum.zero, Vm (m, l))
+let create_client_value_nocheck us synced = (Checksum.zero, Vc (us, synced))
+
+let create_master_value_nocheck m l = (Checksum.zero, Vm (m, l))
 
 let content_to buf = function
   | Vc (us,synced) -> begin
@@ -70,7 +70,7 @@ let value_from b =
       let () = Llio.buffer_set_pos b pos in
       let u = Update.from_buffer b in
       let synced = Update.is_synced u in
-      create_client_value_zero [u] synced
+      create_client_value_nocheck [u] synced
     end
 
 let _string_of_content c =
@@ -78,33 +78,44 @@ let _string_of_content c =
   let () = content_to buf c in
   Buffer.contents buf
 
+(*
+let checksum tlog_coll c =
+  let s = _string_of_content c in
+  match tlog_coll # get_last () with
+  | None -> Checksum.calculate s
+  | Some ((pcs, _), _) -> Checksum.update pcs s
+*)
+
+let checksum tlog_coll i c =
+  let s = _string_of_content c in
+  match tlog_coll # get_last_value (Sn.pred i) with
+  | None -> Checksum.calculate s
+  | Some (pcs, _) -> Checksum.update pcs s
+
 let create_first_value c =
   let s = _string_of_content c in
   let cs = Checksum.calculate s in
   (cs, c)
 
-let create_value tlog_coll c =
-  let s = _string_of_content c in
-  let cs = match tlog_coll#get_last () with
-    | None -> Checksum.calculate s
-    | Some ((pcs, _), _) -> Checksum.update pcs s in
-  (cs, c)
+let create_value tlog_coll i c = (checksum tlog_coll i c, c)
 
 let create_first_client_value us synced =
   let c = Vc (us, synced) in
   create_first_value c
 
-let create_client_value tlog_coll us synced =
+let create_client_value tlog_coll i us synced =
   let c = Vc (us, synced) in
-  create_value tlog_coll c
+  create_value tlog_coll i c
 
 let create_first_master_value m l =
   let c = Vm (m, l) in
   create_first_value c
 
-let create_master_value tlog_coll m l =
+let create_master_value tlog_coll i m l =
   let c = Vm (m, l) in
-  create_value tlog_coll c
+  create_value tlog_coll i c
+
+let validate tlog_coll i (cs, c) = (cs = checksum tlog_coll i c)
 
 let is_master_set = function
   | (_, Vc _) -> false
@@ -119,13 +130,13 @@ let is_synced = function
   | (_, Vm _) -> false
 
 let clear_self_master_set me v = match v with
-  | (cs, Vm (m, _)) -> if m = me then (cs, Vm (m, 0.0)) else v
+  | (_, Vm (m, _)) -> if m = me then create_master_value_nocheck m 0.0 else v
   | (_, Vc _) -> v
 
 let fill_if_master_set = function
-  | (cs, Vm (m, _)) ->
+  | (_, Vm (m, _)) ->
     let now = Unix.gettimeofday () in
-    (cs, Vm (m, now))
+    create_master_value_nocheck m now
   | (_, Vc _) as v -> v
 
 let updates_from_value = function

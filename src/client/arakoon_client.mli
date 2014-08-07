@@ -29,7 +29,7 @@ type change =
   | TestAndSet of key * value option * value option
   | Sequence of change list
 
-type consistency = 
+type consistency =
   | Consistent
   | No_guarantees
   | At_least of Stamp.t
@@ -84,7 +84,7 @@ class type client = object
 
   method nop : unit -> unit Lwt.t
   (** [nop ()] is a paxos no-operation.
-   *)
+  *)
   method confirm: key -> value -> unit Lwt.t
   (** [confirm key value] does nothing if this value was already
       associated to the key, otherwise, it behaves as [set key value]
@@ -117,7 +117,7 @@ class type client = object
       [replace key wanted] assigns the wanted value to the key,
       and returns the previous assignment (if any) for that key.
       If wanted is None, the binding is deleted.
-   *)
+  *)
 
   method ping: string -> string -> string Lwt.t
 

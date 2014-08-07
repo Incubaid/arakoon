@@ -22,6 +22,7 @@ class mem_tlog_collection _name =
 
     val mutable data = []
     val mutable last_entry = (None: Entry.t option)
+    val mutable previous_i_entry = None
 
     method validate_last_tlog () =
       Lwt.return (TlogValidComplete, last_entry, None)
@@ -43,6 +44,11 @@ class mem_tlog_collection _name =
             then
               let v = Entry.v_of entry in
               Some v
+            else
+            if i' = Sn.succ i
+            then match previous_i_entry with
+              | None -> None
+              | Some pie -> Some (Entry.v_of pie)
             else
               None
           end
@@ -73,6 +79,7 @@ class mem_tlog_collection _name =
     method log_value_explicit i (v:Value.t) _sync marker =
       let entry = Entry.make i v 0L marker in
       let () = data <- entry::data in
+      let () = if self # get_last_i () < i then previous_i_entry <- last_entry in
       let () = last_entry <- (Some entry) in
       Lwt.return ()
 

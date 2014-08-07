@@ -414,6 +414,7 @@ class tlc2
     val mutable _inner = inner (* ~ pos in file *)
     val mutable _outer = new_c (* ~ pos in dir *)
     val mutable _previous_entry = last
+    val mutable _previous_i_entry = None (* TODO *)
     val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
     val mutable _compression_thread = None
     val mutable _compressing = false
@@ -526,6 +527,7 @@ class tlc2
                  let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1
              in
              let entry = Entry.make i value p marker in
+             if self # get_last_i () < i then _previous_i_entry <- _previous_entry;
              _previous_entry <- Some entry;
              Index.note entry _index;
              Lwt.return ()
@@ -680,6 +682,11 @@ class tlc2
           else
           if i > pi
           then None
+          else
+          if pi = Sn.succ i
+          then match _previous_i_entry with
+            | None -> None
+            | Some pie -> Some (Entry.v_of pie)
           else (* pi > i *)
             let msg = Printf.sprintf "get_last_value %s > %s can't look back so far"
                         (Sn.string_of pi) (Sn.string_of i)
