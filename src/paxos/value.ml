@@ -36,11 +36,17 @@ let content_to buf = function
       Llio.int64_to buf (Int64.of_float l)
     end
 
-let value_to buf (cs, c) = begin
-  Llio.int_to buf 0x100;
-  Checksum.checksum_to buf cs;
-  content_to buf c
-end
+let value_to buf (cs, c) = 
+  if Checksum.is_none cs
+  then begin
+    Llio.int_to buf 0xff;
+    content_to buf c
+  end
+  else begin
+    Llio.int_to buf 0x100;
+    Checksum.checksum_to buf cs;
+    content_to buf c
+  end
 
 let content_from buf =
   let c = Llio.char_from buf in

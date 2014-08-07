@@ -50,9 +50,11 @@ module Make (Cs : ChecksumType) : C = struct
     | "_" -> None
     | s -> Some (Cs.of_string s)
 
-  let checksum_to = Llio.option_to Cs.checksum_to
+  let checksum_to buf = function
+    | Some cs -> Cs.checksum_to buf cs
+    | None -> failwith "should not happen"
 
-  let checksum_from = Llio.option_from Cs.checksum_from
+  let checksum_from buf = Some (Cs.checksum_from buf)
 
   let calculate s = Some (Cs.calculate s)
 
