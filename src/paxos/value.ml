@@ -73,24 +73,24 @@ let value_from b =
       create_client_value_nocheck [u] synced
     end
 
+let value2s ?(values=false) (cs, c) =
+  let css = Checksum.string_of cs in
+  match c with
+  | Vc (us,synced) ->
+    let uss = Log_extra.list2s (fun u -> Update.update2s u ~values) us in
+    Printf.sprintf "(%s, Vc (%s,%b)" css uss synced
+  | Vm (m,l) -> Printf.sprintf "(%s, Vm (%s,%f))" css m l
+
 let _string_of_content c =
   let buf = Buffer.create 64 in
   let () = content_to buf c in
   Buffer.contents buf
 
-(*
-let checksum tlog_coll c =
-  let s = _string_of_content c in
-  match tlog_coll # get_last () with
-  | None -> Checksum.calculate s
-  | Some ((pcs, _), _) -> Checksum.update pcs s
-*)
-
 let checksum tlog_coll i c =
   let s = _string_of_content c in
   match tlog_coll # get_last_value (Sn.pred i) with
   | None -> Checksum.calculate s
-  | Some (pcs, _) -> Checksum.update pcs s
+  | Some ((pcs, _) as pv) -> Checksum.update pcs s
 
 let create_first_value c =
   let s = _string_of_content c in
@@ -143,11 +143,3 @@ let updates_from_value = function
   | (_, Vc (us,_)) -> us
   | (_, Vm (m,l)) -> [Update.MasterSet(m,l)]
 
-
-let value2s ?(values=false) (cs, c) =
-  let css = Checksum.string_of cs in
-  match c with
-  | Vc (us,synced) ->
-    let uss = Log_extra.list2s (fun u -> Update.update2s u ~values) us in
-    Printf.sprintf "(%s, Vc (%s,%b)" css uss synced
-  | Vm (m,l) -> Printf.sprintf "(%s, Vm (%s,%f))" css m l
