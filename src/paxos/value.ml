@@ -24,10 +24,6 @@ type content =
 
 type t = Checksum.t * content
 
-let create_client_value_nocheck us synced = (Checksum.zero, Vc (us, synced))
-
-let create_master_value_nocheck m l = (Checksum.zero, Vm (m, l))
-
 let content_to buf = function
   | Vc (us,synced) -> begin
       Llio.char_to buf 'c';
@@ -41,37 +37,41 @@ let content_to buf = function
     end
 
 let value_to buf (cs, c) = begin
-  Llio.int_to buf 0xff;
+  Llio.int_to buf 0x100;
   Checksum.checksum_to buf cs;
   content_to buf c
 end
 
-let value_from b =
-  let pos = Llio.buffer_pos b in
-  let i0 = Llio.int_from b in
-  if i0 = 0xff
-  then
-    let cs = Checksum.checksum_from b in
-    let c = Llio.char_from b in
-    match c with
-      | 'c' ->
-        let synced = Llio.bool_from b  in
-        let us     = Llio.list_from b Update.from_buffer in
-        (cs, Vc (us, synced))
-      | 'm' ->
-        let m = Llio.string_from b in
-        let l = Llio.int64_from b in
-        (cs, Vm (m, Int64.to_float l))
-      | _ -> failwith "demarshalling error"
-  else
-    begin
-      (* this is for backward compatibility:
-         formerly, we logged updates iso values *)
-      let () = Llio.buffer_set_pos b pos in
-      let u = Update.from_buffer b in
-      let synced = Update.is_synced u in
-      create_client_value_nocheck [u] synced
-    end
+let content_from buf =
+  let c = Llio.char_from buf in
+  match c with
+  | 'c' ->
+    let synced = Llio.bool_from buf  in
+    let us     = Llio.list_from buf Update.from_buffer in
+    Vc (us, synced)
+  | 'm' ->
+    let m = Llio.string_from buf in
+    let l = Llio.int64_from buf in
+    Vm (m, Int64.to_float l)
+  | _ -> failwith "demarshalling error"
+
+let value_from buf =
+  let pos = Llio.buffer_pos buf in
+  match Llio.int_from buf with
+  | 0x100 ->
+    let cs = Checksum.checksum_from buf in
+    (cs, content_from buf)
+  | 0xff ->
+    let cs = Checksum.none in
+    (cs, content_from buf)
+  | _ ->
+    (* this is for backward compatibility:
+       formerly, we logged updates iso values *)
+    let () = Llio.buffer_set_pos buf pos in
+    let cs = Checksum.none in
+    let u = Update.from_buffer buf in
+    let synced = Update.is_synced u in
+    (cs, Vc ([u], synced))
 
 let value2s ?(values=false) (cs, c) =
   let css = Checksum.string_of cs in
@@ -91,6 +91,10 @@ let checksum tlog_coll i c =
   match tlog_coll # get_last_value (Sn.pred i) with
   | None -> Checksum.calculate s
   | Some (pcs, _) -> Checksum.update pcs s
+
+let create_client_value_nocheck us synced = (Checksum.none, Vc (us, synced))
+
+let create_master_value_nocheck m l = (Checksum.none, Vm (m, l))
 
 let create_first_value c =
   let s = _string_of_content c in
@@ -115,7 +119,9 @@ let create_master_value tlog_coll i m l =
   let c = Vm (m, l) in
   create_value tlog_coll i c
 
-let validate tlog_coll i (cs, c) = (cs = checksum tlog_coll i c)
+let validate tlog_coll i (cs, c) =
+  if Checksum.is_none cs then true
+  else (cs = checksum tlog_coll i c)
 
 let is_master_set = function
   | (_, Vc _) -> false

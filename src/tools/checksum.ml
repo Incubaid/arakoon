@@ -14,10 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-module type CS = sig
+module type ChecksumType = sig
   type t
-
-  val zero : t
 
   val string_of : t -> string
   val of_string : string -> t
@@ -28,10 +26,44 @@ module type CS = sig
   val update : t -> string -> t
 end
 
-module Crc32 : CS = struct
-  type t = int32
+module type C = sig
+  include ChecksumType
 
-  let zero = Int32.zero
+  val none : t
+  val is_none : t -> bool
+end
+
+module Make (Cs : ChecksumType) : C = struct
+  type t = Cs.t option
+
+  let none = None
+
+  let is_none = function
+    | None -> true
+    | Some _ -> false
+
+  let string_of = function
+    | None -> "_"
+    | Some cs -> Cs.string_of cs
+
+  let of_string = function
+    | "_" -> None
+    | s -> Some (Cs.of_string s)
+
+  let checksum_to = Llio.option_to Cs.checksum_to
+
+  let checksum_from = Llio.option_from Cs.checksum_from
+
+  let calculate s = Some (Cs.calculate s)
+
+  let update cs s =
+    match cs with
+    | None -> calculate s
+    | Some cs -> Some (Cs.update cs s)
+end
+
+module Crc32 : ChecksumType = struct
+  type t = int32
 
   let string_of = Printf.sprintf "%lx"
   let of_string s = Scanf.sscanf s "%lx" (fun x -> x)
@@ -42,10 +74,8 @@ module Crc32 : CS = struct
   let update cs s = Crc32c.update_crc32c cs s 0 (String.length s)
 end
 
-module Md5 : CS = struct
+module Md5 : ChecksumType = struct
   type t = Digest.t
-
-  let zero = String.make 16 (Char.chr 0)
 
   let string_of = Digest.to_hex
   let of_string = Digest.from_hex
@@ -56,4 +86,4 @@ module Md5 : CS = struct
   let update cs s = Digest.string (cs ^ Digest.string s)
 end
 
-include Crc32
+include Make (Crc32)
