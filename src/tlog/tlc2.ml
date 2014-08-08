@@ -414,7 +414,7 @@ class tlc2
     val mutable _inner = inner (* ~ pos in file *)
     val mutable _outer = new_c (* ~ pos in dir *)
     val mutable _previous_entry = last
-    val mutable _previous_i_entry = None (* TODO *)
+    val mutable _previous_i_entry = last
     val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
     val mutable _compression_thread = None
     val mutable _compressing = false
