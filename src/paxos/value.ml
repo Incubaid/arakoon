@@ -24,6 +24,8 @@ type content =
 
 type t = Checksum.t * content
 
+exception ValueCheckSumError of Sn.t * t
+
 let content_to buf = function
   | Vc (us,synced) -> begin
       Llio.char_to buf 'c';

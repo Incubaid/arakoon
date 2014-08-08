@@ -23,8 +23,6 @@ open Master_type
 open Client_cfg
 open Statistics
 
-exception ChecksumError
-
 let section = Logger.Section.main
 
 let _split node_name cfgs =
@@ -330,7 +328,6 @@ module X = struct
     end
 
   let on_accept statistics (tlog_coll:Tlogcollection.tlog_collection) (v,n,i) =
-    if not (Value.validate tlog_coll i v) then raise ChecksumError else
     let t0 = Unix.gettimeofday () in
     Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i)
     >>= fun () ->
