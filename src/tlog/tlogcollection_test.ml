@@ -249,6 +249,29 @@ let test_validate_corrupt_1 (dn, tlf_dir, factory) =
   >>= fun () ->
   Lwt.return ()
 
+let test_checksum (dn, tlf_dir, factory) =
+  Logger.info_f_ "test_checksum  %s, %s" dn tlf_dir >>= fun () ->
+  factory dn "node_name" >>= fun (tlc:tlog_collection) ->
+  let value = _make_set_v "XXX" "X" in
+  _log_repeat tlc value 10 >>= fun () ->
+  let value = Value.create_client_value tlc 9L [Update.Set ("XXX", "XX")] false in
+  Lwt.catch
+    (fun () ->
+       tlc # log_value 10L value >>= fun () ->
+       OUnit.assert_bool "the checksum should be wrong" false;
+       Lwt.return ()
+    )
+    (function
+      | Value.ValueCheckSumError _ -> Lwt.return ()
+      | exn ->
+        let () = raise exn in
+        let msg = Printf.sprintf "it threw the wrong exception %s" "?" in
+        OUnit.assert_bool msg false;
+        Lwt.return ()
+    )
+  >>= fun() ->
+  Lwt.return ()
+
 let wrap factory test (name:string) = lwt_bracket (setup factory name) test teardown
 
 let create_test_tlc dn = Mem_tlogcollection.make_mem_tlog_collection dn None None ~fsync:false ~fsync_tlog_dir:false
@@ -257,6 +280,7 @@ let wrap_memory name = wrap create_test_tlc name
 
 let suite_mem = "mem_tlogcollection" >::: [
     "rollover" >:: wrap_memory test_rollover "rollover";
+    "checksum" >:: wrap_memory test_checksum "checksum";
     (* "get_value_bug" >:: wrap_memory test_get_value_bug;
         (* assumption that different tlog_collections with the same name have the same state *)
     *)

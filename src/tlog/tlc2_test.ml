@@ -297,6 +297,7 @@ let suite = "tlc2" >:::
                   ("test_iterate6", test_iterate6);
                   ("validate",  Tlogcollection_test.test_validate_normal);
                   ("validate_corrupt", Tlogcollection_test.test_validate_corrupt_1);
+                  ("test_checksum", Tlogcollection_test.test_checksum);
                   ("test_rollover_1002", Tlogcollection_test.test_rollover_1002);
                   ("test_rollover_boundary", test_validate_at_rollover_boundary);
                   ("test_interrupted_rollover", test_interrupted_rollover);
