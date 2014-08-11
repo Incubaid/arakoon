@@ -13,6 +13,11 @@ type change =
   | TestAndSet of key * value option * value option
   | Sequence of change list
 
+type consistency =
+  | Consistent
+  | No_guarantees
+  | At_least of Stamp.t
+
 class type client = object
 
   (** Tests presence of a value for particular key *)
@@ -59,6 +64,11 @@ method rev_range_entries:
 
   method set: key -> value -> unit Lwt.t
 
+  method get_txid: unit -> consistency Lwt.t
+
+  method nop : unit -> unit Lwt.t
+  (** [nop ()] is a paxos no-operation.
+   *)
   method confirm: key -> value -> unit Lwt.t
   (** [confirm key value] does nothing if this value was already
       associated to the key, otherwise, it behaves as [set key value]

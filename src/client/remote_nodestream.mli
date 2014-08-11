@@ -31,5 +31,6 @@ class type nodestream = object
   
 end
 
-val make_remote_nodestream : 
-  string -> Lwt_io.input_channel * Lwt_io.output_channel -> nodestream Lwt.t
+val make_remote_nodestream :
+  ?skip_prologue : bool -> string ->
+  Lwt_io.input_channel * Lwt_io.output_channel -> nodestream Lwt.t

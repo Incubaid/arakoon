@@ -319,6 +319,23 @@ class ArakoonClient :
         conn = self._sendToMaster ( ArakoonProtocol.encodeSet( key, value ) )
         conn.decodeVoidResult()
 
+    @retryDuringMasterReelection
+    def nop(self):
+        """
+        does a paxos nop (reaches consensus)
+        """
+        conn = self._sendToMaster(ArakoonProtocol.encodeNOP())
+        conn.decodeVoidResult()
+
+    @retryDuringMasterReelection
+    def get_txid(self):
+        """
+        returns the current transaction id for later usage
+        """
+        conn = self._sendToMaster(ArakoonProtocol.encodeGetTxid())
+        result = conn.decodeGetTxidResult()
+        return result
+
     @utils.update_argspec('self', 'key', 'value')
     @retryDuringMasterReelection
     @SignatureValidator('string','string')

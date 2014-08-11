@@ -26,6 +26,7 @@ open Update
 open Routing
 open Client_cfg
 open Ncfg
+open Arakoon_client
 
 let _MAGIC = 0xb1ff0000l
 let _MASK  = 0x0000ffffl
@@ -80,6 +81,8 @@ type client_command =
   | DROP_MASTER
   | MULTI_GET_OPTION
   | CURRENT_STATE
+  | NOP
+  | GET_TXID
 
 
 let code2int = [
@@ -124,6 +127,8 @@ let code2int = [
   MULTI_GET_OPTION        , 0x31l;
   CURRENT_STATE           , 0x32l;
   LAST_ENTRIES2           , 0x40l;
+  NOP                     , 0x41l;
+  GET_TXID                , 0x43l;
 ]
 
 let int2code =
@@ -183,6 +188,29 @@ let response ic f =
       Llio.input_string ic >>= fun msg ->
       let rc = Arakoon_exc.rc_of_int32 rc32 in
       Lwt.fail (Arakoon_exc.Exception (rc, msg))
+
+let consistency_to buffer = function
+  | Consistent    -> Buffer.add_char buffer '\x00'
+  | No_guarantees -> Buffer.add_char buffer '\x01'
+  | At_least s    -> Buffer.add_char buffer '\x02';
+                     Stamp.stamp_to buffer s
+
+let input_consistency ic =
+  Lwt_io.read_char ic >>=
+    function
+    | '\x00' -> Lwt.return Consistent
+    | '\x01' -> Lwt.return No_guarantees
+    | '\x02' -> Stamp.input_stamp ic >>= fun s -> Lwt.return (At_least s)
+    |  c     -> failwith (Printf.sprintf "%C is not a consistency" c)
+let output_consistency oc c =
+  let b = Buffer.create 10 in
+  consistency_to b c;
+  Lwt_io.write oc (Buffer.contents b)
+
+let consistency2s = function
+  | Consistent -> "Consistent"
+  | No_guarantees -> "No_guarantees"
+  | At_least s -> Printf.sprintf "(At_least %s)" (Stamp.to_s s)
 
 let exists_to buffer ~allow_dirty key =
   command_to buffer EXISTS;
@@ -309,6 +337,14 @@ let who_master (ic,oc) =
 let set (ic,oc) key value =
   request  oc (fun buf -> set_to buf key value) >>= fun () ->
   response ic nothing
+
+let nop (ic,oc) =
+  request oc (fun buf -> command_to buf NOP) >>= fun () ->
+  response ic nothing
+
+let get_txid(ic,oc) =
+  request oc (fun buf -> command_to buf GET_TXID) >>= fun () ->
+  response ic input_consistency
 
 let get (ic,oc) ~allow_dirty key =
   request  oc (fun buf -> get_to ~allow_dirty buf key) >>= fun () ->

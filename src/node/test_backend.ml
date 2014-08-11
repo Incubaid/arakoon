@@ -336,4 +336,8 @@ class test_backend my_name = object(self:#backend)
     Lwt.return ()
 
   method get_current_state () = Lwt.return "test_backend"
+  method nop () =
+    failwith "nop not implemented in testbackend"
+  method get_txid () =
+    failwith "get_txid not implemented in testbackend"
 end
