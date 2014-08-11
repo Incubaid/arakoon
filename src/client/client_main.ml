@@ -193,13 +193,12 @@ let find_master' ~tls cluster_cfg =
     end
     | (cfg :: rest) -> begin
         Logger.debug_f_ "Client_main.find_master': Trying %S" cfg.node_name >>= fun () ->
-        let addrs = List.map (fun ip -> make_address ip cfg.client_port) cfg.ips in
         Lwt.catch
           (fun () ->
-            with_connection' ~tls addrs
-              (fun _ connection ->
-                Arakoon_remote_client.make_remote_client
-                  cluster_cfg.cluster_id connection >>= fun client ->
+            with_client
+              ~tls
+              cfg cluster_cfg.cluster_id
+              (fun client ->
                 client # who_master ()) >>= function
                 | None -> begin
                     Logger.debug_f_
