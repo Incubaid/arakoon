@@ -180,7 +180,7 @@ let promises_check_done constants state () =
   let bv,bf =
   begin
     match v_s with
-      | [] ->  (Value.create_master_value (me, 0.), 0)
+      | [] ->  (Value.create_master_value me, 0)
       | hd::_tl -> hd
   end in
   let nnodes = List.length constants.others + 1 in
@@ -903,7 +903,7 @@ let _execute_effects constants e =
 
 (* the entry methods *)
 
-let enter_forced_slave constants buffers new_i _vo=
+let enter_forced_slave ?(stop = ref false) constants buffers new_i _vo=
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_slave." me >>= fun () ->
   let trace = trace_transition in
@@ -912,7 +912,7 @@ let enter_forced_slave constants buffers new_i _vo=
 
   Lwt.catch
     (fun () ->
-      Fsm.loop ~trace
+      Fsm.loop ~trace ~stop
         (_execute_effects constants)
         produce
 	(machine constants) (Slave.slave_fake_prepare constants (new_i,new_n))
@@ -922,7 +922,7 @@ let enter_forced_slave constants buffers new_i _vo=
       >>= fun () -> Lwt.fail exn
     )
 
-let enter_forced_master constants buffers current_i _vo =
+let enter_forced_master ?(stop = ref false) constants buffers current_i _vo =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_master." me >>= fun () ->
   let current_n = 0L in
@@ -930,7 +930,7 @@ let enter_forced_master constants buffers current_i _vo =
   let produce = paxos_produce buffers constants in
   Lwt.catch
     (fun () ->
-      Fsm.loop ~trace
+      Fsm.loop ~trace ~stop
         (_execute_effects constants)
         produce
 	    (machine constants)
@@ -941,7 +941,7 @@ let enter_forced_master constants buffers current_i _vo =
       >>= fun () -> Lwt.fail e
     )
 
-let enter_simple_paxos (type s) constants buffers current_i vo =
+let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i vo =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
   let current_n = Sn.start in
@@ -956,7 +956,7 @@ let enter_simple_paxos (type s) constants buffers current_i vo =
   let run start_state =
     Lwt.catch
       (fun () ->
-         Fsm.loop ~trace
+         Fsm.loop ~trace ~stop
            (_execute_effects constants)
            produce
            (machine constants)
@@ -980,7 +980,7 @@ let enter_simple_paxos (type s) constants buffers current_i vo =
       run (election_suggest constants (current_n, current_i, vo))
     end
 
-let enter_read_only constants buffers current_i vo =
+let enter_read_only ?(stop = ref false) constants buffers current_i vo =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for read_only." me >>= fun () ->
   let current_n = 0L in
@@ -988,7 +988,7 @@ let enter_read_only constants buffers current_i vo =
   let produce = paxos_produce buffers constants in
   Lwt.catch
     (fun () ->
-      Fsm.loop ~trace
+      Fsm.loop ~trace ~stop
         (_execute_effects constants)
         produce
 	    (machine constants)

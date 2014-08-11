@@ -219,16 +219,16 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~name ~cluste
 
 module X = struct
       (* Need to find a name for this:
-	 the idea is to lift stuff out of _main_2
+         the idea is to lift stuff out of _main_2
       *)
 
   let last_master_log_stmt = ref 0L
 
-  let on_consensus (type s) (module S : Store.STORE with type t = s) store vni =
+  let on_consensus me (type s) (module S : Store.STORE with type t = s) store vni =
     let (v,n,i) = vni in
     begin
       let t0 = Unix.gettimeofday() in
-      let v' = Value.fill_if_master_set v in
+      let v' = Value.fill_other_master_set me v in
       let vni' = v',n,i in
       begin
         match v' with
@@ -251,7 +251,7 @@ module X = struct
                 Lwt.return ()
           | _ -> Lwt.return ()
       end >>= fun () ->
-	  S.on_consensus store vni' >>= fun r ->
+      S.on_consensus store vni' >>= fun r ->
       let t1 = Unix.gettimeofday () in
       let d = t1 -. t0 in
       Logger.debug_f_ "T:on_consensus took: %f" d  >>= fun () ->
@@ -297,7 +297,7 @@ end
 let _main_2 (type s)
     (module S : Store.STORE with type t = s)
     make_tlog_coll make_config get_snapshot_name ~name
-    ~daemonize ~catchup_only : int Lwt.t =
+    ~daemonize ~catchup_only ~stop : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
   let control  = {
     minor_heap_size = 32 * 1024;
@@ -418,7 +418,6 @@ let _main_2 (type s)
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
-      let stop = ref false in
       let messaging  = _config_messaging me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size ~stop in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       Lwt_list.iter_s (fun m -> Logger.info_f_ "other: %s" m)
@@ -567,7 +566,7 @@ let _main_2 (type s)
               in
               start_preferred_master_loop stop;
 
-	      let on_consensus = X.on_consensus (module S) store in
+	      let on_consensus = X.on_consensus my_name (module S) store in
 	      let on_witness (name:string) (i: Sn.t) = backend # witness name i in
 	      let last_witnessed (name:string) = backend # last_witnessed name in
           let statistics = backend # get_statistics () in
@@ -648,7 +647,7 @@ let _main_2 (type s)
 		        end
 	        | _ -> Multi_paxos_fsm.enter_simple_paxos
 	    in
-        to_run constants buffers new_i vo
+        to_run ~stop constants buffers new_i vo
       in
       (*_maybe_daemonize daemonize me make_config >>= fun _ ->*)
       Lwt.catch
@@ -705,19 +704,28 @@ let _main_2 (type s)
             (Lwt_unix.sleep 2.0 >>= fun () ->
              Logger.warning_ "timeout (2.0s) while waiting for threads to finish") ] >>= fun () ->
           let count_thread m =
+            let stop = ref false in
             let rec inner i =
-              Logger.info_f_ m i >>= fun () ->
-              Lwt_unix.sleep 1.0 >>= fun () ->
-              inner (succ i) in
-            inner 0 in
+              if !stop
+              then
+                Lwt.return ()
+              else
+                Logger.info_f_ m i >>= fun () ->
+                Lwt_unix.sleep 1.0 >>= fun () ->
+                inner (succ i) in
+            inner 0, stop in
+          let count_close_store, stop = count_thread "Closing store (%is)" in
           Lwt.pick [ S.close ~flush:false ~sync:true store ;
-                     count_thread "Closing store (%is)" ] >>= fun () ->
+                     count_close_store ] >>= fun () ->
+          stop := true;
           Logger.fatal_f_
             ">>> Closing the store @ %S succeeded: everything seems OK <<<"
             (S.get_location store) >>= fun () ->
+          let count_close_tlogcoll, stop = count_thread "Closing tlog (%is)" in
           Lwt.pick [ constants.Multi_paxos.tlog_coll # close () ;
-                     count_thread "Closing tlog (%is)" ]
+                     count_close_tlogcoll ]
           >>= fun () ->
+          stop := true;
           Logger.info_ "Completed shutdown"
           >>= fun () ->
           Lwt.return 0
@@ -780,12 +788,12 @@ let main_t make_config name daemonize catchup_only : int Lwt.t =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop:(ref false)
 
-let test_t make_config name =
+let test_t make_config name ~stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
   let make_tlog_coll = fun a b _ d -> Mem_tlogcollection.make_mem_tlog_collection a b d in
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false
   and catchup_only = false in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop
