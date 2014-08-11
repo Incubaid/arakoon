@@ -470,7 +470,9 @@ let disk_failure () =
   let t_previous_master = run_previous_master () >>= function
     | 51 -> Lwt.return ()
     | 0 -> Lwt.return (OUnit.assert_bool "the node should fail" false)
-    | _ -> Lwt.return (OUnit.assert_bool "it threw the wrong exception" false) in
+    | rc ->
+      let msg = Printf.sprintf "it threw the wrong exception: %i" rc in
+      Lwt.return (OUnit.assert_bool msg false) in
   Lwt.ignore_result t_previous_master;
   (* allow previous master to catch up with the others *)
   Lwt_unix.sleep 1. >>= fun () ->
