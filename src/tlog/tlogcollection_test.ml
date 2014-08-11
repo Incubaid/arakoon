@@ -264,7 +264,7 @@ let test_checksum (dn, tlf_dir, factory) =
     (function
       | Value.ValueCheckSumError _ -> Lwt.return ()
       | exn ->
-        let () = raise exn in
+        let () = ignore exn in
         let msg = Printf.sprintf "it threw the wrong exception %s" "?" in
         OUnit.assert_bool msg false;
         Lwt.return ()

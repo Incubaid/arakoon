@@ -895,6 +895,11 @@ let _main_2 (type s)
             let rc = 50 in
             Logger.fatal_f_ "[rc=%i] Somebody has been messing with the available tlogs" rc >>= fun () ->
             Lwt.return rc
+          | Value.ValueCheckSumError (i, value) ->
+            let rc = 51 in
+            Logger.fatal_f_ "[rc=%i] Value has a checksum error: sn=%s, value=%s"
+              rc (Sn.string_of i) (Value.value2s value) >>= fun () ->
+            Lwt.return rc
           | exn ->
             begin
               Logger.fatal_ ~exn "going down" >>= fun () ->

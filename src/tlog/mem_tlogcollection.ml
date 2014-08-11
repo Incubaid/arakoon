@@ -17,6 +17,7 @@ limitations under the License.
 open Tlogcollection
 open Tlogcommon
 
+
 class mem_tlog_collection _name =
   object (self: #tlog_collection)
 

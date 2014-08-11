@@ -507,7 +507,7 @@ class tlc2
 
 
     method log_value_explicit i value sync marker =
-      if not (Value.validate self i value) then Lwt.fail(Value.ValueCheckSumError (i, value)) else
+      if not (Value.validate self i value) then Lwt.fail (Value.ValueCheckSumError (i, value)) else
       Lwt_mutex.with_lock _write_lock
         (fun () ->
            begin
