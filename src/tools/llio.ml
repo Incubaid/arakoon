@@ -29,11 +29,11 @@ type namedValue =
   | NAMED_VALUELIST of string * (namedValue list)
 
 let named_value_info = function
-  | NAMED_INT       (n, i) -> n, 1
-  | NAMED_INT64     (n, i) -> n, 2
-  | NAMED_FLOAT     (n, f) -> n, 3
-  | NAMED_STRING    (n, s) -> n, 4
-  | NAMED_VALUELIST (n, l) -> n, 5
+  | NAMED_INT       (n, _i) -> n, 1
+  | NAMED_INT64     (n, _i) -> n, 2
+  | NAMED_FLOAT     (n, _f) -> n, 3
+  | NAMED_STRING    (n, _s) -> n, 4
+  | NAMED_VALUELIST (n, _l) -> n, 5
 
 let lwt_failfmt fmt =
   let k x = Lwt.fail (Failure x) in

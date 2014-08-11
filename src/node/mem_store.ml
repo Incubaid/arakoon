@@ -103,50 +103,57 @@ let delete_prefix ms tx prefix =
       (fun cur ->
        CS.fold_range cur prefix true (next_prefix prefix) false
                      (-1)
-                     (fun cur k _ () ->
+                     (fun _ k _ () ->
                       put ms tx k None)
                      ()) in
   count
 
 
 let range ms first finc last linc max =
-  let count, keys =
+  let _count, keys =
     with_cursor
       ms
       (fun cur ->
        CS.fold_range cur
                      first finc last linc
                      max
-                     (fun cur k _ acc ->
+                     (fun _ k _ acc ->
                       k :: acc)
                      []) in
   Array.of_list keys
 
-let optimize ms ~quiesced ~stop = Lwt.return true
+let optimize _ms ~quiesced ~stop =
+    let () = ignore quiesced in
+    let () = ignore stop in
+    Lwt.return true
+let defrag_condition = (Lwt_condition.create () : unit Lwt_condition.t)
+let defrag _ms = Lwt_condition.wait defrag_condition
 
-let defrag ms = Lwt.return ()
+let flush _ms = Lwt.return ()
+let close _ms ~flush ~sync =
+  ignore flush;
+  ignore sync;
+  Lwt.return ()
 
-let flush ms = Lwt.return ()
-let close ms flush = Lwt.return ()
-
-let reopen ms when_closed quiesced = Lwt.return ()
+let reopen _ms _when_closed _quiesced = Lwt.return ()
 
 let get_location ms = ms.name
 
 let get_key_count ms =
-  let inc key value size =
+  let inc _key _value size =
     Int64.succ size
   in
   StringMap.fold inc ms.kv 0L
 
-let copy_store2 old_location new_location overwrite = Lwt.return ()
+let copy_store2 _old_location _new_location _overwrite = Lwt.return ()
+let relocate _new_location = failwith "Memstore.relocation not implemented"
 
-let relocate new_location = failwith "Memstore.relocation not implemented"
-
-let make_store ~lcnum ~ncnum read_only db_name =
+let make_store ~lcnum ~ncnum _read_only db_name =
+  let () = ignore lcnum in
+  let () = ignore ncnum in
   Lwt.return { kv = StringMap.empty;
                _tx = None;
                name = db_name; }
 
-let copy_store old_location new_location overwrite =
+let copy_store _old_location _new_location _overwrite =
   Lwt.return ()

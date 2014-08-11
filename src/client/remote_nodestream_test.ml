@@ -16,8 +16,8 @@ limitations under the License.
 
 open Lwt
 open OUnit
-open Node_cfg
 open Remote_nodestream
+open Node_cfg
 open Arakoon_remote_client
 open Routing
 open Interval

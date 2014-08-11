@@ -45,8 +45,8 @@ let __j_key = "*j"
 let __interval_key = "*interval"
 let __routing_key = "*routing"
 let __master_key  = "*master"
-let __lease_key = "*lease"
-let __lease_key2 = "*lease2"
+(* let __lease_key = "*lease" *)
+(* let __lease_key2 = "*lease2" *)
 let __prefix = "@"
 let __prefix_successor =
   match next_prefix __prefix with
@@ -188,7 +188,7 @@ module type Simple_store = sig
               int -> string array
 
   val flush: t -> unit Lwt.t
-  val close: t -> bool -> unit Lwt.t
+  val close: t -> flush:bool -> sync:bool -> unit Lwt.t
   val reopen: t -> (unit -> unit Lwt.t) -> bool -> unit Lwt.t
   val make_store: lcnum:int -> ncnum:int -> bool -> string -> t Lwt.t
 

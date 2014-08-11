@@ -14,9 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
+(** Binding to C library calls to retrieve TCP socket information *)
+
 type u_int8_t = int
 type u_int32_t = int
 
+(** Record of TCP socket information
+
+This represents a {i struct tcp_info } value. *)
 type t = { state : u_int8_t
          ; ca_state : u_int8_t
          ; retransmits : u_int8_t
@@ -57,13 +62,46 @@ type t = { state : u_int8_t
          ; total_retrans : u_int32_t
          }
 
+(** Create a {! string } representation of a {! t } *)
 let to_string t =
-  Printf.sprintf "{ state=%d; ca_state=%d; retransmits=%d; probes=%d; backoff=%d; options=%d; snd_wscale=%d; rcv_wscale=%d; rto=%d; ato=%d; snd_mss=%d; rcv_mss=%d; unacked=%d; sacked=%d; lost=%d; retrans=%d; fackets=%d; last_data_sent=%d; last_ack_sent=%d; last_data_recv=%d; last_ack_recv=%d; pmtu=%d; rcv_ssthresh=%d; rtt=%d; rttvar=%d; snd_ssthresh=%d; snd_cwnd=%d; advmss=%d; reordering=%d; rcv_rtt=%d; rcv_space=%d; total_retrans=%d; }"
-    t.state t.ca_state t.retransmits t.probes t.backoff t.options t.snd_wscale
-    t.rcv_wscale t.rto t.ato t.snd_mss t.rcv_mss t.unacked t.sacked t.lost
-    t.retrans t.fackets t.last_data_sent t.last_ack_sent t.last_data_recv
-    t.last_ack_recv t.pmtu t.rcv_ssthresh t.rtt t.rttvar t.snd_ssthresh
-    t.snd_cwnd t.advmss t.reordering t.rcv_rtt t.rcv_space t.total_retrans
+  let open To_string in
+  record [ "state", int t.state
+         ; "ca_state", int t.ca_state
+         ; "retransmits", int t.retransmits
+         ; "probes", int t.probes
+         ; "backoff", int t.backoff
+         ; "options", int t.options
+         ; "snd_wscale", int t.snd_wscale
+         ; "rcv_wscale", int t.rcv_wscale
+         ; "rto", int t.rto
+         ; "ato", int t.ato
+         ; "snd_mss", int t.snd_mss
+         ; "rcv_mss", int t.rcv_mss
+         ; "unacked", int t.unacked
+         ; "sacked", int t.sacked
+         ; "lost", int t.lost
+         ; "retrans", int t.retrans
+         ; "fackets", int t.fackets
+         ; "last_data_sent", int t.last_data_sent
+         ; "last_ack_sent", int t.last_ack_sent
+         ; "last_data_recv", int t.last_data_recv
+         ; "last_ack_recv", int t.last_ack_recv
+         ; "pmtu", int t.pmtu
+         ; "rcv_ssthresh", int t.rcv_ssthresh
+         ; "rtt", int t.rtt
+         ; "rttvar", int t.rttvar
+         ; "snd_ssthresh", int t.snd_ssthresh
+         ; "snd_cwnd", int t.snd_cwnd
+         ; "advmss", int t.advmss
+         ; "reordering", int t.reordering
+         ; "rcv_rtt", int t.rcv_rtt
+         ; "rcv_space", int t.rcv_space
+         ; "total_retrans", int t.total_retrans
+         ]
 
 type socket = Unix.file_descr
+
+(** Retrieve TCP connection information from a {! socket }
+
+This uses {i getsockopt } with {i SOL_TCP } and {i TCP_INFO } underneath. *)
 external tcp_info : socket -> t = "arakoon_tcp_info"

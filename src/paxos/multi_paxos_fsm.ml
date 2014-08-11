@@ -17,7 +17,6 @@ limitations under the License.
 open Lwt
 open Mp_msg
 open MPMessage
-
 open Lwt_buffer
 open Fsm
 open Multi_paxos_type
@@ -37,12 +36,12 @@ let election_suggest (type s) constants (n, counter) () =
         (1,[]) , "None"
       | Some x -> (0,[(x,1)]) , "Some _"
   in
-  Logger.debug_f_ "%s: election_suggest: n=%s i=%s %s" me  (Sn.string_of n) (Sn.string_of i) msg >>= fun () ->
+  Logger.info_f_ "%s: election_suggest: n=%s i=%s %s" me  (Sn.string_of n) (Sn.string_of i) msg >>= fun () ->
   start_election_timeout constants n i >>= fun () ->
   let delay =
     match constants.master with
       | Preferred ps when not (List.mem me ps) -> 1 + (constants.lease_expiration /2) - counter
-      | _ -> 0
+      | Elected | ReadOnly |Forced _ |Preferred _ -> 0
   in
   let df = float delay in
   Lwt.ignore_result
@@ -73,11 +72,7 @@ let promises_check_done constants state () =
     begin
       match v_s with
         | [] ->  Value.create_master_value (me, 0.0), 0
-        | hd::_ ->
-          let bv, bf = hd in
-          if Value.is_master_set bv
-          then Value.create_master_value (me, 0.0), bf
-          else bv, bf
+        | hd::_ -> hd
     end in
   let nnodes = List.length constants.others + 1 in
   let needed = constants.quorum_function nnodes in
@@ -85,7 +80,7 @@ let promises_check_done constants state () =
   if bf + nnones = needed
   then
     begin
-      Logger.debug_f_ "%s: promises_check_done: consensus on %s" me (Sn.string_of i)
+      Logger.info_f_ "%s: promises_check_done: consensus on %s" me (Sn.string_of i)
       >>= fun () ->
       push_value constants bv n i >>= fun () ->
       let new_ballot = (needed-1 , [me] ) in
@@ -125,7 +120,6 @@ let wait_for_promises (type s) constants state event =
     | FromNode (msg,source) ->
       begin
         let who_voted_s = Log_extra.list2s (fun s -> s) who_voted in
-
         let log_e0 =
           ELog(fun () ->
               Printf.sprintf "wait_for_promises:n=%s i=%s who_voted = %s received %s from %s"
@@ -172,13 +166,13 @@ let wait_for_promises (type s) constants state event =
                 let new_n = update_n constants n' in
                 Fsm.return (Election_suggest (new_n, counter + 1))
               end
-            | Nak (n',(n'',i')) when n' < n ->
+            | Nak (n',(_n'',_i')) when n' < n ->
               begin
                 Logger.debug_f_ "%s: wait_for_promises:: received old %S (ignoring)" me (string_of msg)
                 >>= fun () ->
                 Fsm.return (Wait_for_promises state)
               end
-            | Nak (n',(n'',i')) when n' > n ->
+            | Nak (n',(_n'',_i')) when n' > n ->
               begin
                 Logger.debug_f_ "%s: Received Nak from previous incarnation. Bumping n from %s over %s." me
                   (Sn.string_of n) (Sn.string_of n')
@@ -186,7 +180,7 @@ let wait_for_promises (type s) constants state event =
                 let new_n = update_n constants n' in
                 Fsm.return (Election_suggest (new_n, counter + 1))
               end
-            | Nak (n',(n'',i')) -> (* n' = n *)
+            | Nak (_n',(n'',i')) -> (* n' = n *)
               begin
                 Logger.debug_f_ "%s: wait_for_promises:: received %S for my Prep(i=%s, _) " me
                   (string_of msg)
@@ -455,7 +449,7 @@ let wait_for_accepteds
                       end
                   end
               end
-            | Nak (n',i) ->
+            | Nak (_n',_i) ->
               begin
                 Logger.debug_f_ "%s: wait_for_accepted: ignoring %S from %s when collecting accepteds" me
                   (MPMessage.string_of msg) source >>= fun () ->
@@ -466,11 +460,11 @@ let wait_for_accepteds
                 Logger.debug_f_ "%s: wait_for_accepted: ignoring extra Accept %S" me (string_of msg) >>= fun () ->
                 Fsm.return (Wait_for_accepteds state)
               end
-            | Accept (n',i',v') when i' > i || (i' = i && n' > n) ->
+            | Accept (n',i',_v') when i' > i || (i' = i && n' > n) ->
               (* check lease, if we're inside, drop (how could this have happened?)
                  otherwise, we've lost master role
               *)
-              let run_elections, why = Slave.time_for_elections constants in
+              let run_elections, _why = Slave.time_for_elections constants in
               if not run_elections
               then
                 begin
@@ -490,11 +484,13 @@ let wait_for_accepteds
                     Fsm.return (Slave_discovered_other_master new_state)
                   end
                 end
-            | Accept (n',i',_) (* when i' < i || (i' = i && n' < n) *) ->
-              begin
-                Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
-                Fsm.return (Wait_for_accepteds state)
-              end
+            | Accept (n',i',_v) when i' < i || (i' = i && n' < n)  ->
+	          begin
+	            Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
+	            Fsm.return (Wait_for_accepteds state)
+	          end
+            | Accept (n',i',_v') ->
+                paxos_fatal me "Unable to handle unexpected message %S, %s, %s" (string_of msg) (Sn.string_of i') (Sn.string_of n')
         end
       end
     | FromClient _       -> paxos_fatal me "no FromClient should get here"
@@ -518,7 +514,7 @@ let wait_for_accepteds
         else
           begin
             Logger.debug_f_ "%s: going to RESEND Accept messages" me >>= fun () ->
-            let needed, already_voted = ballot in
+            let _needed, already_voted = ballot in
             let msg = Accept(n,i,v) in
             let silent_others = List.filter (fun o -> not (List.mem o already_voted))
                                   constants.others in
@@ -593,11 +589,10 @@ let machine constants =
       (Unit_arg (read_only constants ()), nop)
     | Start_transition -> failwith "Start_transition?"
 
-
 (* Warning: This currently means we have only 1 fsm / executable. *)
 let __state = ref Start_transition
 
-let trace_transition me key =
+let trace_transition key =
   __state := key;
   Lwt.return ()
 and pull_state () = (show_transition !__state)
@@ -623,8 +618,7 @@ let make_buffers (a,b,c,d) = {
   election_timeout_buffer = d;
 }
 
-let paxos_produce buffers
-          constants product_wanted =
+let paxos_produce buffers constants product_wanted =
   let me = constants.me in
   let wmsg = product_wanted_to_string product_wanted in
   let () = match product_wanted with
@@ -743,7 +737,7 @@ let _execute_effects constants e =
 let enter_forced_slave ?(stop = ref false) constants buffers new_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_slave." me >>= fun () ->
-  let trace = trace_transition me in
+  let trace = trace_transition in
   let produce = paxos_produce buffers constants in
   let new_n = update_n constants Sn.start in
 
@@ -760,11 +754,11 @@ let enter_forced_slave ?(stop = ref false) constants buffers new_i =
        >>= fun () -> Lwt.fail exn
     )
 
-let enter_forced_master ?(stop = ref false) constants buffers current_i =
+let enter_forced_master ?(stop = ref false) constants buffers _current_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_master." me >>= fun () ->
   let current_n = update_n constants Sn.start in
-  let trace = trace_transition me in
+  let trace = trace_transition in
   let produce = paxos_produce buffers constants in
   Lwt.catch
     (fun () ->
@@ -782,7 +776,7 @@ let enter_forced_master ?(stop = ref false) constants buffers current_i =
 let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i =
   let me = constants.me in
   let current_n = update_n constants Sn.start in
-  let trace = trace_transition me in
+  let trace = trace_transition in
   let produce = paxos_produce buffers constants in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let other_master = match S.who_master constants.store with
@@ -817,10 +811,10 @@ let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i 
       run (election_suggest constants (current_n, 0))
     end
 
-let enter_read_only constants buffers current_i =
+let enter_read_only constants buffers _current_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for read_only." me >>= fun () ->
-  let trace = trace_transition me in
+  let trace = trace_transition in
   let produce = paxos_produce buffers constants in
   Lwt.catch
     (fun () ->
@@ -850,7 +844,7 @@ let expect_run_forced_slave constants buffers expected step_count new_i =
        >>= fun () -> Lwt.fail e
     )
 
-let expect_run_forced_master constants buffers expected step_count current_n current_i =
+let expect_run_forced_master constants buffers expected step_count current_n _current_i =
   let produce = paxos_produce buffers constants in
   Logger.debug_f_ "%s: +starting forced_master FSM with expect" constants.me >>= fun () ->
   Lwt.catch

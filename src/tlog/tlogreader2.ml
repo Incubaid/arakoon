@@ -77,7 +77,6 @@ module Index = struct
         Printf.sprintf "Some {filename=%S;mapping=%s}" idxr.filename s
 end
 
-
 module type TR = sig
   val fold:
     Lwt_io.input_channel ->
@@ -134,6 +133,7 @@ module U = struct
         ~first
         (a0:'a) (f:'a -> Entry.t -> 'a Lwt.t) =
     ignore first;
+
     let sno2s sno= Log_extra.option2s Sn.string_of sno in
     Logger.debug_f_ "U.fold %s %s ~index:%s" (Sn.string_of lowerI)
       (sno2s too_far_i) (Index.to_string index)
@@ -175,6 +175,7 @@ module C = struct
         ic ~index
         (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f =
     ignore index;
+    let () = ignore index in
     Logger.debug_f_ "C.fold lowerI:%s too_far_i:%s ~first:%s" (Sn.string_of lowerI)
       (Log_extra.option2s Sn.string_of too_far_i)
       (Sn.string_of first)
@@ -284,7 +285,7 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
   let _fold
         ~inflate
         ic ~index (lowerI:Sn.t) (too_far_i:Sn.t option) ~first a0 f =
-    ignore index;
+    let () = ignore index in
     Logger.debug_f_ "O.fold lowerI:%s too_far_i:%s ~first:%s" (Sn.string_of lowerI)
       (Log_extra.option2s Sn.string_of too_far_i)
       (Sn.string_of first)

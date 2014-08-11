@@ -44,7 +44,7 @@ let setup factory test_name () =
               match status with
                 | Unix.WEXITED rc when rc = 0 -> make_dir dir
                 | Unix.WEXITED rc             -> Llio.lwt_failfmt "rm -rf '%s' gave rc %i" dir rc
-                | _                           -> Llio.lwt_failfmt "rm -rf '%s' failed" dir
+                | Unix.WSIGNALED _ | Unix.WSTOPPED _  -> Llio.lwt_failfmt "rm -rf '%s' failed" dir
             end
 
           end
@@ -56,7 +56,7 @@ let setup factory test_name () =
 
 
 
-let teardown (dn, tlf_dir, factory) =
+let teardown (dn, tlf_dir, _factory) =
   Logger.info_f_ "teardown %s,%s" dn tlf_dir
 
 let _make_set_v k v= Value.create_client_value [Update.Set (k,v)] false
@@ -66,13 +66,13 @@ let _log_repeat tlc (value:Value.t) n =
     if i = (Sn.of_int n) then Lwt.return ()
     else
       begin
-        tlc # log_value i value >>= fun wr_result ->
+        tlc # log_value i value >>= fun _wr_result ->
         loop (Sn.succ i)
       end
   in loop Sn.start
 
 let test_rollover (dn, tlf_dir, factory) =
-  Logger.info_ "test_rollover" >>= fun () ->
+  Logger.info_f_ "test_rollover %s, %s" dn tlf_dir >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 5 in
   factory dn "node_name" >>= fun (c:tlog_collection) ->
   let value = _make_set_v "x" "y" in
@@ -82,7 +82,7 @@ let test_rollover (dn, tlf_dir, factory) =
 
 
 let test_rollover_1002 (dn, tlf_dir, factory) =
-  Logger.info_ "test_rollover_1002" >>= fun () ->
+  Logger.info_f_ "test_rollover_1002 %s, %s" dn tlf_dir >>= fun () ->
   let n = 5 in
   let () = Tlogcommon.tlogEntriesPerFile := n in
   factory dn "node_name" >>= fun (c:tlog_collection) ->
@@ -97,12 +97,11 @@ let test_rollover_1002 (dn, tlf_dir, factory) =
   tlc_two # close() >>= fun () ->
   Lwt.return ()
 
-
-let test_get_value_bug (dn, tlf_dir, factory) =
+let test_get_value_bug (dn, _tlf_dir, factory) =
   Logger.info_ "test_get_value_bug" >>= fun () ->
   factory dn "node_name" >>= fun (c0:tlog_collection) ->
   let v0 = Value.create_master_value ("XXXX",0.0) in
-  c0 # log_value 0L v0 >>= fun wr_result ->
+  c0 # log_value 0L v0 >>= fun _wr_result ->
   c0 # close () >>= fun () ->
   factory dn "node_name" >>= fun c1 ->
   (* c1 # validate () >>= fun _ -> *)
@@ -110,7 +109,7 @@ let test_get_value_bug (dn, tlf_dir, factory) =
     | None -> Llio.lwt_failfmt "get_last_update 0 yields None"
     | Some v -> let () = OUnit.assert_equal v v0 in Lwt.return ()
 
-let test_regexp (dn, tlf_dir, factory) =
+let test_regexp (_dn, _tlf_dir, _factory) =
   Logger.info_ "test_get_regexp_bug" >>= fun () ->
   let open Compression in
   let tests = ["001.tlog", true;
@@ -127,7 +126,7 @@ let test_regexp (dn, tlf_dir, factory) =
   List.iter test tests;
   Lwt.return ()
 
-let test_restart (dn, tlf_dir, factory) =
+let test_restart (dn, _tlf_dir, factory) =
   factory dn "node_name" >>= fun (tlc_one:tlog_collection) ->
   let value = _make_set_v "x" "y" in
   _log_repeat tlc_one value 100 >>= fun () ->
@@ -138,8 +137,8 @@ let test_restart (dn, tlf_dir, factory) =
   Lwt.return ()
 
 
-
 let test_iterate (dn, tlf_dir, factory) =
+  Logger.info_f_ "test_iterate  %s, %s" dn tlf_dir >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn "node_name" >>= fun  (tlc:tlog_collection) ->
   let value = _make_set_v "xxx" "y" in
@@ -159,6 +158,7 @@ let test_iterate (dn, tlf_dir, factory) =
 
 
 let test_iterate2 (dn, tlf_dir, factory) =
+  Logger.info_f_ "test_iterate2  %s, %s" dn tlf_dir >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "test_iterate0" "xxx" in
@@ -177,6 +177,7 @@ let test_iterate2 (dn, tlf_dir, factory) =
 
 
 let test_iterate3 (dn, tlf_dir, factory) =
+  Logger.info_f_ "test_iterate3  %s, %s" dn tlf_dir >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 100 in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "test_iterate3" "xxx" in
@@ -194,10 +195,8 @@ let test_iterate3 (dn, tlf_dir, factory) =
   tlc # close () >>= fun () ->
   Lwt.return ()
 
-
-
-
 let test_validate_normal (dn, tlf_dir, factory) =
+  Logger.info_f_ "test_validate_normal  %s, %s" dn tlf_dir >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile:= 100 in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "XXX" "X" in
@@ -206,7 +205,7 @@ let test_validate_normal (dn, tlf_dir, factory) =
   Logger.debug_f_ "reopening %s" dn >>= fun () ->
   factory dn "node_name" >>= fun (tlc_two:tlog_collection) ->
   tlc_two # validate_last_tlog () >>= fun result ->
-  let validity, eo, _ = result in
+  let _validity, eo, _ = result in
   let wsn = Sn.of_int 122 in
   let wanted = (Some wsn) in
   let io = match eo with None -> None | Some e -> Some (Entry.i_of e) in
@@ -237,10 +236,11 @@ let test_validate_corrupt_1 (dn, tlf_dir, factory) =
        Lwt.return ()
     )
     (function
-      | TLogCheckSumError pos
-      | TLogUnexpectedEndOfFile pos ->
+      | TLogCheckSumError _pos
+      | TLogUnexpectedEndOfFile _pos ->
         Lwt.return ()
       | exn ->
+        let () = ignore exn in
         let msg = Printf.sprintf "it threw the wrong exception %s" "?" in
         OUnit.assert_bool msg false;
         Lwt.return ()

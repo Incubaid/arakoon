@@ -17,7 +17,6 @@ limitations under the License.
 
 
 open Multi_paxos_type
-open Master_type
 open Multi_paxos
 open Lwt
 open Mp_msg.MPMessage
@@ -45,7 +44,7 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
           let event = Multi_paxos.FromClient [(Update.Nop, fun _ -> Lwt.return ())] in
           Lwt.ignore_result (constants.inject_event event);
           Lwt.return ()
-        | _ ->
+        | Value.Vc _ ->
           begin
             let inject_lease_expired ls =
               let event = Multi_paxos.LeaseExpired (ls) in
@@ -77,8 +76,15 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
           end
     )
   in
-  let state = (n,(Sn.succ i), lew) in
-  Fsm.return ~sides:[log_e;con_e;inject_e] (Stable_master state)
+  if Value.is_other_master_set constants.me v
+  then
+    (* step down *)
+    Multi_paxos.safe_wakeup_all () lew >>= fun () ->
+    let sides = [log_e;con_e;ELog (fun () -> "Stepping down to slave state")] in
+    Fsm.return ~sides (Slave_steady_state(n, Sn.succ i, None))
+  else
+    let state = (n,(Sn.succ i), lew) in
+    Fsm.return ~sides:[log_e;con_e;inject_e] (Stable_master state)
 
 
 let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current_state) ev =
@@ -114,39 +120,18 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
             let ms = {mo = None; v;n;i = new_i;lew = []} in
             Fsm.return ~sides:[log_e] (Master_dictate ms)
         in
-        let maybe_extend () =
-          begin
-            match S.who_master constants.store with
-            | None ->
-              extend 0.0
-            | Some (_, ls') ->
-              if ls >= ls'
-              then
-                extend ls
-              else
-                begin
-                  let log_e = ELog (fun () -> Printf.sprintf "stable_master: ignoring old lease expiration %f < %f" ls ls') in
-                  Fsm.return ~sides:[log_e] (Stable_master current_state)
-                end
-          end
-        in
-        match constants.master with
-        | Preferred ps when not (List.mem me ps) ->
-          let lws = List.map (fun name -> (name, constants.last_witnessed name)) ps in
-              (* Multiply with -1 to get a reverse-sorted list *)
-          let slws = List.fast_sort (fun (_, a) (_, b) -> (-1) * compare a b) lws in
-          let (p, p_i) = List.hd slws in
-          let diff = Sn.diff new_i p_i in
-          if diff < (Sn.of_int 5) && constants.is_alive p
-          then
-            begin
-              let log_e = ELog (fun () -> Printf.sprintf "stable_master: handover to %s" p) in
-              Fsm.return ~sides:[log_e] (Stable_master current_state)
-            end
-          else
-            maybe_extend ()
-        | _ ->
-          maybe_extend ()
+        match S.who_master constants.store with
+        | None ->
+           extend 0.0
+        | Some (_, ls') ->
+           if ls >= ls'
+           then
+             extend ls
+           else
+             begin
+               let log_e = ELog (fun () -> Printf.sprintf "stable_master: ignoring old lease expiration %f < %f" ls ls') in
+               Fsm.return ~sides:[log_e] (Stable_master current_state)
+             end
       end
     | FromClient ufs ->
       begin
@@ -225,7 +210,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                   Fsm.return (Slave_discovered_other_master new_state)
                 end
             end
-          | _ ->
+          | Nak _ | Accept _ | Promise _ ->
             begin
               let log_e = ELog (fun () ->
                   Printf.sprintf "stable_master received %S: dropping" (string_of msg))
@@ -258,7 +243,6 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
 let master_dictate constants ms () =
   let {v;n;i; _} = ms in
   let accept_e = EAccept (v,n,i) in
-
   let mcast_e = EMCast (Accept(n,i,v)) in
   let me = constants.me in
   let others = constants.others in

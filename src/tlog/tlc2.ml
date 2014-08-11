@@ -213,8 +213,8 @@ let fold_read tlog_dir tlf_dir file_name
 
 type validation_result = (Entry.t option * Index.index)
 
-let _make_close_marker node_id = Some ("closed:" ^ node_id)
-let _make_open_marker node_id =  Some ("opened:" ^ node_id)
+let _make_close_marker node_id = "closed:" ^ node_id
+let _make_open_marker node_id =  "opened:" ^ node_id
 
 let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
   Logger.debug_f_ "Tlc2._validate_one %s" tlog_name >>= fun () ->
@@ -227,7 +227,7 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
        let folder, _, index = folder_for tlog_name None in
 
        let do_it ic = folder ic ~index Sn.start None ~first None
-                        (fun a0 entry ->
+                        (fun _a0 entry ->
                            let () = Index.note entry new_index in
                            let r = Some entry in
                            let () = prev_entry := r in
@@ -243,7 +243,7 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
              match eo with
                | None -> None
                | Some e ->
-                 let s = _make_close_marker node_id in
+                 let s = Some (_make_close_marker node_id) in
                  if Entry.check_marker e s
                  then !prev_entry
                  else raise (TLCNotProperlyClosed (Entry.entry2s e))
@@ -279,7 +279,7 @@ let validate_last tlog_dir tlf_dir node_id ~check_marker=
       let last = List.nth tlog_names (n-1) in
       let fn = get_full_path tlog_dir tlf_dir last in
       _validate_list [fn] node_id ~check_marker>>= fun r ->
-      let (validity, last_eo, index) = r in
+      let (_validity, last_eo, _index) = r in
       match last_eo with
         | None ->
           begin
@@ -291,7 +291,7 @@ let validate_last tlog_dir tlf_dir node_id ~check_marker=
             else
               Lwt.return r
           end
-        | Some i -> Lwt.return r
+        | Some _i -> Lwt.return r
 
 
 
@@ -349,8 +349,7 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
     tlog_dir (Sn.string_of start_i) tfs (Index.to_string index)
   >>= fun () ->
   get_tlog_names tlog_dir tlf_dir >>= fun tlog_names ->
-  let acc_entry (i0:Sn.t) entry = f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i
-  in
+  let acc_entry (_i0:Sn.t) entry = f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i in
   let num_tlogs = List.length tlog_names in
   let maybe_fold acc fn =
     let cnt,low = acc in
@@ -388,7 +387,7 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
     else Lwt.return (cnt+1,low)
   in
   Lwt_list.fold_left_s maybe_fold (1,start_i) tlog_names
-  >>= fun x ->
+  >>= fun _x ->
   Lwt.return ()
 
 
@@ -426,7 +425,7 @@ class tlc2
 
     method validate_last_tlog () =
       validate_last tlog_dir tlf_dir node_id ~check_marker:false >>= fun r ->
-      let (validity, entry, new_index) = r in
+      let (_validity, _entry, new_index) = r in
       let tlu = get_full_path tlog_dir tlf_dir (file_name _outer) in
       let matches = Index.match_filename tlu new_index in
       Logger.debug_f_ "tlu=%S new_index=%s index=%s => matches=%b"
@@ -445,9 +444,8 @@ class tlc2
       >>= fun () ->
       Lwt.return r
 
-
     method private start_compression_loop () =
-      let compress_one tlu tlc_temp tlc compressor =
+      let compress_one tlu tlc compressor =
         File_system.exists tlc >>= fun tlc_exists ->
         if tlc_exists
         then
@@ -457,11 +455,8 @@ class tlc2
           end
         else
           begin
-            File_system.unlink tlc_temp >>= fun () ->
-            Logger.info_f_ "Compressing: %s into %s" tlu tlc_temp >>= fun () ->
-            Compression.compress_tlog ~cancel:_closing tlu tlc_temp compressor
-            >>= fun () ->
-            File_system.rename tlc_temp tlc >>= fun () ->
+            Logger.info_f_ "Compressing: %s into %s" tlu tlc >>= fun () ->
+            Compression.compress_tlog ~cancel:_closing tlu tlc compressor >>= fun () ->
             File_system.unlink tlu >>= fun () ->
             Logger.info_f_ "end of compress : %s -> %s" tlu tlc
           end
@@ -469,10 +464,10 @@ class tlc2
 
       let rec loop () =
         Logger.info_ "Taking job from compression queue..." >>= fun () ->
-        Lwt_buffer.take _compression_q >>= fun (tlu, tlc_temp, tlc, compressor) ->
+        Lwt_buffer.take _compression_q >>= fun (tlu, tlc, compressor) ->
         let () = _compressing <- true in
         Lwt.catch
-          (fun () -> compress_one tlu tlc_temp tlc compressor)
+          (fun () -> compress_one tlu tlc compressor)
           (function
             | Canceled -> Lwt.fail Canceled
             | exn -> Logger.warning_ ~exn "exception inside compression, continuing anyway")
@@ -582,10 +577,9 @@ class tlc2
            let tlu = get_full_path tlog_dir tlf_dir (file_name old_outer) in
            let tlc = get_full_path tlog_dir tlf_dir
                                    (archive_name compressor old_outer) in
-           let tlc_temp = tlc ^ ".part" in
-           let job = (tlu,tlc_temp,tlc,compressor) in
-           Logger.info_f_ "adding new task to compression queue %s,%s,%s"
-                          tlu tlc_temp tlc >>= fun () ->
+           let job = (tlu,tlc,compressor) in
+           Logger.info_f_ "adding new task to compression queue %s,%s"
+                          tlu tlc >>= fun () ->
            Lwt_buffer.add job _compression_q
          end
       | No -> Lwt.return ()
@@ -645,7 +639,7 @@ class tlc2
       S.make_store ~lcnum:Node_cfg.default_lcnum
         ~ncnum:Node_cfg.default_ncnum head_name >>= fun store ->
       let io = S.consensus_i store in
-      S.close store >>= fun () ->
+      S.close ~flush:false ~sync:false store >>= fun () ->
       Logger.debug_f_ "head has consensus_i=%s" (Log_extra.option2s Sn.string_of io)
       >>= fun () ->
       let next_i = match io with
@@ -662,19 +656,12 @@ class tlc2
       File_system.unlink tmp >>= fun () ->
       Logger.info_f_ "Receiving %Li bytes into %S" length tmp >>= fun () ->
 
-      Lwt_unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_EXCL] 0o644 >>= fun fd ->
-      Lwt.finalize
-        (fun () ->
-          let mode = Lwt_io.output
-          and close () = Lwt.return () in
-          let oc = Lwt_io.of_fd ~mode ~close fd in
-          Llio.copy_stream ~length ~ic ~oc >>= fun () ->
-          Lwt_io.close oc >>= fun () ->
-          Lwt_unix.fsync fd)
-        (fun () -> Lwt_unix.close fd)
-      >>= fun () ->
+      File_system.with_tmp_file
+        tmp
+        hf_name
+        (fun oc ->
+          Llio.copy_stream ~length ~ic ~oc) >>= fun () ->
 
-      File_system.rename tmp hf_name >>= fun () ->
       Logger.info_ "done: save_head"
 
 
@@ -745,7 +732,7 @@ class tlc2
           | Some(v,i) ->
             begin
               let oc = F.oc_of file in
-              let marker = _make_close_marker node_id in
+              let marker = Some (_make_close_marker node_id) in
               Tlogcommon.write_marker oc i v marker >>= fun () ->
               Logger.debug_f_ "wrote %S marker @i=%s for %S"
                 (Log_extra.string_option2s marker) (Sn.string_of i) node_id
@@ -851,7 +838,7 @@ let get_last_tlog tlog_dir tlf_dir =
   Logger.debug_f_ "new_c:%i" new_c >>= fun () ->
   Lwt.return (new_c, get_full_path tlog_dir tlf_dir (file_name new_c))
 
-let maybe_correct tlog_dir tlf_dir new_c last index node_id compressor =
+let maybe_correct new_c last index =
   if new_c > 0 && last = None
   then
     begin
@@ -870,7 +857,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_d
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   get_last_tlog tlog_dir tlf_dir >>= fun (new_c, fn) ->
   _validate_one fn node_id ~check_marker:true >>= fun (last, index) ->
-  maybe_correct tlog_dir tlf_dir new_c last index node_id compressor >>= fun (new_c,last,new_index) ->
+  maybe_correct new_c last index >>= fun (new_c,last,new_index) ->
   Logger.debug_f_ "make_tlc2 after maybe_correct %s" (Index.to_string new_index) >>= fun () ->
   let msg =
     match last with
@@ -889,7 +876,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_d
         (* for some reason this will cause mayhem 'test_243' *)
         let i = Entry.i_of e in
         let v = Entry.v_of e in
-        let marker = _make_open_marker node_id in
+        let marker = Some (_make_open_marker node_id) in
         _init_file fsync_tlog_dir tlog_dir tlf_dir new_c >>= fun file ->
         let oc = F.oc_of file in
         Tlogcommon.write_marker oc i v marker >>= fun () ->
@@ -903,7 +890,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_d
 
 
 let truncate_tlog filename =
-  let skipper () entry = Lwt.return ()
+  let skipper () _entry = Lwt.return ()
   in
   let t =
     begin

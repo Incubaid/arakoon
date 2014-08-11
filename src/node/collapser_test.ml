@@ -31,6 +31,7 @@ let _should_fail x error_msg success_msg =
        x () >>= fun () ->
        Logger.debug_ "should fail...doesn't" >>= fun () ->
        Lwt.return true)
+
     (fun exn -> Logger.debug_ ~exn success_msg >>= fun () -> Lwt.return false)
   >>= fun bad ->
   if bad then Lwt.fail (Failure error_msg)
@@ -48,7 +49,7 @@ let _make_values tlc n =
       let update = Update.Set(k, v) in
       let value = Value.create_client_value [update] sync in
       let sni = Sn.of_int i in
-      tlc # log_value sni value >>= fun wr_result ->
+      tlc # log_value sni value >>= fun _wr_result ->
       loop (i+1)
   in
   loop 0
@@ -67,7 +68,7 @@ let test_collapse_until (dn, tlf_dir, head_dir) =
   let store_methods = (Batched_store.Local_store.copy_store2, storename)
   in
   let future_i = Sn.of_int 1001 in
-  let cb = fun s -> Lwt.return () in
+  let cb = fun _s -> Lwt.return () in
   Collapser.collapse_until tlc (module S) store_methods future_i cb None >>= fun () ->
   (* some verification ? *)
 
@@ -96,7 +97,7 @@ let test_collapse_many (dn, tlf_dir, head_dir) =
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *)
   let storename = Filename.concat test_dn "head.db" in
   let cb fn = Logger.debug_f_ "collapsed %s" (Sn.string_of fn) in
-  let cb' = fun n -> Lwt.return () in
+  let cb' = fun _n -> Lwt.return () in
   File_system.unlink storename >>= fun () ->
   let store_methods = (Batched_store.Local_store.copy_store2, storename) in
   Collapser.collapse_many tlc (module S) store_methods 5 cb' cb None >>= fun () ->
