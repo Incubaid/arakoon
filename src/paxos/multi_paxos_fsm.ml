@@ -71,7 +71,7 @@ let promises_check_done constants state () =
   let bv,bf =
     begin
       match v_s with
-        | [] ->  Value.create_master_value (me, 0.0), 0
+        | [] ->  Value.create_master_value me, 0
         | hd::_ -> hd
     end in
   let nnodes = List.length constants.others + 1 in
@@ -485,10 +485,10 @@ let wait_for_accepteds
                   end
                 end
             | Accept (n',i',_v) when i' < i || (i' = i && n' < n)  ->
-	          begin
-	            Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
-	            Fsm.return (Wait_for_accepteds state)
-	          end
+               begin
+                 Logger.debug_f_ "%s: wait_for_accepted: dropping old Accept %S" me (string_of msg) >>= fun () ->
+                 Fsm.return (Wait_for_accepteds state)
+               end
             | Accept (n',i',_v') ->
                 paxos_fatal me "Unable to handle unexpected message %S, %s, %s" (string_of msg) (Sn.string_of i') (Sn.string_of n')
         end
@@ -811,14 +811,14 @@ let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i 
       run (election_suggest constants (current_n, 0))
     end
 
-let enter_read_only constants buffers _current_i =
+let enter_read_only ?(stop = ref false) constants buffers _current_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for read_only." me >>= fun () ->
   let trace = trace_transition in
   let produce = paxos_produce buffers constants in
   Lwt.catch
     (fun () ->
-       Fsm.loop ~trace
+       Fsm.loop ~trace ~stop
          (_execute_effects constants)
          produce
          (machine constants)

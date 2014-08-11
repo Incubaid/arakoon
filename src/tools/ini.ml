@@ -16,14 +16,17 @@ limitations under the License.
 
 
 
-let p_string s = Scanf.sscanf s "%s" (fun s -> s)
+let id (x : 'a) : 'a = x
 
-let p_int s = Scanf.sscanf s "%i" (fun i -> i)
-let p_float s = Scanf.sscanf s "%f" (fun f -> f)
+let p_string s = Scanf.sscanf s "%s" id
+
+let p_int s = Scanf.sscanf s "%i" id
+
+let p_float s = Scanf.sscanf s "%f" id
 
 let p_string_list s = Str.split (Str.regexp "[, \t]+") s
 
-let p_bool s = Scanf.sscanf s "%b" (fun b -> b)
+let p_bool s = Scanf.sscanf s "%b" id
 
 let p_option p s = Some (p s)
 
