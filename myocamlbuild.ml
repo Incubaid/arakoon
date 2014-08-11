@@ -11,7 +11,7 @@ let dependencies = [ "lwt"
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)
 let warnings = "+A"
 (* Enabled compiler errors, argument for '-warn-error' *)
-let errors = "+A-4-6-27-34-44"
+let errors = "+A"
 (* List of files for which warning 4,
  *
  *     Fragile pattern matching: matching that will remain com‐
@@ -20,7 +20,19 @@ let errors = "+A-4-6-27-34-44"
  *
  * is disabled.
  *)
-let allow_fragile_pattern_matches = [ ]
+let allow_fragile_pattern_matches = [
+  "logger_macro.ml";
+  "src/tools/file_system.ml";
+  "src/node/node_cfg.ml";
+  "src/tools/server.ml";
+  "src/node/catchup.ml";
+  "src/tlog/tlc2.ml";
+  "src/msg/tcp_messaging.ml";
+  "src/client/client_protocol.ml";
+  "src/client/client_main.ml";
+  "src/nursery/nursery_main.ml";
+  "src/system/startup.ml";
+]
 
 open Ocamlbuild_pack
 open Ocamlbuild_plugin

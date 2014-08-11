@@ -199,7 +199,7 @@ struct
     _commit_ls_tx_if_any s;
     Lwt.return ()
 
-  let close s flush =
+  let close s ~flush ~sync =
     begin
       if flush
       then
@@ -213,7 +213,7 @@ struct
               s._ls_tx <- None
         end
     end;
-    S.close s.s flush
+    S.close s.s ~flush ~sync
 
   let reopen s =
     _commit_ls_tx_if_any s;

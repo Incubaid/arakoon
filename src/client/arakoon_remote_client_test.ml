@@ -216,11 +216,11 @@ let test_user_function () =
 
 let test_user_hook () =
   Registry.HookRegistry.register "t3k"
-                                 (fun (ic,oc,id) user_db backend ->
+                                 (fun (ic,oc,_) _ _ ->
                                   Llio.input_string ic >>= fun arg ->
                                   Llio.output_string oc ("cucu " ^ arg));
   Registry.HookRegistry.register "rev_range"
-                                 (fun (ic,oc,id) user_db backend ->
+                                 (fun (_,oc,_) user_db _ ->
                                   let _count, keys = user_db # with_cursor
                                                          (fun cur ->
                                                           Registry.Cursor_store.fold_rev_range
@@ -230,7 +230,7 @@ let test_user_hook () =
                                                             "a"
                                                             false
                                                             (-1)
-                                                            (fun cur k count acc ->
+                                                            (fun _ k _ acc ->
                                                              k :: acc)
                                                             []) in
                                   Llio.output_list Llio.output_key oc keys
@@ -244,7 +244,7 @@ let test_user_hook () =
                              let keys = ["a"; "b"; "c"; "f"; "t"] in
                              Lwt_list.iter_p (fun k -> client # set k k) keys >>= fun () ->
 
-                             client # user_hook "rev_range" >>= fun (ic,oc) ->
+                             client # user_hook "rev_range" >>= fun (ic,_) ->
                              Llio.input_list Llio.input_string ic >>= fun response ->
                              OUnit.assert_equal response ["f"; "c"; "b"];
                              Lwt.return ())
@@ -303,7 +303,7 @@ let _test_range (client:Arakoon_client.client) =
 let _test_reverse_range (client:Arakoon_client.client) =
   _clear client () >>= fun () ->
   _fill client 100 >>= fun () ->
-  client # rev_range_entries (Some "xey100") true (Some "xey009") true 3 >>= fun xn ->
+  client # rev_range_entries ~consistency:Arakoon_client.Consistent ~first:(Some "xey100") ~finc:true ~last:(Some "xey009") ~linc:true ~max:3 >>= fun xn ->
   Lwt_list.iter_s (fun (k, _) -> Logger.debug_f_ "key %s" k) xn >>= fun () ->
   let k,_ = List.hd xn in
   let () = OUnit.assert_bool "hd" (k  = "xey099") in

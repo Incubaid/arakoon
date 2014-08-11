@@ -70,7 +70,6 @@ let add_to_crash_log section level msgs =
     payload = msgs;
     section;
   }) in
-
   R.insert entry circ_buf
 
 let setup_crash_log crash_file_gen =
@@ -156,7 +155,6 @@ let setup_default_logger file_log_path crash_log_prefix =
     Lwt_log.close file_logger >>= fun () ->
     close_crash_log ()
   in
-
   let default_logger = Lwt_log.make ~output:add_log_msg ~close:close_default_logger in
   Lwt_log.default := default_logger;
   Lwt.return dump_crash_log

@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Interval
 open Routing
 
@@ -229,6 +227,20 @@ module Update = struct
 
   let is_synced = function
     | SyncedSequence _ -> true
-    | _ -> false
+    | Set _
+    | Delete _
+    | MasterSet _
+    | TestAndSet _
+    | Sequence _
+    | SetInterval _
+    | SetRouting _
+    | SetRoutingDelta _
+    | Nop
+    | Assert _
+    | Assert_exists _
+    | UserFunction _
+    | AdminSet _
+    | DeletePrefix _
+    | Replace _ -> false
 
 end

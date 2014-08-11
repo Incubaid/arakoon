@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Std
 open Lwt
 open Simple_store
@@ -48,8 +46,8 @@ let copy_store2 old_location new_location overwrite =
 
 let safe_create ?(lcnum=1024) ?(ncnum=512) db_path ~mode  =
   Camltc.Hotc.create db_path ~mode ~lcnum ~ncnum [B.BDBTLARGE] >>= fun db ->
-  let flags = Camltc.Bdb.flags (Camltc.Hotc.get_bdb db) in
-  if List.mem Camltc.Bdb.BDBFFATAL flags
+  let flags = B.flags (Camltc.Hotc.get_bdb db) in
+  if List.mem B.BDBFFATAL flags
   then Lwt.fail (BdbFFatal db_path)
   else Lwt.return db
 
@@ -68,7 +66,7 @@ let _tranbegin ls =
   let tx = new transaction in
   let bdb = Camltc.Hotc.get_bdb ls.db in
   ls._tx <- Some (tx, bdb);
-  Camltc.Bdb._tranbegin bdb;
+  B._tranbegin bdb;
   tx
 
 let _trancommit ls =
@@ -76,7 +74,7 @@ let _trancommit ls =
     | None -> failwith "not in a local store transaction, _trancommit"
     | Some (_tx, bdb) ->
       let t0 = Unix.gettimeofday () in
-      Camltc.Bdb._trancommit bdb;
+      B._trancommit bdb;
       let t = ( Unix.gettimeofday () -. t0) in
       if t > 1.0
       then
@@ -89,7 +87,7 @@ let _tranabort ls =
   match ls._tx with
     | None -> failwith "not in a local store transaction, _tranabort"
     | Some (_tx, bdb) ->
-      Camltc.Bdb._tranabort bdb;
+      B._tranabort bdb;
       ls._tx <- None
 
 let with_transaction ls f =
@@ -120,7 +118,7 @@ let defrag ls =
   Logger.info_ "local_store :: defrag" >>= fun () ->
   let bdb = Camltc.Hotc.get_bdb ls.db in
   Lwt_preemptive.detach
-    (Camltc.Bdb.defrag ~step:0L)
+    (B.defrag ~step:0L)
     bdb
   >>= fun rc ->
   Logger.info_f_ "local_store %s :: defrag done: rc=%i" ls.location rc >>= fun () ->
@@ -154,7 +152,11 @@ let delete_prefix ls tx prefix =
 let flush _ls =
   Lwt.return ()
 
-let close ls _flush =
+let close ls ~flush ~sync =
+  ignore flush;
+  if sync
+  then
+    Camltc.Hotc.sync ls.db;
   Camltc.Hotc.close ls.db >>= fun () ->
   Logger.info_f_ "local_store %S :: closed  () " ls.location >>= fun () ->
   Lwt.return ()

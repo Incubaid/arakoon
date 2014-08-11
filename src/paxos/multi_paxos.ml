@@ -71,11 +71,10 @@ let network_of_messaging (m:messaging) =
 let update_votes (nones,somes) = function
   | None -> (nones+1, somes)
   | Some x ->
-    let is_master_set = Value.is_master_set x in
     let rec build_new acc = function
       | [] -> (x,1)::acc
       | (a,fa) :: afs ->
-        if a = x || (is_master_set && Value.is_master_set a)
+        if a = x
         then ((a,fa+1) :: afs) @ acc
         else let acc' = (a,fa) :: acc  in build_new acc' afs
     in
@@ -134,7 +133,7 @@ type 'a constants =
 let am_forced_master constants me =
   match constants.master with
     | Forced x -> x = me
-    | _ -> false
+    | Elected | Preferred _  | ReadOnly -> false
 
 let is_election constants =
   match constants.master with
@@ -224,7 +223,7 @@ let start_lease_expiration_thread (type s) ?(immediate_lease_expiration=false) c
            to prevent a node thinking it's still the master
            while some slaves have elected a new master amongst them
            (in case the clocks don't all run at the same speed) *)
-        1.1
+        1.1 +. Random.float 0.1
       else
         0.5 in
     let sleep_sec = lease_expiration *. factor in
@@ -258,11 +257,12 @@ let start_lease_expiration_thread (type s) ?(immediate_lease_expiration=false) c
 
 let start_election_timeout ?(from_master=false) constants n i =
   let sleep_sec =
+    let factor = 1. +. Random.float 0.1 in
     if from_master
     then
-      float_of_int (constants.lease_expiration) /. 4.0
+      float_of_int (constants.lease_expiration)  *. factor /. 4.0
     else
-      float_of_int (constants.lease_expiration) /. 2.0 in
+      float_of_int (constants.lease_expiration) *. factor /. 2.0 in
   let () = match constants.election_timeout with
     | None ->
       begin
@@ -322,10 +322,9 @@ let handle_prepare (type s) constants dest n n' i' =
       if not can_pr && n' >= 0L
       then
         begin
-          Logger.debug_f_ "%s: handle_prepare: Dropping prepare - lease still active" me
+          Logger.info_f_ "%s: handle_prepare: Dropping prepare - lease still active" me
           >>= fun () ->
           Lwt.return Prepare_dropped
-
         end
       else
         begin
@@ -343,7 +342,7 @@ let handle_prepare (type s) constants dest n n' i' =
           then
             (* Send Nak, other node is behind *)
             let reply = Nak( n',(n,nak_max)) in
-            Logger.debug_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me
+            Logger.info_f_ "%s: NAK:other node is behind: i':%s nak_max:%s" me
               (Sn.string_of i') (Sn.string_of nak_max) >>= fun () ->
             Lwt.return (Nak_sent, Some reply)
           else
@@ -353,7 +352,7 @@ let handle_prepare (type s) constants dest n n' i' =
                 constants.respect_run_master <- Some (dest, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
                 let lv = constants.get_value nak_max in
                 let reply = Promise(n',nak_max,lv) in
-                Logger.debug_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
+                Logger.info_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
                 start_election_timeout constants n' i' >>= fun () ->
                 if i' > nak_max
                 then
@@ -382,7 +381,7 @@ let handle_prepare (type s) constants dest n n' i' =
                       (* drop the prepare to give the other node that is running
                          for master some time to do it's thing
                       *)
-                      Logger.debug_f_ "%s: handle_prepare: dropping prepare to respect another potential master" me >>= fun () ->
+                      Logger.info_f_ "%s: handle_prepare: dropping prepare to respect another potential master" me >>= fun () ->
                       Lwt.return (Prepare_dropped, None)
                     end
             end
@@ -390,7 +389,7 @@ let handle_prepare (type s) constants dest n n' i' =
         match reply with
           | None -> Lwt.return ret_val
           | Some reply ->
-            Logger.debug_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
+            Logger.info_f_ "%s: handle_prepare replying with %S" me (string_of reply) >>= fun () ->
             constants.send reply me dest >>= fun () ->
             Lwt.return ret_val
     end

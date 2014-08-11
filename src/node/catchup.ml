@@ -86,7 +86,7 @@ let head_saved_epilogue hfn tlog_coll =
   S.make_store ~lcnum:default_lcnum
     ~ncnum:default_ncnum ~read_only:true hfn >>= fun store ->
   let hio = S.consensus_i store in
-  S.close store >>= fun () ->
+  S.close store ~flush:false ~sync:false >>= fun () ->
   Logger.info_ "closed head" >>= fun () ->
   begin
     match hio with
@@ -270,8 +270,7 @@ let catchup_store ~stop (type s) me
           >>= fun msg -> Lwt.fail (StoreCounterTooLow msg)
         else
           Lwt.return ()
-      end >>= fun () ->
-      S.flush store
+      end
     end
 
 let catchup ~tls_ctx ~stop me other_configs ~cluster_id ((_,_,tlog_coll) as dbt) mr_name =

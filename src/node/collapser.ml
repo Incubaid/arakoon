@@ -158,10 +158,22 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
       end
       >>= fun () ->
       Logger.debug_f_ "Relocating store to %s" head_location >>= fun () ->
-      S.relocate new_store head_location
+      S.close new_store >>= fun () ->
+      File_system.rename new_location head_location
   )
     (
-      fun () -> S.close new_store
+      fun () ->
+      S.close new_store >>= fun ()->
+      Lwt.catch
+      (fun () -> File_system.exists new_location >>=
+                   function
+                   | true ->
+                      begin
+                        Logger.info_f_ "unlinking %s" new_location >>= fun ()->
+                        File_system.unlink new_location
+                      end
+                   | false -> Lwt.return ())
+      (fun exn -> Logger.warning_f_ ~exn "ignoring failure in cleanup")
     )
 
 let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
@@ -173,7 +185,7 @@ let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
          ~ncnum:Node_cfg.default_ncnum
          ~read_only head_location >>= fun head ->
        let head_io = S.consensus_i head in
-       S.close head >>= fun () ->
+       S.close head ~sync:false ~flush:false >>= fun () ->
        Lwt.return head_io
     )
     (fun exn ->
@@ -208,7 +220,6 @@ let collapse_many (type s) tlog_coll
     begin
       Logger.info_f_ "Going to collapse %d tlogs" tlogs_to_collapse >>= fun () ->
       cb' (tlogs_to_collapse+1) >>= fun () ->
-      tlog_coll # get_infimum_i() >>= fun tlc_min ->
       let g_too_far_i = Sn.add (Sn.of_int 2) (Sn.add head_i (Sn.of_int (tlogs_to_collapse * npt))) in
       (* +2 because before X goes to the store, you need to have seen X+1 and thus too_far = X+2 *)
       Logger.debug_f_ "g_too_far_i = %s" (Sn.string_of g_too_far_i) >>= fun () ->

@@ -33,7 +33,7 @@ module Cursor_store = struct
     let comp_last =
       match last with
       | None ->
-         fun k -> true
+         fun _ -> true
       | Some last ->
          let last_key = Key.make (Simple_store.make_public last) in
          if linc

@@ -103,7 +103,6 @@ let print_xml unit_result filename =
     | RSkip (path, _) -> ((split_path path), "notrun", "")
     | RTodo (path, _) -> ((split_path path), "notrun", "")
   in
-
   let xml_print_node output_channel elem =
     let time, result = elem in
     let ((name, path), result, message) = split_test_result result in

@@ -30,6 +30,8 @@ struct
   open Master_type
   open Arakoon_client
 
+  let section = Logger.Section.main
+
   let _s_ = string_option2s
 
   let ncfg_prefix_b4 = "nursery.cfg."
@@ -103,7 +105,8 @@ struct
     ~test
     ~(read_only:bool)
     ~max_value_size
-    ~collapse_slowdown ->
+    ~collapse_slowdown
+    ~act_not_preferred ->
     let my_name =  Node_cfg.node_name cfg in
     let locked_tlogs = Hashtbl.create 8 in
     let blockers_cond = Lwt_condition.create() in
@@ -605,6 +608,7 @@ struct
           Lwt.fail (XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Store could not be quiesced"))
 
       method private unquiesce_db () =
+        act_not_preferred := false;
         Logger.info_ "unquiesce_db: Leaving quisced state" >>= fun () ->
         let update = Multi_paxos.Unquiesce in
         push_node_msg update
@@ -744,6 +748,7 @@ struct
               then Lwt.return ()
               else
                 begin
+                  act_not_preferred := true;
                   let (sleep, awake) = Lwt.wait () in
                   let update = Multi_paxos.DropMaster (sleep, awake) in
                   Logger.debug_ "drop_master: pushing update" >>= fun () ->

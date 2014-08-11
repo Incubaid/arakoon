@@ -188,7 +188,7 @@ class tcp_messaging
                   timeout
                   (fun () ->
                    self # _get_connection addresses >>= fun connection ->
-                   let _, ic, oc = connection in
+                   let _, _ic, oc = connection in
                    let pickled = self # _pickle source target msg in
                    Llio.output_string oc pickled >>= fun () ->
                    Lwt_io.flush oc)
@@ -374,7 +374,7 @@ class tcp_messaging
           "connection from (%s,%i) was idle too long (> %f)"
           ip port timeout
       in
-      let protocol (ic,oc,cid) =
+      let protocol (ic,_oc,_cid) =
         Lwt_unix.with_timeout timeout (fun () -> read_prologue ic)
         >>= fun address ->
         let rec loop b0 =

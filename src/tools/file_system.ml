@@ -92,6 +92,21 @@ let exists filename =
       | e -> Lwt.fail e
     )
 
+let with_tmp_file tmp dest f =
+  Lwt_unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_EXCL] 0o644 >>= fun fd ->
+  Lwt.finalize
+    (fun () ->
+     let mode = Lwt_io.output
+     and close () = Lwt.return () in
+     let oc = Lwt_io.of_fd ~mode ~close fd in
+
+     f oc >>= fun () ->
+
+     Lwt_io.close oc >>= fun () ->
+     Lwt_unix.fsync fd >>= fun () ->
+     rename tmp dest)
+    (fun () -> Lwt_unix.close fd)
+
 let copy_file source target ~overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
   Logger.info_f_ "copy_file %S %S" source target >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
@@ -120,10 +135,8 @@ let copy_file source target ~overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
       unlink tmp_file >>= fun () ->
       Lwt_io.with_file ~mode:Lwt_io.input source
         (fun ic ->
-           Lwt_io.with_file ~flags:[Unix.O_WRONLY;Lwt_unix.O_EXCL;Lwt_unix.O_CREAT] ~mode:Lwt_io.output tmp_file
-             (fun oc -> copy_all ic oc)
-        ) >>= fun () ->
-      rename tmp_file target
+         with_tmp_file tmp_file target
+                       (fun oc -> copy_all ic oc))
     end
 
 let safe_rename src dest =

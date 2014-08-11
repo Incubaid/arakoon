@@ -61,7 +61,7 @@ let test_validate_at_rollover_boundary (dn, tlx_dir, factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
   factory dn "node_name" >>= fun val_tlog_coll ->
   Logger.debug_ "1" >>= fun () ->
-  val_tlog_coll # validate_last_tlog () >>= fun (validity, lasteo, index) ->
+  val_tlog_coll # validate_last_tlog () >>= fun (_validity, lasteo, _index) ->
   let lasti, lasti_str =
     begin
       match lasteo with
@@ -108,7 +108,7 @@ let test_iterate4 (dn, tlx_dir, factory) =
   Lwt.return ()
 
 
-let test_iterate5 (dn, tlx_dir, factory) =
+let test_iterate5 (dn, _tlx_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let rec loop (tlc:tlog_collection) i =
@@ -145,7 +145,7 @@ let test_iterate5 (dn, tlx_dir, factory) =
   tlc # iterate start_i too_far_i f >>= fun () ->
   Lwt.return ()
 
-let test_iterate6 (dn, tlx_dir, factory) =
+let test_iterate6 (dn, _tlx_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let sync = false in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
