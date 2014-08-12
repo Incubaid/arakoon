@@ -18,7 +18,6 @@ module type ChecksumType = sig
   type t
 
   val string_of : t -> string
-  val of_string : string -> t
   val checksum_to : Buffer.t -> t -> unit
   val checksum_from : Llio.buffer -> t
 
@@ -26,49 +25,19 @@ module type ChecksumType = sig
   val update : t -> string -> t
 end
 
-module type C = sig
-  include ChecksumType
-
-  val none : t
-  val is_none : t -> bool
-end
-
-module Make (Cs : ChecksumType) : C = struct
-  type t = Cs.t option
-
-  let none = None
-
-  let is_none = function
-    | None -> true
-    | Some _ -> false
-
-  let string_of = function
-    | None -> "_"
-    | Some cs -> Cs.string_of cs
-
-  let of_string = function
-    | "_" -> None
-    | s -> Some (Cs.of_string s)
-
-  let checksum_to buf = function
-    | Some cs -> Cs.checksum_to buf cs
-    | None -> failwith "should not happen"
-
-  let checksum_from buf = Some (Cs.checksum_from buf)
-
-  let calculate s = Some (Cs.calculate s)
+module Make (Cs : ChecksumType) = struct
+  include Cs
 
   let update cs s =
     match cs with
     | None -> calculate s
-    | Some cs -> Some (Cs.update cs s)
+    | Some cs -> Cs.update cs s
 end
 
-module Crc32 : ChecksumType = struct
+module Crc32Digest : ChecksumType = struct
   type t = int32
 
   let string_of = Printf.sprintf "%lx"
-  let of_string s = Scanf.sscanf s "%lx" (fun x -> x)
   let checksum_to = Llio.int32_to
   let checksum_from = Llio.int32_from
 
@@ -76,16 +45,5 @@ module Crc32 : ChecksumType = struct
   let update cs s = Crc32c.update_crc32c cs s 0 (String.length s)
 end
 
-module Md5 : ChecksumType = struct
-  type t = Digest.t
 
-  let string_of = Digest.to_hex
-  let of_string = Digest.from_hex
-  let checksum_to = Llio.string_to
-  let checksum_from = Llio.string_from
-
-  let calculate s = Digest.string s
-  let update cs s = Digest.string (cs ^ Digest.string s)
-end
-
-include Make (Crc32)
+module Crc32 = Make (Crc32Digest)

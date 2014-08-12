@@ -22,7 +22,7 @@ type content =
   | Vc of (Update.t list * bool) (* is_synced *)
   | Vm of (string * float)
 
-type t = Checksum.t * content
+type t = Checksum.Crc32.t option * content
 
 exception ValueCheckSumError of Sn.t * t
 
@@ -38,17 +38,17 @@ let content_to buf = function
       Llio.int64_to buf (Int64.of_float l)
     end
 
-let value_to buf (cs, c) = 
-  if Checksum.is_none cs
-  then begin
-    Llio.int_to buf 0xff;
-    content_to buf c
-  end
-  else begin
-    Llio.int_to buf 0x100;
-    Checksum.checksum_to buf cs;
-    content_to buf c
-  end
+let value_to buf (cso, c) =
+  match cso with
+    | None -> begin
+        Llio.int_to buf 0xff;
+        content_to buf c
+      end
+    | Some cs -> begin
+        Llio.int_to buf 0x100;
+        Checksum.Crc32.checksum_to buf cs;
+        content_to buf c
+      end
 
 let content_from buf =
   let c = Llio.char_from buf in
@@ -67,22 +67,22 @@ let value_from buf =
   let pos = Llio.buffer_pos buf in
   match Llio.int_from buf with
   | 0x100 ->
-    let cs = Checksum.checksum_from buf in
-    (cs, content_from buf)
-  | 0xff ->
-    let cs = Checksum.none in
-    (cs, content_from buf)
+    let cs = Checksum.Crc32.checksum_from buf in
+    (Some cs, content_from buf)
+  | 0xff -> (None, content_from buf)
   | _ ->
     (* this is for backward compatibility:
        formerly, we logged updates iso values *)
     let () = Llio.buffer_set_pos buf pos in
-    let cs = Checksum.none in
     let u = Update.from_buffer buf in
     let synced = Update.is_synced u in
-    (cs, Vc ([u], synced))
+    (None, Vc ([u], synced))
 
-let value2s ?(values=false) (cs, c) =
-  let css = Checksum.string_of cs in
+let value2s ?(values=false) (cso, c) =
+  let css = match cso with
+    | None -> "_"
+    | Some cs -> Checksum.Crc32.string_of cs
+  in
   match c with
   | Vc (us,synced) ->
     let uss = Log_extra.list2s (fun u -> Update.update2s u ~values) us in
@@ -97,19 +97,21 @@ let _string_of_content c =
 let checksum tlog_coll i c =
   let s = _string_of_content c in
   match tlog_coll # get_last_value (Sn.pred i) with
-  | None -> Checksum.calculate s
-  | Some (pcs, _) -> Checksum.update pcs s
+  | None -> Checksum.Crc32.calculate s
+  | Some (cso, _) -> Checksum.Crc32.update cso s
 
-let create_client_value_nocheck us synced = (Checksum.none, Vc (us, synced))
+let create_client_value_nocheck us synced = (None, Vc (us, synced))
 
-let create_master_value_nocheck m l = (Checksum.none, Vm (m, l))
+let create_master_value_nocheck m l = (None, Vm (m, l))
 
 let create_first_value c =
   let s = _string_of_content c in
-  let cs = Checksum.calculate s in
-  (cs, c)
+  let cs = Checksum.Crc32.calculate s in
+  (Some cs, c)
 
-let create_value tlog_coll i c = (checksum tlog_coll i c, c)
+let create_value tlog_coll i c =
+  let cs = checksum tlog_coll i c in
+  (Some cs, c)
 
 let create_first_client_value us synced =
   let c = Vc (us, synced) in
@@ -127,9 +129,10 @@ let create_master_value tlog_coll i m l =
   let c = Vm (m, l) in
   create_value tlog_coll i c
 
-let validate tlog_coll i (cs, c) =
-  if Checksum.is_none cs then true
-  else (cs = checksum tlog_coll i c)
+let validate tlog_coll i (cso, c) =
+  match cso with
+    | None -> true
+    | Some cs -> cs = checksum tlog_coll i c
 
 let is_master_set = function
   | (_, Vc _) -> false
