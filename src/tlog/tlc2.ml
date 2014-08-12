@@ -211,7 +211,7 @@ let fold_read tlog_dir tlf_dir file_name
       | exn -> Lwt.fail exn
     )
 
-type validation_result = (Entry.t option * Index.index)
+type validation_result = (Entry.t option * Entry.t option * Index.index)
 
 let _make_close_marker node_id = "closed:" ^ node_id
 let _make_open_marker node_id =  "opened:" ^ node_id
@@ -220,21 +220,35 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
   Logger.debug_f_ "Tlc2._validate_one %s" tlog_name >>= fun () ->
   let e2s e = let i = Entry.i_of e in Printf.sprintf "(%s,_)" (Sn.string_of i) in
   let prev_entry = ref None in
+  let prev_i_entry = ref None in
   let new_index = Index.make tlog_name in
   Lwt.catch
     (fun () ->
        let first = Sn.of_int 0 in
        let folder, _, index = folder_for tlog_name None in
 
-       let do_it ic = folder ic ~index Sn.start None ~first None
-                        (fun _a0 entry ->
+       let do_it ic = folder ic ~index Sn.start None ~first (None, None)
+                        (fun _ entry ->
                            let () = Index.note entry new_index in
-                           let r = Some entry in
-                           let () = prev_entry := r in
-                           Lwt.return r)
+                           let pe = !prev_entry in
+                           let eo = Some entry in
+                           let () = prev_entry := eo in
+                           let peo = match pe with
+                             | None -> None
+                             | Some e ->
+                               if Entry.i_of e < Entry.i_of entry
+                               then
+                                 begin
+                                   prev_i_entry := pe;
+                                   pe
+                                 end
+                               else
+                                 !prev_i_entry
+                           in
+                           Lwt.return (eo, peo))
        in
        Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
-       >>= fun eo ->
+       >>= fun (eo, peo) ->
        begin
          if not check_marker
          then Lwt.return eo
@@ -253,16 +267,16 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
        >>= fun eo' ->
        Logger.debug_f_ "XX:a=%s" (Log_extra.option2s e2s eo') >>= fun () ->
        Logger.debug_f_ "After validation index=%s" (Index.to_string new_index) >>= fun () ->
-       Lwt.return (eo', new_index)
+       Lwt.return (eo', peo, new_index)
     )
     (function
-      | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return (None, new_index)
+      | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return (None, None, new_index)
       | exn -> Lwt.fail exn
     )
 
 
 let _validate_list tlog_names node_id ~check_marker=
-  Lwt_list.fold_left_s (fun _ tn -> _validate_one tn node_id ~check_marker) (None,None) tlog_names >>= fun (eo,index) ->
+  Lwt_list.fold_left_s (fun _ tn -> _validate_one tn node_id ~check_marker) (None, None, None) tlog_names >>= fun (eo, _, index) ->
   Logger.info_f_ "_validate_list %s => %s" (String.concat ";" tlog_names) (Index.to_string index) >>= fun () ->
   Lwt.return (TlogValidIncomplete, eo, index)
 
@@ -397,7 +411,7 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
 class tlc2
         ?(compressor=Compression.Snappy)
         (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
-        (last:Entry.t option) (index:Index.index)
+        (last:Entry.t option) (previous:Entry.t option) (index:Index.index)
         (node_id:string) ~(fsync:bool) ~(fsync_tlog_dir:bool)
   =
   let inner =
@@ -414,7 +428,7 @@ class tlc2
     val mutable _inner = inner (* ~ pos in file *)
     val mutable _outer = new_c (* ~ pos in dir *)
     val mutable _previous_entry = last
-    val mutable _previous_i_entry = last
+    val mutable _previous_i_entry = previous
     val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
     val mutable _compression_thread = None
     val mutable _compressing = false
@@ -864,7 +878,7 @@ let maybe_correct new_c last index =
 let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   get_last_tlog tlog_dir tlf_dir >>= fun (new_c, fn) ->
-  _validate_one fn node_id ~check_marker:true >>= fun (last, index) ->
+  _validate_one fn node_id ~check_marker:true >>= fun (last, previous, index) ->
   maybe_correct new_c last index >>= fun (new_c,last,new_index) ->
   Logger.debug_f_ "make_tlc2 after maybe_correct %s" (Index.to_string new_index) >>= fun () ->
   let msg =
@@ -873,7 +887,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_d
       | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Logger.debug_f_ "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last new_index ~compressor node_id ~fsync ~fsync_tlog_dir in
+  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last previous new_index ~compressor node_id ~fsync ~fsync_tlog_dir in
   (* rewrite last entry with ANOTHER marker so we can see we got here *)
   begin
     match last with
