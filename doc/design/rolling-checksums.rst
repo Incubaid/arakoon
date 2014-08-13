@@ -69,20 +69,20 @@ Older value format
 Old value format
 ----------------
 * 0xff (int32)
-* Value type (char ‘c’ or ‘m’)
+* Value type (char 'c' or 'm')
 * Value details (depends on type)
 
 New value format
 ----------------
 * 0x100 (int32)
 * Checksum (int32 if crc-32 is used)
-* Value type (char ‘c’ or ‘m’)
+* Value type (char 'c' or 'm')
 * Value details (depends on type)
 
 Upgrade Path
 ============
-To upgrade Arakoon to this new version, all nodes need to be restarted simultaneously. The tlogs in the old format can be read, and the checksums of these values will be set to None (Checksum is an option type). Values with checksum None will not be valuated.
+To upgrade Arakoon to the new version, with a new tlog format, the nodes need to be restarted. A node that restarts after the upgrade can still read the old tlogs, and the checksums of these values will be set to None. Values with checksum None will never be valuated.
 
-Nodes that need to do a catchup will do this as usual. The first received values will have checksum None, and are written to the tlogs in the old format, until all values from before the upgrade are synced.
+Nodes that need to do a catchup will do this as usual. The first received values will have checksum None, and are written to the tlogs in the old format, until all values from before the upgrade are synced. All values that are created after the upgrade will get a checksum. The checksum of the first value is a normal checksum (not depending on previous values), and all following checksums are rolling.
 
-All values that are created after the upgrade will get a checksum. The checksum of the first value is a normal checksum (not depending on previous values), and all following checksums are rolling.
+New and old nodes can not and will not communicate. If the nodes are restarted one by one, the old nodes will keep going as long as possible, while the new nodes can't make progress because they don't have a majority. When the critical point is reached, the new nodes will do a catchup and take over.

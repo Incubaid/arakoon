@@ -69,7 +69,7 @@ class tcp_messaging
   my_addresses my_cookie (drop_it: drop_function)
   max_buffer_size ~stop =
 
-  let _MAGIC = 0xB0BAFE7L in
+  let _MAGIC = 0x53E7965CL in
   let _VERSION = 1 in
   let my_ips, my_port = my_addresses in
   let my_ip = List.hd my_ips in
