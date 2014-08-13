@@ -293,11 +293,11 @@ module X = struct
 
   let last_master_log_stmt = ref 0L
 
-  let on_consensus (type s) (module S : Store.STORE with type t = s) store vni =
+  let on_consensus me (type s) (module S : Store.STORE with type t = s) store vni =
     let (v,n,i) = vni in
     begin
       let t0 = Unix.gettimeofday() in
-      let v' = Value.fill_if_master_set v in
+      let v' = Value.fill_other_master_set me v in
       let vni' = v',n,i in
       begin
         match v' with
@@ -367,7 +367,7 @@ let _main_2 (type s)
       (module S : Store.STORE with type t = s)
       make_tlog_coll
       make_config get_snapshot_name ~name
-      ~daemonize ~catchup_only stop : int Lwt.t =
+      ~daemonize ~catchup_only ~stop : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
@@ -481,7 +481,12 @@ let _main_2 (type s)
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
-      let messaging  = _config_messaging ?ssl_context me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size ~stop in
+      let messaging  = _config_messaging
+                         ?ssl_context
+                         me cfgs cookie me.is_laggy
+                         (float me.lease_period)
+                         cluster_cfg.max_buffer_size
+                         ~stop in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       begin
         if not me.fsync
@@ -504,7 +509,9 @@ let _main_2 (type s)
           let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
           Lwt.catch
             (fun () ->
-               S.copy_store2 full_snapshot_path db_name false
+             S.copy_store2 full_snapshot_path db_name
+                           ~overwrite:false
+                           ~throttling:Node_cfg.default_head_copy_throttling
             )
             (function
               | Not_found -> Lwt.return ()
@@ -557,7 +564,7 @@ let _main_2 (type s)
             new SB.sync_backend me
               (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
               inject_push
-              store (S.copy_store2, full_snapshot_path)
+              store (S.copy_store2, full_snapshot_path, me.head_copy_throttling)
               tlog_coll lease_period
               ~quorum_function n_nodes
               ~expect_reachable
@@ -675,9 +682,10 @@ let _main_2 (type s)
           in
           start_preferred_master_loop stop;
 
-          let on_consensus = X.on_consensus (module S) store in
+          let on_consensus = X.on_consensus my_name (module S) store in
           let on_witness (name:string) (i: Sn.t) = backend # witness name i in
           let last_witnessed (name:string) = backend # last_witnessed name in
+
           let statistics = backend # get_statistics () in
           let on_accept = X.on_accept statistics tlog_coll in
 
@@ -915,9 +923,9 @@ let main_t make_config name daemonize catchup_only : int Lwt.t =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only (ref false)
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop:(ref false)
 
-let test_t make_config name stop =
+let test_t make_config name ~stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
   let make_tlog_coll ~compressor =
     ignore compressor;
@@ -926,4 +934,4 @@ let test_t make_config name stop =
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false
   and catchup_only = false in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only stop
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop

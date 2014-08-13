@@ -116,7 +116,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
             end
           else (* if is_empty lease_expire_waiters *)
             let log_e = ELog (fun () -> "stable_master: half-lease_expired: update lease." ) in
-            let v = Value.create_master_value constants.tlog_coll new_i me 0.0 in
+            let v = Value.create_master_value constants.tlog_coll new_i me in
             let ms = {mo = None; v;n;i = new_i;lew = []} in
             Fsm.return ~sides:[log_e] (Master_dictate ms)
         in

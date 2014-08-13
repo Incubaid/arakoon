@@ -71,7 +71,7 @@ let test_collapse_until (dn, tlf_dir, head_dir) =
   (* now collapse first file into a tc *)
   let storename = Filename.concat test_dn "head.db" in
   File_system.unlink storename >>= fun () ->
-  let store_methods = (Batched_store.Local_store.copy_store2, storename)
+  let store_methods = (Batched_store.Local_store.copy_store2, storename, 0.0)
   in
   let future_i = Sn.of_int 1001 in
   let cb = fun _s -> Lwt.return () in
@@ -101,7 +101,7 @@ let test_collapse_many (dn, tlf_dir, head_dir) =
   let cb fn = Logger.debug_f_ "collapsed %s" (Sn.string_of fn) in
   let cb' = fun _n -> Lwt.return () in
   File_system.unlink storename >>= fun () ->
-  let store_methods = (Batched_store.Local_store.copy_store2, storename) in
+  let store_methods = (Batched_store.Local_store.copy_store2, storename, 0.0) in
   Collapser.collapse_many tlc (module S) store_methods 5 cb' cb None >>= fun () ->
   Logger.debug_ "collapsed 000" >>= fun () ->
   Collapser.collapse_many tlc (module S) store_methods 3 cb' cb None >>= fun () ->

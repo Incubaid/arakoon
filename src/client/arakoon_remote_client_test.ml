@@ -50,7 +50,7 @@ let __client_server_wrapper__ (real_test:real_test) =
                          1 (Master_type.Elected) lease_period
   in
   let cluster_cfg = make_config () in
-  let t0 = Node_main.test_t make_config "sweety_0" stop >>= fun _ -> Lwt.return () in
+  let t0 = Node_main.test_t make_config "sweety_0" ~stop >>= fun _ -> Lwt.return () in
 
   let client_t () =
     let sp = float(lease_period) *. 0.5 in

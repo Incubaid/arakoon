@@ -487,7 +487,7 @@ let main () =
           let lease_period = 60 in
           let node = Master_type.Forced "t_arakoon_0" in
           let make_config () = Node_cfg.make_test_config 3 node lease_period in
-          let main_t = (Node_main.test_t make_config !node_id (ref false)) in
+          let main_t = (Node_main.test_t make_config !node_id ~stop:(ref false)) in
           Lwt_main.run main_t
         end
   in

@@ -33,7 +33,7 @@ let prepare_tlog_scenarios (dn,factory) =
   let old_tlog_entries_value = !Tlogcommon.tlogEntriesPerFile in
   Tlogcommon.tlogEntriesPerFile := 5 ;
   factory dn "node_name" >>= fun (tlog_coll:tlog_collection) ->
-  let value i = Value.create_master_value tlog_coll i "me" 0.0 in
+  let value i = Value.create_master_value tlog_coll i ~lease_start:0. "me" in
   tlog_coll # log_value  0L (value 0L)  >>= fun () ->
   tlog_coll # log_value  1L (value 1L)  >>= fun () ->
   tlog_coll # log_value  2L (value 2L)  >>= fun () ->
@@ -47,7 +47,7 @@ let test_interrupted_rollover (dn, tlx_dir, factory) =
   (*let fn = Tlc2.get_full_path dn tlx_dir "001.tlog" in
     Unix.unlink fn; *)
   factory dn "node_name" >>= fun tlog_coll ->
-  let value = Value.create_master_value tlog_coll 5L "me" 0.0 in
+  let value = Value.create_master_value tlog_coll 5L ~lease_start:0. "me" in
   tlog_coll # log_value 5L value >>= fun () ->
   tlog_coll # close () >>= fun _ ->
   Tlc2.get_tlog_names dn tlx_dir >>= fun tlog_names ->
@@ -77,7 +77,7 @@ let test_validate_at_rollover_boundary (dn, tlx_dir, factory) =
   end;
   OUnit.assert_equal ~msg lasti 4L;
   factory dn "node_name" >>= fun (tlog_coll:tlog_collection) ->
-  let value i = Value.create_master_value tlog_coll i "me" 0.0 in
+  let value i = Value.create_master_value tlog_coll i ~lease_start:0. "me" in
   tlog_coll # log_value 5L (value 5L) >>= fun _ ->
   tlog_coll # log_value 6L (value 6L) >>= fun _ ->
   tlog_coll # log_value 7L (value 7L) >>= fun _ ->

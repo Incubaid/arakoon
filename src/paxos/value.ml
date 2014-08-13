@@ -54,7 +54,7 @@ let content_from buf =
   let c = Llio.char_from buf in
   match c with
   | 'c' ->
-    let synced = Llio.bool_from buf  in
+    let synced = Llio.bool_from buf in
     let us     = Llio.list_from buf Update.from_buffer in
     Vc (us, synced)
   | 'm' ->
@@ -102,7 +102,10 @@ let checksum tlog_coll i c =
 
 let create_client_value_nocheck us synced = (None, Vc (us, synced))
 
-let create_master_value_nocheck m l = (None, Vm (m, l))
+let create_master_value_nocheck
+    ?(lease_start = Unix.gettimeofday ())
+    m =
+  (None, Vm (m, lease_start))
 
 let create_first_value c =
   let s = _string_of_content c in
@@ -121,12 +124,17 @@ let create_client_value tlog_coll i us synced =
   let c = Vc (us, synced) in
   create_value tlog_coll i c
 
-let create_first_master_value m l =
-  let c = Vm (m, l) in
+let create_first_master_value
+    ?(lease_start = Unix.gettimeofday ())
+    m =
+  let c = Vm (m, lease_start) in
   create_first_value c
 
-let create_master_value tlog_coll i m l =
-  let c = Vm (m, l) in
+let create_master_value
+    tlog_coll i
+    ?(lease_start = Unix.gettimeofday ())
+    m =
+  let c = Vm (m, lease_start) in
   create_value tlog_coll i c
 
 let validate tlog_coll i (cso, c) =
@@ -146,15 +154,15 @@ let is_synced = function
   | (_, Vc (_,s)) -> s
   | (_, Vm _) -> false
 
-let clear_self_master_set me v = match v with
-  | (_, Vm (m, _)) -> if m = me then create_master_value_nocheck m 0.0 else v
-  | (_, Vc _) -> v
+let clear_self_master_set me = function
+  | (_, Vm (m, _)) when m = me -> create_master_value_nocheck ~lease_start:0. m
+  | (_, Vc _)
+  | (_, Vm _) as v -> v
 
-let fill_if_master_set = function
-  | (_, Vm (m, _)) ->
-    let now = Unix.gettimeofday () in
-    create_master_value_nocheck m now
-  | (_, Vc _) as v -> v
+let fill_other_master_set me = function
+  | (_, Vm (m, _)) when m <> me -> create_master_value_nocheck m
+  | (_, Vc _)
+  | (_, Vm _) as v -> v
 
 let updates_from_value = function
   | (_, Vc (us,_)) -> us

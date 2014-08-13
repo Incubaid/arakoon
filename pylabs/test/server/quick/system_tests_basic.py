@@ -152,7 +152,7 @@ def test_marker_presence_required ():
         assert_equals(e.returncode,42)
 
     # add the marker and start again:
-    subprocess.call([_arakoon,'--close-tlog', tlog, nn])
+    subprocess.call([_arakoon,'--unsafe-close-tlog', tlog, nn])
     cluster.start()
     time.sleep(1.0)
     C.assert_running_nodes(1)

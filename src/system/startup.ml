@@ -70,6 +70,7 @@ let _make_cfg name n lease_period =
     reporting = 300;
     node_tls = None;
     collapse_slowdown = None;
+    head_copy_throttling = 0.0;
   }
 
 let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
@@ -89,7 +90,7 @@ let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
   Hashtbl.add tlcs tlc_name tlc;
   Lwt.return tlc
 
-let stop = ref false
+let stop = ref (ref false)
 let node_ts = ref []
 
 let _make_run_rc ~stores ~tlcs ~now ~values ~get_cfgs name () =
@@ -112,8 +113,8 @@ let _make_run_rc ~stores ~tlcs ~now ~values ~get_cfgs name () =
     ~name
     ~daemonize:false
     ~catchup_only:false
-    stop in
-  node_ts := (t >>= fun _ -> Lwt.return ()) :: !node_ts;
+    ~stop:!stop in
+  node_ts := (Lwt.map ignore t) :: !node_ts;
   t
 
 let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
@@ -160,7 +161,7 @@ let post_failure () =
   }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value_nocheck node0 0.0 in
+  let v0 = Value.create_master_value_nocheck ~lease_start:0. node0 in
   let v1 = Value.create_client_value_nocheck [Update.Set("x","y")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
@@ -220,7 +221,7 @@ let restart_slaves () =
     }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value_nocheck node2 0.0 in
+  let v0 = Value.create_master_value_nocheck ~lease_start:0. node2 in
   let v1 = Value.create_client_value_nocheck [Update.Set("xxx","xxx")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
@@ -278,7 +279,7 @@ let ahead_master_loses_role () =
     }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value_nocheck node0 0.0 in
+  let v0 = Value.create_master_value_nocheck ~lease_start:0. node0 in
   let v1 = Value.create_client_value_nocheck [Update.Set("xxx","xxx")] false in
   let v2 = Value.create_client_value_nocheck [Update.Set("invalidkey", "shouldnotbepresent")] false in
   let tlcs = Hashtbl.create 5 in
@@ -341,7 +342,7 @@ let interrupted_election () =
     }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value_nocheck wannabe_master 0.0 in
+  let v0 = Value.create_master_value_nocheck ~lease_start:0. wannabe_master in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
@@ -451,7 +452,7 @@ let disk_failure () =
     }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value_nocheck node2 0.0 in
+  let v0 = Value.create_master_value_nocheck ~lease_start:0. node2 in
   let v1 = Value.create_client_value_nocheck [Update.Set("a","a")] false in
   let v2 = Value.create_client_value_nocheck [Update.Set("b","b")] false in
   let v3 = Value.create_client_value_nocheck [Update.Set("c","c")] false in
@@ -481,11 +482,10 @@ let disk_failure () =
   Lwt_list.iter_s (_dump_tlc ~tlcs) [node0; node1; node2]
 
 
-let setup () =
-  stop := false;
-  Lwt.return ()
+let setup () = Lwt.return ()
 let teardown () =
-  stop := true;
+  !stop := true;
+  stop := ref false;
   Lwt.join !node_ts >>= fun () ->
   node_ts := [];
   Logger.debug_ "teardown"
