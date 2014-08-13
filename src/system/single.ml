@@ -27,7 +27,7 @@ let should_fail = Arakoon_remote_client_test.should_fail
 let _start tn =
   Logger.info_f_ "---------------------%s--------------------" tn
 
-let all_same_master (_tn, cluster_cfg, all_t, _) =
+let all_same_master (_tn, cluster_cfg, all_t) =
   let scenario () =
     let q = float (cluster_cfg._lease_period) *. 1.5 in
     Lwt_unix.sleep q >>= fun () ->
@@ -74,7 +74,7 @@ let all_same_master (_tn, cluster_cfg, all_t, _) =
             scenario () ]
 
 
-let nothing_on_slave (_tn, cluster_cfg, all_t, _) =
+let nothing_on_slave (_tn, cluster_cfg, all_t) =
   let cfgs = cluster_cfg.cfgs in
   let find_slaves cfgs =
     Client_main.find_master ~tls:None cluster_cfg >>= fun m ->
@@ -123,7 +123,7 @@ let nothing_on_slave (_tn, cluster_cfg, all_t, _) =
   Lwt.pick [Lwt.join all_t;
             Lwt_unix.sleep 5.0 >>= fun () -> test_slaves cluster_cfg]
 
-let dirty_on_slave (_tn, cluster_cfg,_, _) =
+let dirty_on_slave (_tn, cluster_cfg,_) =
   Lwt_unix.sleep (float (cluster_cfg._lease_period)) >>= fun () ->
   Logger.debug_ "dirty_on_slave" >>= fun () ->
   let cfgs = cluster_cfg.cfgs in
@@ -519,7 +519,7 @@ let _multi_get_option (client:client) =
       Lwt.fail (Failure "bad order or arity")
 
 
-let _with_master ((_tn:string), cluster_cfg, _, _) f =
+let _with_master ((_tn:string), cluster_cfg, _) f =
   let sp = float(cluster_cfg._lease_period) *. 0.5 in
   Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
   Logger.info_ "cluster should have reached stability" >>= fun () ->
@@ -589,8 +589,9 @@ let assert_exists3 tpl =
 
 let _node_name tn n = Printf.sprintf "%s_%i" tn n
 
+let stop = ref (ref false)
+
 let setup make_master tn base () =
-  let stop = ref false in
   _start tn >>= fun () ->
   let lease_period = 10 in
   let cluster_id = Printf.sprintf "%s_%i" tn base in
@@ -600,16 +601,17 @@ let setup make_master tn base () =
                          ~node_name:(_node_name tn)
                          3 master lease_period
   in
-  stop := false;
-  let t0 = Node_main.test_t make_config (_node_name tn 0) stop >>= fun _ -> Lwt.return () in
-  let t1 = Node_main.test_t make_config (_node_name tn 1) stop >>= fun _ -> Lwt.return () in
-  let t2 = Node_main.test_t make_config (_node_name tn 2) stop >>= fun _ -> Lwt.return () in
+  let stop = !stop in
+  let t0 = Node_main.test_t ~stop make_config (_node_name tn 0) >>= fun _ -> Lwt.return () in
+  let t1 = Node_main.test_t ~stop make_config (_node_name tn 1) >>= fun _ -> Lwt.return () in
+  let t2 = Node_main.test_t ~stop make_config (_node_name tn 2) >>= fun _ -> Lwt.return () in
   let all_t = [t0;t1;t2] in
-  Lwt.return (tn, make_config (), all_t, stop)
+  Lwt.return (tn, make_config (), all_t)
 
-let teardown (tn, _, all_t, stop) =
+let teardown (tn, _, all_t) =
+  !stop := true;
+  stop := ref false;
   Logger.info_f_ "++++++++++++++++++++ %s +++++++++++++++++++" tn >>= fun () ->
-  stop := true;
   Lwt.join all_t
 
 let make_suite base name w =

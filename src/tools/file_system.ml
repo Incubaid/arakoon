@@ -107,20 +107,40 @@ let with_tmp_file tmp dest f =
      rename tmp dest)
     (fun () -> Lwt_unix.close fd)
 
-let copy_file source target ~overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
-  Logger.info_f_ "copy_file %S %S" source target >>= fun () ->
+let copy_file source target ~overwrite ~throttling =
+  (* LOOKS LIKE Clone.copy_stream ... *)
+  Logger.info_f_ "copy_file %s %s (overwrite=%b,throttling=%f)"
+                 source target overwrite throttling >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let buffer = String.create bs in
+  let throttle =
+    match throttling with
+    | 0.0   -> fun f  -> f ()
+    | factor ->
+       fun f ->
+       let t0 = Unix.gettimeofday () in
+       f () >>= fun r ->
+       let t1 = Unix.gettimeofday () in
+       let dt = t1 -. t0 in
+       Lwt_unix.sleep (factor *. dt) >>= fun () ->
+       Lwt.return r
+  in
   let copy_all ic oc =
     let rec loop () =
-      Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
-      if bytes_read > 0
-      then
-        begin
-          Lwt_io.write oc buffer >>= fun () -> loop ()
-        end
-      else
-        Lwt.return ()
+      throttle
+        (fun () ->
+         Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
+         if bytes_read > 0
+         then
+           begin
+             Lwt_io.write oc buffer >>= fun () ->
+             Lwt.return `Continue
+           end
+         else
+           Lwt.return `Stop)
+      >>= function
+        | `Continue -> loop ()
+        | `Stop -> Lwt.return ()
     in
     loop () >>= fun () ->
     Logger.info_ "done: copy_file"

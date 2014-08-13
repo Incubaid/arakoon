@@ -35,14 +35,15 @@ let range ls first finc last linc max =
   B.range bdb (Some first) finc last linc max
 
 
-let copy_store2 old_location new_location overwrite =
+let copy_store2 old_location new_location
+                ~overwrite ~throttling =
   File_system.exists old_location >>= fun src_exists ->
   if not src_exists
   then
     Logger.info_f_ "File at %s does not exist" old_location >>= fun () ->
     raise Not_found
   else
-    File_system.copy_file old_location new_location ~overwrite
+    File_system.copy_file old_location new_location ~overwrite ~throttling
 
 let safe_create ?(lcnum=1024) ?(ncnum=512) db_path ~mode  =
   Camltc.Hotc.create db_path ~mode ~lcnum ~ncnum [B.BDBTLARGE] >>= fun db ->
@@ -202,7 +203,9 @@ let copy_store ls networkClient (oc: Lwt_io.output_channel) =
 
 
 let relocate ls new_location =
-  copy_store2 ls.location new_location true >>= fun () ->
+  copy_store2 ls.location new_location ~overwrite:true
+              ~throttling:0.0
+  >>= fun () ->
   let old_location = ls.location in
   let () = ls.location <- new_location in
   Logger.info_f_ "Attempting to unlink file '%s'" old_location >>= fun () ->
