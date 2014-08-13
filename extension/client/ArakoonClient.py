@@ -47,9 +47,6 @@ class ArakoonClientExtConfig:
         """
         self.__validateName(name)
 
-        if isinstance(ip, basestring):
-            ip = [ip]
-
         clusterId = self._clusterId
         inifile_path = self._configPath
 
@@ -68,7 +65,7 @@ class ArakoonClientExtConfig:
         nodes.append(name)
         config.addSection(name)
         config.addParam(name, "name", name)
-        config.addParam(name, "ip", ', '.join(ip))
+        config.addParam(name, "ip", ip)
         config.addParam(name, "client_port", clientPort)
 
         config.setParam("global","cluster", ",".join(nodes))
@@ -115,9 +112,7 @@ class ArakoonClientExtConfig:
             nodes = self.__getNodes(config)
 
             for name in nodes:
-                ips = config.getValue(name, "ip")
-                ip_list = map(lambda x: x.strip(), ips.split(","))
-                clientconfig[name] = (ip_list,
+                clientconfig[name] = (config.getValue(name, "ip"),
                                       config.getValue(name, "client_port"))
 
         return clientconfig
@@ -149,10 +144,8 @@ class ArakoonClientExtConfig:
                 if name in self.getNodes():
                     self.removeNode(name)
 
-                ips = serverConfig.getValue(name, "ip")
-                ip_list = map(lambda x: x.strip(), ips.split(","))
                 self.addNode(name,
-                             ip_list,
+                             serverConfig.getValue(name, "ip"),
                              serverConfig.getValue(name, "client_port"))
 
     def __getNodes(self, config):
@@ -209,7 +202,7 @@ class ArakoonClient:
             for node in clusterParam.split(",") :
                 node = node.strip()
                 ips  = cfgFile.getValue(node, "ip")
-                ip_list = map(lambda x: x.strip(), ips.split(","))
+                ip_list = ips.split(",")
                 port = cfgFile.getValue(node, "client_port")
                 node_dict.update({node: (ip_list,port)})
             cluster_id = cfgFile.getValue("global", "cluster_id")
