@@ -246,8 +246,6 @@ let test_validate_corrupt_1 (dn, tlf_dir, factory) =
         OUnit.assert_bool msg false;
         Lwt.return ()
     )
-  >>= fun () ->
-  Lwt.return ()
 
 let test_checksum (dn, tlf_dir, factory) =
   Logger.info_f_ "test_checksum  %s, %s" dn tlf_dir >>= fun () ->
@@ -269,8 +267,6 @@ let test_checksum (dn, tlf_dir, factory) =
         OUnit.assert_bool msg false;
         Lwt.return ()
     )
-  >>= fun() ->
-  Lwt.return ()
 
 let wrap factory test (name:string) = lwt_bracket (setup factory name) test teardown
 

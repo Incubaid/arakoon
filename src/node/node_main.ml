@@ -897,7 +897,7 @@ let _main_2 (type s)
             Lwt.return rc
           | Value.ValueCheckSumError (i, value) ->
             let rc = 51 in
-            Logger.fatal_f_ "[rc=%i] Value has a checksum error: sn=%s, value=%s"
+            Logger.fatal_f_ "[rc=%i] Value has a checksum error, tlog diverged from other nodes: sn=%s, value=%s"
               rc (Sn.string_of i) (Value.value2s value) >>= fun () ->
             Lwt.return rc
           | exn ->
