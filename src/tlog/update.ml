@@ -107,10 +107,10 @@ module Update = struct
         Llio.string_to b k;
         Llio.string_option_to b e;
         Llio.string_option_to b w
-      | MasterSet (m,i) ->
+      | MasterSet (m,_) ->
         Llio.int_to    b 4;
         Llio.string_to b m;
-        Llio.int64_to b (Int64.of_float i)
+        Llio.int64_to b 0L
       | Sequence us ->
         Llio.int_to b 5;
         _us_to b us
@@ -181,8 +181,8 @@ module Update = struct
         TestAndSet(k,e,w)
       | 4 ->
         let m = Llio.string_from b in
-        let l = Llio.int64_from b  in
-        MasterSet (m,Int64.to_float l)
+        let _ = Llio.int64_from b  in
+        MasterSet (m,0.0)
       | 5 ->
         let us = _us_from b in
         Sequence us

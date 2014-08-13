@@ -97,7 +97,9 @@ struct
     (push_update:Update.t * (Store.update_result -> unit Lwt.t) -> unit Lwt.t)
     (push_node_msg:Multi_paxos.paxos_event -> unit Lwt.t)
     (store: 'a)
-    (store_methods: (string -> string -> bool -> unit Lwt.t) * string )
+    (store_methods: (string -> string ->
+                     overwrite:bool -> throttling:float ->
+                     unit Lwt.t) * string * float)
     (tlog_collection:Tlogcollection.tlog_collection)
     (lease_expiration:int)
     ~quorum_function n_nodes
@@ -118,6 +120,7 @@ struct
                                       "value too large"))
     in
     let is_witness = cfg.Node_cfg.is_witness in
+    let (_, _, copy_head_throttling) = store_methods in
     object(self: #backend)
       val witnessed = Hashtbl.create 10
       val _stats = Statistics.create ()
@@ -410,7 +413,7 @@ struct
               match Node_cfg.get_master cfg with
                 | Elected | Preferred _ | Forced _ ->
                   begin
-                    let now = (Unix.gettimeofday()) in
+                    let now = Unix.gettimeofday () in
                     let diff = now -. ls in
                     if diff < float lease_expiration then
                       (Some m,"inside lease")
@@ -571,7 +574,9 @@ struct
                  self # wait_for_tlog_release tlog_num
                in
                Logger.info_ "Starting collapse" >>= fun () ->
-               Collapser.collapse_many tlog_collection (module S) store_methods n cb' new_cb collapse_slowdown >>= fun () ->
+               Collapser.collapse_many tlog_collection (module S)
+                                       store_methods n cb' new_cb
+                                       collapse_slowdown >>= fun () ->
                Logger.info_ "Collapse completed")
 
       method get_routing () =
@@ -657,7 +662,7 @@ struct
       method copy_db_to_head tlogs_to_keep =
         if tlogs_to_keep < 1 then
           let rc = Arakoon_exc.E_UNKNOWN_FAILURE
-          and msg = Printf.sprintf "%i is not acceptable" tlogs_to_keep
+          and msg = Printf.sprintf "tlogs_to_keep=%i is not acceptable" tlogs_to_keep
           in
           Lwt.fail (XException(rc,msg))
         else
@@ -668,7 +673,8 @@ struct
             self # try_quiesced
                      ~mode
                      (fun () ->
-                      S.copy_store2 (S.get_location store) head_path true) >>= fun () ->
+                      S.copy_store2 (S.get_location store) head_path
+                                    ~overwrite:true ~throttling:copy_head_throttling) >>= fun () ->
 
             (* remove all but tlogs_to_keep last tlogs *)
             Collapser._head_i (module S) head_path >>= fun head_io ->
@@ -677,7 +683,7 @@ struct
               | None -> failwith "impossible i for copied head"
               | Some i -> Tlc2.get_file_number i
             in
-            let keep_bottom_n = Sn.sub head_n (Sn.of_int tlogs_to_keep) in
+            let keep_bottom_n = Sn.succ (Sn.sub head_n (Sn.of_int tlogs_to_keep)) in
             if Sn.compare keep_bottom_n Sn.zero = 1
             then
               begin

@@ -23,15 +23,25 @@ open Tlogcommon
 let section = Logger.Section.main
 
 let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
-      (module S : Store.STORE with type t = s) (copy_store, head_location)
-      (too_far_i:Sn.t)
-      (cb: Sn.t -> unit Lwt.t) slowdown =
+    (module S : Store.STORE with type t = s)
+    ((copy_store : string -> string ->
+                   overwrite:bool -> throttling:float -> unit Lwt.t),
+     (head_location:string),
+     (throttling:float)
+    )
+    (too_far_i:Sn.t)
+    (cb: Sn.t -> unit Lwt.t)
+    (slowdown : float option)=
 
   let new_location = head_location ^ ".clone" in
-  Logger.debug_f_ "Creating db clone at %s" new_location >>= fun () ->
+  Logger.info_f_ "Creating db clone at %s (throttling:%f)"
+                 new_location throttling
+  >>= fun () ->
   Lwt.catch (
     fun () ->
-      copy_store head_location new_location true
+      copy_store head_location new_location
+                 ~overwrite:true
+                 ~throttling
   ) (
     function
       | Not_found -> Logger.debug_f_ "head db at '%s' does not exist" head_location
@@ -193,15 +203,16 @@ let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
        Lwt.return None
     )
 
-let collapse_many (type s) tlog_coll
+let collapse_many
+      (type s) tlog_coll
       (module S : Store.STORE with type t = s)
-      store_fs
+      (store_fs: 'b * string * float)
       tlogs_to_keep cb' cb slowdown =
 
   Logger.debug_f_ "collapse_many" >>= fun () ->
   tlog_coll # get_tlog_count () >>= fun total_tlogs ->
   Logger.debug_f_ "total_tlogs = %i; tlogs_to_keep=%i" total_tlogs tlogs_to_keep >>= fun () ->
-  let (_,(head_location:string)) = store_fs in
+  let (_,(head_location:string), _) = store_fs in
   _head_i (module S) head_location >>= fun head_io ->
   let last_i = tlog_coll # get_last_i () in
   Logger.debug_f_ "head @ %s : last_i %s " (Log_extra.option2s Sn.string_of head_io) (Sn.string_of last_i)
