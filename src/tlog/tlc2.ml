@@ -520,33 +520,35 @@ class tlc2
       Lwt.ignore_result t
 
 
-    method log_value_explicit i value sync marker =
-      if not (Value.validate self i value) then Lwt.fail (Value.ValueCheckSumError (i, value)) else
-      Lwt_mutex.with_lock _write_lock
-        (fun () ->
-           begin
-             self # _prelude i >>= fun file ->
-             let p = F.file_pos file in
-             let oc = F.oc_of file in
-             Tlogcommon.write_entry oc i value >>= fun () ->
-             Lwt_io.flush oc >>= fun () ->
+    method log_value_explicit i value ?(validate = true) sync marker =
+      if validate && not (Value.validate self i value)
+      then Lwt.fail (Value.ValueCheckSumError (i, value))
+      else
+        Lwt_mutex.with_lock _write_lock
+          (fun () ->
              begin
-               if sync || fsync
-               then F.fsync file
-               else Lwt.return ()
-             end
-             >>= fun () ->
-             let () = match _previous_entry with
-               | None -> _inner <- _inner +1
-               | Some pe->
-                 let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1
-             in
-             let entry = Entry.make i value p marker in
-             if self # get_last_i () < i then _previous_i_entry <- _previous_entry;
-             _previous_entry <- Some entry;
-             Index.note entry _index;
-             Lwt.return ()
-           end)
+               self # _prelude i >>= fun file ->
+               let p = F.file_pos file in
+               let oc = F.oc_of file in
+               Tlogcommon.write_entry oc i value >>= fun () ->
+               Lwt_io.flush oc >>= fun () ->
+               begin
+                 if sync || fsync
+                 then F.fsync file
+                 else Lwt.return ()
+               end
+               >>= fun () ->
+               let () = match _previous_entry with
+                 | None -> _inner <- _inner +1
+                 | Some pe->
+                   let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1
+               in
+               let entry = Entry.make i value p marker in
+               if self # get_last_i () < i then _previous_i_entry <- _previous_entry;
+               _previous_entry <- Some entry;
+               Index.note entry _index;
+               Lwt.return ()
+             end)
 
     method log_value i value =
       self # log_value_explicit i value fsync None

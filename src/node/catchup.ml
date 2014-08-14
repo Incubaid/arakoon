@@ -105,7 +105,7 @@ let stop_fuse stop =
   else
     Lwt.return ()
 
-let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
+let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,(tlog_coll:Tlogcollection.tlog_collection))
   =
   let current_i = tlog_coll # get_last_i () in
   Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
@@ -128,8 +128,10 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((mo
 
   let copy_tlog connection =
     make_remote_nodestream cluster_id connection >>= fun (client:nodestream) ->
+    let validate = ref true in
     let f (i,value) =
-      tlog_coll # log_value_explicit i value false None >>= fun _ ->
+      tlog_coll # log_value_explicit i value ~validate:!validate false None >>= fun _ ->
+      validate := false;
       stop_fuse stop
     in
 
@@ -138,8 +140,8 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((mo
 
   Lwt.catch
     (fun () ->
-      _with_client_connection  ~tls_ctx mr_addresses copy_tlog >>= fun () ->
-      Logger.info_f_ "catchup_tlog completed"
+       _with_client_connection  ~tls_ctx mr_addresses copy_tlog >>= fun () ->
+       Logger.info_f_ "catchup_tlog completed"
     )
     (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")
   >>= fun () ->

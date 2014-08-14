@@ -59,7 +59,6 @@ class mem_tlog_collection _name =
         | None -> None
         | Some e -> Some (Entry.v_of e, Entry.i_of e)
 
-
     method iterate from_i too_far_i f =
       let data' =
         List.filter
@@ -77,13 +76,15 @@ class mem_tlog_collection _name =
 
     method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
-    method log_value_explicit i (v:Value.t) _sync marker =
-      if not (Value.validate self i v) then Lwt.fail (Value.ValueCheckSumError (i, v)) else
-      let entry = Entry.make i v 0L marker in
-      let () = data <- entry::data in
-      let () = if self # get_last_i () < i then previous_i_entry <- last_entry in
-      let () = last_entry <- (Some entry) in
-      Lwt.return ()
+    method log_value_explicit i (v:Value.t) ?(validate = true) _sync marker =
+      if validate && not (Value.validate self i v)
+      then Lwt.fail (Value.ValueCheckSumError (i, v))
+      else
+        let entry = Entry.make i v 0L marker in
+        let () = data <- entry::data in
+        let () = if self # get_last_i () < i then previous_i_entry <- last_entry in
+        let () = last_entry <- (Some entry) in
+        Lwt.return ()
 
     method log_value i v = self #log_value_explicit i v false None
 
