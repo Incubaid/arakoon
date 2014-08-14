@@ -11,5 +11,5 @@ opam update -y
 opam install -y conf-libev
 opam install -y camlbz2
 opam install -y lwt.2.4.4
-opam install -y camltc.0.9.0
+opam install -y camltc.0.9.2
 opam install -y bisect
