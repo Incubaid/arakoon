@@ -241,6 +241,33 @@ let find_master' ~tls cluster_cfg =
   in
   loop [] [] (cluster_cfg.cfgs)
 
+
+(** Lookup the master of a cluster in a loop
+
+    This action calls {! find_master' } in a loop, as long as it returns
+    {! MasterLookupResult.No_master } or
+    {! MasterLookupResult.Too_many_nodes_down }. Other return values are passed
+    through to the caller.
+
+    In some circumstances, this action could loop forever, so it's mostly
+    useful in combination with {! Lwt_unix.with_timeout } or something related.
+*)
+let find_master_loop ~tls cluster_cfg =
+  let open MasterLookupResult in
+  let rec loop () =
+    find_master' ~tls cluster_cfg >>= fun r -> match r with
+      | No_master _
+      | Too_many_nodes_down _ -> begin
+          Logger.debug_f_ "Client_main.find_master_loop: %s" (to_string r) >>=
+          loop
+        end
+      | Found _
+      | Unknown_node _
+      | Exception _ -> return r
+  in
+  loop ()
+
+
 let find_master ~tls cluster_cfg =
   let open MasterLookupResult in
   find_master' ~tls cluster_cfg >>= function

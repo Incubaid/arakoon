@@ -519,11 +519,25 @@ let _multi_get_option (client:client) =
       Lwt.fail (Failure "bad order or arity")
 
 
+let find_master ~tls cluster_cfg =
+  let lp = cluster_cfg._lease_period in
+  let timeout = 3 * lp in
+  let go () =
+    let open Client_main.MasterLookupResult in
+    Client_main.find_master_loop ~tls cluster_cfg >>= function
+      | Found m -> return m.node_name
+      | No_master _ -> Lwt.fail (Failure "No Master")
+      | Too_many_nodes_down _ -> Lwt.fail (Failure "too many nodes down")
+      | Unknown_node (n, _) -> return n
+      | Exception exn -> Lwt.fail exn
+  in
+  Lwt_unix.with_timeout (float timeout) go
+
 let _with_master ((_tn:string), cluster_cfg, _) f =
   let sp = float(cluster_cfg._lease_period) *. 0.5 in
   Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
   Logger.info_ "cluster should have reached stability" >>= fun () ->
-  Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
+  find_master ~tls:None cluster_cfg >>= fun master_name ->
   Logger.info_f_ "master=%S" master_name >>= fun () ->
   let master_cfg =
     List.hd
