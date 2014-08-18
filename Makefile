@@ -12,7 +12,7 @@ clean:
 	ocamlbuild -clean
 
 build:
-	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs
+	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
 
 bench:
 	ocamlbuild -use-ocamlfind bs_bench.native
@@ -42,6 +42,8 @@ install_client:
           _build/src/plugins/registry.cmi \
           _build/src/plugins/plugin_helper.mli \
           _build/src/plugins/plugin_helper.cmi \
+          _build/src/tools/llio.mli \
+          _build/src/tools/llio.cmi \
           _build/src/arakoon_client.a
 
 uninstall_client:
