@@ -19,13 +19,18 @@ open Lwt
 let section = Logger.Section.main
 
 let load home pnames =
-  (*let () = Dynlink.allow_only [
+  (*
+    (* if you really want to turn on the screws,
+       and limit what they are allowed to do you can do
+       something like this: *)
+    let () = Dynlink.allow_only [
                "Pervasives";
                "Registry";
                "Llio";
                "Int32";
              ]
-  in*)
+  in
+  *)
 
   let rec _inner = function
     | [] -> Lwt.return ()
