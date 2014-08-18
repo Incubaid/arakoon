@@ -29,7 +29,7 @@ type change =
   | TestAndSet of key * value option * value option
   | Sequence of change list
 
-type consistency = 
+type consistency =
   | Consistent
   | No_guarantees
   | At_least of Stamp.t
