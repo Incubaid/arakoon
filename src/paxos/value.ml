@@ -96,9 +96,8 @@ let _string_of_content c =
 
 let checksum tlog_coll i c =
   let s = _string_of_content c in
-  match tlog_coll # get_last_value (Sn.pred i) with
-  | None -> Checksum.Crc32.calculate s
-  | Some (cso, _) -> Checksum.Crc32.update cso s
+  let cso = tlog_coll # get_previous_checksum i in
+  Checksum.Crc32.update cso s
 
 let create_client_value_nocheck us synced = (None, Vc (us, synced))
 
@@ -168,3 +167,4 @@ let updates_from_value = function
   | (_, Vc (us,_)) -> us
   | (_, Vm (m,l)) -> [Update.MasterSet(m,l)]
 
+let checksum_of (cso, _) = cso

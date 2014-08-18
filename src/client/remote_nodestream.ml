@@ -25,9 +25,9 @@ let section = Logger.Section.main
 
 class type nodestream = object
   method iterate:
-    Sn.t -> (Sn.t * Value.t -> unit Lwt.t) ->
-    Tlogcollection.tlog_collection ->
-    head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
+    Sn.t -> f_entry:(Sn.t * Value.t -> unit Lwt.t) ->
+    f_head:(Lwt_io.input_channel -> unit Lwt.t) ->
+    f_file:(string -> int64 -> Lwt_io.input_channel -> unit Lwt.t) -> unit Lwt.t
 
   method collapse: int -> unit Lwt.t
 
@@ -50,18 +50,13 @@ class type nodestream = object
   method drop_master: unit -> unit Lwt.t
 end
 
-class remote_nodestream ((ic,oc) as conn) = 
-        (object
-  method iterate (i:Sn.t) (f: Sn.t * Value.t -> unit Lwt.t)  
-    (tlog_coll: Tlogcollection.tlog_collection) 
-    ~head_saved_cb
-    =
+class remote_nodestream ((ic,oc) as conn) = (object
+  method iterate i ~f_entry ~f_head ~f_file =
     let outgoing buf =
       command_to buf LAST_ENTRIES2;
       Sn.sn_to buf i
     in
     let incoming ic =
-      let save_head () = tlog_coll # save_head ic in
       let last_seen = ref None in
       let rec loop_entries () =
         Sn.input_sn ic >>= fun i2 ->
@@ -78,7 +73,7 @@ class remote_nodestream ((ic,oc) as conn) =
               Llio.input_int32 ic >>= fun _chksum ->
               Llio.input_string ic >>= fun entry ->
               let value = Value.value_from (Llio.make_buffer entry 0) in
-              f (i2, value) >>= fun () ->
+              f_entry (i2, value) >>= fun () ->
               loop_entries ()
             end
         end
@@ -94,10 +89,8 @@ class remote_nodestream ((ic,oc) as conn) =
           end
         | 2 ->
           begin
-            Logger.info_f_ "save_head" >>= fun ()->
-            save_head () >>= fun () ->
-            let hf_name = tlog_coll # get_head_name () in
-            head_saved_cb hf_name >>= fun () ->
+            Logger.info_f_ "save_head" >>= fun () ->
+            f_head ic >>= fun () ->
             loop_parts ()
           end
         | 3 ->
@@ -106,7 +99,7 @@ class remote_nodestream ((ic,oc) as conn) =
             Llio.input_string ic >>= fun name ->
             Llio.input_int64 ic >>= fun length ->
             Logger.info_f_ "got %s (%Li bytes)" name length >>= fun () ->
-            tlog_coll # save_tlog_file name length ic >>= fun () ->
+            f_file name length ic >>= fun () ->
             loop_parts ()
           end
         | x  -> Llio.lwt_failfmt "don't know what %i means" x

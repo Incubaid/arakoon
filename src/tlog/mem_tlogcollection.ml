@@ -23,7 +23,7 @@ class mem_tlog_collection _name =
 
     val mutable data = []
     val mutable last_entry = (None: Entry.t option)
-    val mutable previous_i_entry = None
+    val mutable previous_checksum = None
 
     method validate_last_tlog () =
       Lwt.return (TlogValidComplete, last_entry, None)
@@ -46,11 +46,6 @@ class mem_tlog_collection _name =
               let v = Entry.v_of entry in
               Some v
             else
-            if i' = Sn.succ i
-            then match previous_i_entry with
-              | None -> None
-              | Some pie -> Some (Entry.v_of pie)
-            else
               None
           end
 
@@ -58,6 +53,21 @@ class mem_tlog_collection _name =
       match last_entry with
         | None -> None
         | Some e -> Some (Entry.v_of e, Entry.i_of e)
+
+    method get_previous_checksum i =
+      match last_entry with
+        | None -> previous_checksum
+        | Some pe ->
+          let pi = Entry.i_of pe in
+          if pi = i
+          then previous_checksum
+          else
+          if pi = Sn.pred i
+          then Value.checksum_of (Entry.v_of pe)
+          else None
+
+    method set_previous_checksum cso =
+      previous_checksum <- cso
 
     method iterate from_i too_far_i f =
       let data' =
@@ -72,7 +82,8 @@ class mem_tlog_collection _name =
 
     method dump_tlog_file _start_i _oc = failwith "dump_tlog_file not supported"
 
-    method save_tlog_file _name _length _ic = failwith "save_tlog_file not supported"
+    method save_tlog_file ?validate:_ _name _length _ic =
+      failwith "save_tlog_file not supported"
 
     method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
@@ -82,7 +93,14 @@ class mem_tlog_collection _name =
       else
         let entry = Entry.make i v 0L marker in
         let () = data <- entry::data in
-        let () = if self # get_last_i () < i then previous_i_entry <- last_entry in
+        let () =
+          match last_entry with
+            | None -> ()
+            | Some pe ->
+              let pi = Entry.i_of pe in
+              if pi < i
+              then previous_checksum <- Value.checksum_of (Entry.v_of pe)
+        in
         let () = last_entry <- (Some entry) in
         Lwt.return ()
 
