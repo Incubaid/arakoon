@@ -79,6 +79,11 @@ New value format
 * Value type (char 'c' or 'm')
 * Value details (depends on type)
 
+Checksums in store
+==================
+The current tlog index and checksum are stored in the local store. When a node starts, they are compared with the values in the tlog.
+Thus, after a collapse, the checksum of the last collapsed value is saved in the head database. Therefore the rolling tlog checksum is a continuation of the checksum in the head database.
+
 Upgrade Path
 ============
 To upgrade Arakoon to the new version, with a new tlog format, the nodes need to be restarted. A node that restarts after the upgrade can still read the old tlogs, and the checksums of these values will be set to None. Values with checksum None will never be valuated.
