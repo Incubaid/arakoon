@@ -17,6 +17,7 @@ limitations under the License.
 module Sync_backend = functor(S : Store.STORE) ->
 struct
 
+  open Std
   open Backend
   open Statistics
   open Client_cfg
@@ -285,6 +286,12 @@ struct
         else
           Lwt.fail (XException(Arakoon_exc.E_BAD_INPUT, Printf.sprintf "User function %S could not be found" name))
 
+      method get_read_user_db () =
+        S.get_read_user_db store
+
+      method push_update update =
+        _update_rendezvous self update ignore push_update ~so_post:id
+
       method aSSert ~consistency (key:string) (vo:string option) =
         self # _read_allowed consistency;
         let vo' =
@@ -464,6 +471,9 @@ struct
                then Logger.ign_debug_f_ "ok"
                else raise (XException(Arakoon_exc.E_INCONSISTENT_READ, "store not fresh enough"))
              end
+
+      method read_allowed consistency =
+        self # _read_allowed consistency
 
       method private _check_interval keys =
         let iv = S.get_interval store in

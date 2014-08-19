@@ -155,7 +155,7 @@ let handle_sequence ~sync ic oc backend =
 
   end
 
-let one_command stop (ic,oc,id) (backend:Backend.backend) =
+let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
   read_command (ic,oc) >>= fun command ->
   if !stop
   then
@@ -381,6 +381,29 @@ let one_command stop (ic,oc,id) (backend:Backend.backend) =
            end
         )
     end
+  | USER_HOOK ->
+     begin
+       Common.input_consistency ic >>= fun consistency ->
+       Llio.input_string ic >>= fun name ->
+       Logger.debug_f_ "connection=%s USER_HOOK: consistency=%s name=%S" id (consistency2s consistency) name >>= fun () ->
+       Lwt.catch
+         (fun () ->
+          backend # read_allowed consistency;
+          Lwt.return None)
+         (fun exn ->
+          handle_exception oc exn >>= fun r ->
+          Lwt.return (Some r)) >>= function
+         | None ->
+            begin
+              (* read allowed is ok *)
+              let open Registry in
+              let h = HookRegistry.lookup name in
+              h conn (backend # get_read_user_db ()) (backend :> backend) >>= fun () ->
+              Lwt.return false
+            end
+         | Some r ->
+            Lwt.return r
+     end
   | PREFIX_KEYS ->
     begin
       Common.input_consistency ic >>= fun consistency ->

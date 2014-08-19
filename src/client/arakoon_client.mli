@@ -27,6 +27,7 @@ type change =
   | Assert of (key * value option)
   | Assert_exists of (key)
   | TestAndSet of key * value option * value option
+  | UserFunction of string * string option
   | Sequence of change list
 
 type consistency =
@@ -132,6 +133,7 @@ class type client = object
   method statistics: unit -> Statistics.t Lwt.t
 
   method user_function: string -> string option -> string option Lwt.t
+  method user_hook: ?consistency:consistency -> string -> (Llio.lwtic * Llio.lwtoc) Lwt.t
 
   method get_key_count: unit -> int64 Lwt.t
 
