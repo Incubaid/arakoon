@@ -350,25 +350,16 @@ struct
       failwith "_set_i is only meant to be used on a quiesced store to cheat with tlog replay"
 
   let _set_checksum store cso tx =
-    let () =
+    let csso =
       match cso with
-        | None ->
-          begin
-            try S.delete store.s tx __checksum_key
-            with Key_not_found _ | Not_found -> ()
-          end
+        | None -> None
         | Some cs ->
-          begin
-            let css =
-              let buf = Buffer.create 4 in
-              let () = Checksum.Crc32.checksum_to buf cs in
-              Buffer.contents buf
-            in
-            S.set store.s tx __checksum_key css
-          end
+          let buf = Buffer.create 4 in
+          let () = Checksum.Crc32.checksum_to buf cs in
+          Some (Buffer.contents buf)
     in
+    let () = S.put store.s tx __checksum_key csso in
     Logger.debug_f_ "Store.set_checksum: %s" (Log_extra.option2s Checksum.Crc32.string_of cso)
-
 
   let _with_transaction_lock store f =
     Lwt_mutex.with_lock store._tx_lock_mutex (fun () ->
