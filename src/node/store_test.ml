@@ -78,14 +78,14 @@ let assert_not_exists k (store:S.t) =
 let failing_value =
   let k2 = "key2"
   and v2 = "value2" in
-  Value.create_client_value [Update.Sequence [Update.Set(k2, v2);
+  Value.create_client_value_nocheck [Update.Sequence [Update.Set(k2, v2);
                                               Update.Assert_exists "notExists"]] false
 
 
 let value_asserts =
   let k1 = "key1"
   and v1 = "value1" in
-  [(Value.create_client_value [Update.Set(k1,v1)] false,
+  [(Value.create_client_value_nocheck [Update.Set(k1,v1)] false,
     [assert_k_v k1 v1]);
    (failing_value,
     [assert_not_exists "key2"]);]
@@ -114,7 +114,7 @@ let test_safe_insert_value_with_partial_value_update () =
       let u1 = Update.TestAndSet(k, Some "value1", Some "illegal")
       and u2 = Update.TestAndSet(k, None, Some "value1")
       and u3 = Update.Set("key2", "bla") in
-      let paxos_value = Value.create_client_value [u1;u2;u3] false in
+      let paxos_value = Value.create_client_value_nocheck [u1;u2;u3] false in
       S._with_transaction_lock store (fun k -> S._insert_update store u1 (Store.Key k)) >>= fun _ ->
       S._with_transaction_lock store (fun k -> S._insert_update store u2 (Store.Key k)) >>= fun _ ->
 

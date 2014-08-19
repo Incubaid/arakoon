@@ -211,7 +211,7 @@ let fold_read tlog_dir tlf_dir file_name
       | exn -> Lwt.fail exn
     )
 
-type validation_result = (Entry.t option * Index.index)
+type validation_result = (Entry.t option * Checksum.Crc32.t option * Index.index)
 
 let _make_close_marker node_id = "closed:" ^ node_id
 let _make_open_marker node_id =  "opened:" ^ node_id
@@ -220,21 +220,33 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
   Logger.debug_f_ "Tlc2._validate_one %s" tlog_name >>= fun () ->
   let e2s e = let i = Entry.i_of e in Printf.sprintf "(%s,_)" (Sn.string_of i) in
   let prev_entry = ref None in
+  let prev_checksum = ref None in
   let new_index = Index.make tlog_name in
   Lwt.catch
     (fun () ->
        let first = Sn.of_int 0 in
        let folder, _, index = folder_for tlog_name None in
 
-       let do_it ic = folder ic ~index Sn.start None ~first None
-                        (fun _a0 entry ->
+       let do_it ic = folder ic ~index Sn.start None ~first (None, None)
+                        (fun _ entry ->
                            let () = Index.note entry new_index in
-                           let r = Some entry in
-                           let () = prev_entry := r in
-                           Lwt.return r)
+                           let pcs = match !prev_entry with
+                             | None -> None
+                             | Some e ->
+                               if Entry.i_of e < Entry.i_of entry
+                               then
+                                 let cs = Value.checksum_of (Entry.v_of e) in
+                                 let () = prev_checksum := cs in
+                                 cs
+                               else
+                                 !prev_checksum
+                           in
+                           let eo = Some entry in
+                           let () = prev_entry := eo in
+                           Lwt.return (eo, pcs))
        in
        Lwt_io.with_file tlog_name ~mode:Lwt_io.input do_it
-       >>= fun eo ->
+       >>= fun (eo, pcs) ->
        begin
          if not check_marker
          then Lwt.return eo
@@ -253,16 +265,16 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
        >>= fun eo' ->
        Logger.debug_f_ "XX:a=%s" (Log_extra.option2s e2s eo') >>= fun () ->
        Logger.debug_f_ "After validation index=%s" (Index.to_string new_index) >>= fun () ->
-       Lwt.return (eo', new_index)
+       Lwt.return (eo', pcs, new_index)
     )
     (function
-      | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return (None, new_index)
+      | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return (None, None, new_index)
       | exn -> Lwt.fail exn
     )
 
 
 let _validate_list tlog_names node_id ~check_marker=
-  Lwt_list.fold_left_s (fun _ tn -> _validate_one tn node_id ~check_marker) (None,None) tlog_names >>= fun (eo,index) ->
+  Lwt_list.fold_left_s (fun _ tn -> _validate_one tn node_id ~check_marker) (None, None, None) tlog_names >>= fun (eo, _, index) ->
   Logger.info_f_ "_validate_list %s => %s" (String.concat ";" tlog_names) (Index.to_string index) >>= fun () ->
   Lwt.return (TlogValidIncomplete, eo, index)
 
@@ -397,7 +409,7 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
 class tlc2
         ?(compressor=Compression.Snappy)
         (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
-        (last:Entry.t option) (index:Index.index)
+        (last:Entry.t option) (last_checksum:Checksum.Crc32.t option) (index:Index.index)
         (node_id:string) ~(fsync:bool) ~(fsync_tlog_dir:bool)
   =
   let inner =
@@ -414,6 +426,7 @@ class tlc2
     val mutable _inner = inner (* ~ pos in file *)
     val mutable _outer = new_c (* ~ pos in dir *)
     val mutable _previous_entry = last
+    val mutable _previous_checksum = last_checksum
     val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
     val mutable _compression_thread = None
     val mutable _compressing = false
@@ -505,31 +518,41 @@ class tlc2
       Lwt.ignore_result t
 
 
-    method log_value_explicit i value sync marker =
-      Lwt_mutex.with_lock _write_lock
-        (fun () ->
-           begin
-             self # _prelude i >>= fun file ->
-             let p = F.file_pos file in
-             let oc = F.oc_of file in
-             Tlogcommon.write_entry oc i value >>= fun () ->
-             Lwt_io.flush oc >>= fun () ->
+    method log_value_explicit i value ?(validate = true) sync marker =
+      if validate && not (Value.validate self i value)
+      then Lwt.fail (Value.ValueCheckSumError (i, value))
+      else
+        Lwt_mutex.with_lock _write_lock
+          (fun () ->
              begin
-               if sync || fsync
-               then F.fsync file
-               else Lwt.return ()
-             end
-             >>= fun () ->
-             let () = match _previous_entry with
-               | None -> _inner <- _inner +1
-               | Some pe->
-                 let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1
-             in
-             let entry = Entry.make i value p marker in
-             _previous_entry <- Some entry;
-             Index.note entry _index;
-             Lwt.return ()
-           end)
+               self # _prelude i >>= fun file ->
+               let p = F.file_pos file in
+               let oc = F.oc_of file in
+               Tlogcommon.write_entry oc i value >>= fun () ->
+               Lwt_io.flush oc >>= fun () ->
+               begin
+                 if sync || fsync
+                 then F.fsync file
+                 else Lwt.return ()
+               end
+               >>= fun () ->
+               let () = match _previous_entry with
+                 | None -> _inner <- _inner +1
+                 | Some pe->
+                   let pi = Entry.i_of pe in
+                   if pi < i
+                   then
+                     begin
+                       _inner <- _inner + 1;
+                       let pcs = Value.checksum_of (Entry.v_of pe) in
+                       _previous_checksum <- pcs
+                     end
+               in
+               let entry = Entry.make i value p marker in
+               _previous_entry <- Some entry;
+               Index.note entry _index;
+               Lwt.return ()
+             end)
 
     method log_value i value =
       self # log_value_explicit i value fsync None
@@ -668,7 +691,7 @@ class tlc2
     method get_last_i () =
       match _previous_entry with
         | None -> Sn.start
-        | Some pe -> let pi = Entry.i_of pe in pi
+        | Some pe -> Entry.i_of pe
 
     method get_last_value i =
       match _previous_entry with
@@ -690,6 +713,25 @@ class tlc2
       match _previous_entry with
         | None -> None
         | Some pe ->  Some (Entry.v_of pe, Entry.i_of pe)
+
+    method get_previous_checksum i =
+      match _previous_entry with
+        | None -> _previous_checksum
+        | Some pe ->
+          let pi = Entry.i_of pe in
+          if pi = i
+          then _previous_checksum
+          else
+          if pi = Sn.pred i
+          then Value.checksum_of (Entry.v_of pe)
+          else
+            let msg = Printf.sprintf "get_previous_checksum %s > %s can't look back so far"
+                        (Sn.string_of pi) (Sn.string_of i)
+            in
+            failwith msg
+
+    method set_previous_checksum cso =
+      _previous_checksum <- cso
 
     method close ?(wait_for_compression=false) () =
       Lwt_mutex.lock _write_lock >>= fun () ->
@@ -794,12 +836,26 @@ class tlc2
       let next_i = Sn.add start_i (Sn.of_int !tlogEntriesPerFile) in
       Lwt.return next_i
 
-    method save_tlog_file name length ic =
+    method save_tlog_file ?(validate = true) name length ic =
       (* what with rotation (jump to new tlog), open streams, ...*)
       let canon = get_full_path tlog_dir tlf_dir name in
       let tmp = canon ^ ".tmp" in
       Logger.debug_f_ "save_tlog_file: %s" tmp >>= fun () ->
-      Lwt_io.with_file ~mode:Lwt_io.output tmp (fun oc -> Llio.copy_stream ~length ~ic ~oc) >>= fun () ->
+      let validate_and_copy oc =
+        Sn.input_sn ic >>= fun i ->
+        Llio.input_int32 ic >>= fun crc ->
+        Llio.input_string ic >>= fun cmd ->
+        let value = Value.value_from (Llio.make_buffer cmd 0) in
+        if validate && not (Value.validate self i value)
+        then Lwt.fail (Value.ValueCheckSumError (i, value))
+        else
+          Sn.output_sn oc i >>= fun () ->
+          Llio.output_int32 oc crc >>= fun () ->
+          Llio.output_string oc cmd >>= fun () ->
+          let length = Int64.sub length (Lwt_io.position ic) in
+          Llio.copy_stream ~length ~ic ~oc
+      in
+      Lwt_io.with_file ~mode:Lwt_io.output tmp validate_and_copy >>= fun () ->
       File_system.rename tmp canon
 
 
@@ -856,7 +912,7 @@ let maybe_correct new_c last index =
 let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   get_last_tlog tlog_dir tlf_dir >>= fun (new_c, fn) ->
-  _validate_one fn node_id ~check_marker:true >>= fun (last, index) ->
+  _validate_one fn node_id ~check_marker:true >>= fun (last, previous_checksum, index) ->
   maybe_correct new_c last index >>= fun (new_c,last,new_index) ->
   Logger.debug_f_ "make_tlc2 after maybe_correct %s" (Index.to_string new_index) >>= fun () ->
   let msg =
@@ -865,7 +921,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_d
       | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Logger.debug_f_ "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last new_index ~compressor node_id ~fsync ~fsync_tlog_dir in
+  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last previous_checksum new_index ~compressor node_id ~fsync ~fsync_tlog_dir in
   (* rewrite last entry with ANOTHER marker so we can see we got here *)
   begin
     match last with

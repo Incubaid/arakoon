@@ -38,8 +38,9 @@ let _fill tlog_coll n =
         let k = Printf.sprintf "key%i" i
         and v = Printf.sprintf "value%i" i in
         let u = Update.Set (k,v) in
-        let value = Value.create_client_value [u] sync in
-        tlog_coll # log_value (Sn.of_int i) value >>= fun () ->
+        let sni = Sn.of_int i in
+        let value = Value.create_client_value tlog_coll sni [u] sync in
+        tlog_coll # log_value sni value >>= fun () ->
         _loop (i+1)
       end
   in
@@ -58,11 +59,11 @@ let _fill2 tlog_coll n =
         in
         let u = Update.Set(k,v) in
         let u2 = Update.Set(k2,v2) in
-        let value = Value.create_client_value [u] sync in
-        let value2 = Value.create_client_value [u2] sync in
         let sni = Sn.of_int i in
-        tlog_coll # log_value  sni value  >>= fun () ->
-        tlog_coll # log_value  sni value2 >>= fun () ->
+        let value = Value.create_client_value tlog_coll sni [u] sync in
+        let value2 = Value.create_client_value tlog_coll sni [u2] sync in
+        tlog_coll # log_value sni value  >>= fun () ->
+        tlog_coll # log_value sni value2 >>= fun () ->
         _loop (i+1)
       end
   in
@@ -84,9 +85,9 @@ let _fill3 tlog_coll n =
         let u = Update.Set(k,v) in
         let u2 = Update.Set(k2,v2) in
         let u3 = Update.Sequence [Update.Set(k3,v3); Update.Assert_exists("nonExistingKey")] in
-        let value = Value.create_client_value [u; u3] sync in
-        let value2 = Value.create_client_value [u2; u3] sync in
         let sni = Sn.of_int i in
+        let value = Value.create_client_value tlog_coll sni [u; u3] sync in
+        let value2 = Value.create_client_value tlog_coll sni [u2; u3] sync in
         tlog_coll # log_value sni value  >>= fun () ->
         tlog_coll # log_value sni value2 >>= fun () ->
         _loop (i+1)

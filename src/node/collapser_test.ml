@@ -25,6 +25,12 @@ let compressor = Compression.Snappy
 
 module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
+
+let test_dn = "/tmp/collapser"
+let _tlf_dir = "/tmp/collapser_tlf"
+let _head_dir = "/tmp/collapser_head"
+
+
 let _should_fail x error_msg success_msg =
   Lwt.catch
     (fun ()  ->
@@ -47,8 +53,8 @@ let _make_values tlc n =
       let k = Printf.sprintf "sqrt(%i)" a in
       let v = Printf.sprintf "%f" (sqrt (float a)) in
       let update = Update.Set(k, v) in
-      let value = Value.create_client_value [update] sync in
       let sni = Sn.of_int i in
+      let value = Value.create_client_value tlc sni [update] sync in
       tlc # log_value sni value >>= fun _wr_result ->
       loop (i+1)
   in
@@ -63,7 +69,7 @@ let test_collapse_until (dn, tlf_dir, head_dir) =
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
   (* now collapse first file into a tc *)
-  let storename = "head.db" in
+  let storename = Filename.concat test_dn "head.db" in
   File_system.unlink storename >>= fun () ->
   let store_methods = (Batched_store.Local_store.copy_store2, storename, 0.0)
   in
@@ -82,10 +88,6 @@ let test_collapse_until (dn, tlf_dir, head_dir) =
   >>= fun ()->
   Lwt.return ()
 
-
-let test_dn = "/tmp/collapser"
-let _tlf_dir = "/tmp/collapser_tlf"
-let _head_dir = "/tmp/collapser_head"
 
 let test_collapse_many (dn, tlf_dir, head_dir) =
   let () = Tlogcommon.tlogEntriesPerFile := 100 in

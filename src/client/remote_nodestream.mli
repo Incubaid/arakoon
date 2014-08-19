@@ -21,9 +21,9 @@ open Ncfg
 
 class type nodestream = object
   method iterate:
-    Sn.t -> (Sn.t * Value.t -> unit Lwt.t) ->
-    Tlogcollection.tlog_collection ->
-    head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
+    Sn.t -> f_entry:(Sn.t * Value.t -> unit Lwt.t) ->
+    f_head:(Lwt_io.input_channel -> unit Lwt.t) ->
+    f_file:(string -> int64 -> Lwt_io.input_channel -> unit Lwt.t) -> unit Lwt.t
 
   method collapse: int -> unit Lwt.t
 

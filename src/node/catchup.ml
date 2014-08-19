@@ -24,6 +24,7 @@ open Log_extra
 open Tlogcommon
 
 exception StoreAheadOfTlogs of (Int64.t * Sn.t)
+exception StoreChecksumError of (Sn.t * Checksum.Crc32.t option * Checksum.Crc32.t option)
 exception StoreCounterTooLow of string
 
 let with_connection ~tls_ctx address f = match tls_ctx with
@@ -86,9 +87,11 @@ let head_saved_epilogue hfn tlog_coll =
   S.make_store ~lcnum:default_lcnum
     ~ncnum:default_ncnum ~read_only:true hfn >>= fun store ->
   let hio = S.consensus_i store in
+  let hcso = S.get_checksum store in
   S.close store ~flush:false ~sync:false >>= fun () ->
   Logger.info_ "closed head" >>= fun () ->
   begin
+    tlog_coll # set_previous_checksum hcso;
     match hio with
       | None -> Lwt.return ()
       | Some head_i ->
@@ -98,6 +101,7 @@ let head_saved_epilogue hfn tlog_coll =
         end
   end
 
+
 let stop_fuse stop =
   if !stop
   then
@@ -105,7 +109,8 @@ let stop_fuse stop =
   else
     Lwt.return ()
 
-let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
+let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id mr_name
+      ((module S : Store.STORE with type t = s), store, (tlog_coll:Tlogcollection.tlog_collection))
   =
   let current_i = tlog_coll # get_last_i () in
   Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
@@ -114,8 +119,26 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((mo
   let mr_addresses = Node_cfg.client_addresses mr_cfg
   and mr_name = Node_cfg.node_name mr_cfg in
   Logger.info_f_ "getting last_entries from %s" mr_name >>= fun () ->
-  let head_saved_cb hfn =
-    Logger.info_f_ "head_saved_cb %s" hfn >>= fun () ->
+
+  let r_validate = ref false in
+  let validate () =
+    let _validate = !r_validate in
+    begin
+      r_validate := false;
+      _validate
+    end
+  in
+
+  let f_entry (i, value) =
+    let validate = validate () in
+    tlog_coll # log_value_explicit i value ~validate:validate false None >>= fun _ ->
+    stop_fuse stop
+  in
+
+  let f_head ic =
+    tlog_coll # save_head ic >>= fun () ->
+    let hfn = tlog_coll # get_head_name () in
+    Logger.info_f_ "head_saved %s" hfn >>= fun () ->
     head_saved_epilogue hfn tlog_coll >>= fun () ->
     let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
@@ -126,20 +149,20 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((mo
     Lwt.return ()
   in
 
+  let f_file name length ic =
+    let validate = validate () in
+    tlog_coll # save_tlog_file ~validate:validate name length ic
+  in
+
   let copy_tlog connection =
     make_remote_nodestream cluster_id connection >>= fun (client:nodestream) ->
-    let f (i,value) =
-      tlog_coll # log_value_explicit i value false None >>= fun _ ->
-      stop_fuse stop
-    in
-
-    client # iterate current_i f tlog_coll ~head_saved_cb
+    client # iterate current_i ~f_entry ~f_head ~f_file
   in
 
   Lwt.catch
     (fun () ->
-      _with_client_connection  ~tls_ctx mr_addresses copy_tlog >>= fun () ->
-      Logger.info_f_ "catchup_tlog completed"
+       _with_client_connection  ~tls_ctx mr_addresses copy_tlog >>= fun () ->
+       Logger.info_f_ "catchup_tlog completed"
     )
     (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")
   >>= fun () ->
@@ -297,9 +320,28 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
     (Sn.string_of too_far_i) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
    match too_far_i, si_o with
     | i, None when i <= 0L -> Lwt.return ()
-    | i, Some j when i = j -> Lwt.return ()
+    | i, Some j when i = j ->
+      begin
+        let store_cs = S.get_checksum store in
+        let tlog_cs = tlog_coll # get_previous_checksum (Sn.succ i) in
+        if store_cs <> tlog_cs
+        then Lwt.fail (StoreChecksumError (i, store_cs, tlog_cs))
+        else Lwt.return ()
+      end
     | i, Some j when i > j ->
-      catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
+      let entry = ref None in
+      let check e = Lwt.return (entry := Some e) in
+      tlog_coll # iterate j (Sn.succ j) check >>= fun () ->
+      let store_cs = S.get_checksum store in
+      let tlog_cs =
+        match !entry with
+          | None -> None
+          | Some e -> Value.checksum_of (Entry.v_of e) in
+      if store_cs <> tlog_cs
+      then
+        Lwt.fail (StoreChecksumError (j, store_cs, tlog_cs))
+      else
+        catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
     | _, None ->
       catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
     | _,_ ->

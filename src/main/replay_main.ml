@@ -49,7 +49,7 @@ let replay_tlogs tlog_dir tlf_dir db_name end_i =
              | None ->
                begin
                  Tlc2.get_last_tlog tlog_dir tlf_dir >>= fun (_new_c,fn) ->
-                 Tlc2._validate_one fn "" ~check_marker:false >>= fun (last, _index) ->
+                 Tlc2._validate_one fn "" ~check_marker:false >>= fun (last, _, _index) ->
                  let i =
                    match last with
                      | None -> Sn.start

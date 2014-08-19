@@ -42,6 +42,7 @@ sig
   type t
   val make_store : lcnum:int -> ncnum:int -> ?read_only:bool -> string -> t Lwt.t
   val consensus_i : t -> Sn.t option
+  val get_checksum : t -> Checksum.Crc32.t option
   val flush : t -> unit Lwt.t
   val close : ?flush : bool -> ?sync:bool -> t -> unit Lwt.t
   val get_location : t -> string
@@ -63,8 +64,6 @@ sig
 
   val get_succ_store_i : t -> int64
   val get_catchup_start_i : t -> int64
-
-  val incr_i : t -> unit Lwt.t
 
   val set_master : t -> transaction -> string -> float -> unit Lwt.t
   val set_master_no_inc : t -> string -> float -> unit Lwt.t
@@ -297,6 +296,14 @@ struct
   let consensus_i store =
     store.store_i
 
+  let get_checksum store =
+    try
+      let cs_string = S.get store.s __checksum_key in
+      let cs = Checksum.Crc32.checksum_from (Llio.make_buffer cs_string 0) in
+      Some cs
+    with Not_found ->
+      None
+
   let _get_j store =
     try
       let jstring = S.get store.s __j_key in
@@ -341,6 +348,18 @@ struct
       store.store_i <- Some i
     else
       failwith "_set_i is only meant to be used on a quiesced store to cheat with tlog replay"
+
+  let _set_checksum store cso tx =
+    let csso =
+      match cso with
+        | None -> None
+        | Some cs ->
+          let buf = Buffer.create 4 in
+          let () = Checksum.Crc32.checksum_to buf cs in
+          Some (Buffer.contents buf)
+    in
+    let () = S.put store.s tx __checksum_key csso in
+    Logger.debug_f_ "Store.set_checksum: %s" (Log_extra.option2s Checksum.Crc32.string_of cso)
 
   let _with_transaction_lock store f =
     Lwt_mutex.with_lock store._tx_lock_mutex (fun () ->
@@ -882,6 +901,8 @@ struct
     >>= fun () ->
     _insert_updates store updates' kt >>= fun (urs:update_result list) ->
     _with_transaction store kt (fun tx -> _incr_i store tx) >>= fun () ->
+    let cs = Value.checksum_of value in
+    _with_transaction store kt (fun tx -> _set_checksum store cs tx) >>= fun () ->
     let prepend_oks n l =
       let rec inner l = function
         | 0 -> l
@@ -946,8 +967,8 @@ struct
           begin
             begin
               match v with
-                | Value.Vm (m, ls) -> set_master_no_inc store m ls
-                | Value.Vc _ -> Lwt.return ()
+                | (_, Value.Vm (m, ls)) -> set_master_no_inc store m ls
+                | (_, Value.Vc _) -> Lwt.return ()
             end >>= fun () ->
             incr_i store >>= fun () ->
             Lwt.return [Ok None]
