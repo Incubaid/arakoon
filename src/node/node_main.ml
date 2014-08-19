@@ -301,7 +301,7 @@ module X = struct
       let vni' = v',n,i in
       begin
         match v' with
-          | Value.Vm (m, _) ->
+          | (_, Value.Vm (m, _)) ->
             let now = Int64.of_float (Unix.gettimeofday ()) in
             let m_old_master = S.who_master store in
             let new_master =
@@ -318,7 +318,7 @@ module X = struct
               end
             else
               Lwt.return ()
-          | Value.Vc _ -> Lwt.return ()
+          | (_, Value.Vc _) -> Lwt.return ()
       end >>= fun () ->
       S.on_consensus store vni' >>= fun r ->
       let t1 = Unix.gettimeofday () in
@@ -336,11 +336,11 @@ module X = struct
     tlog_coll # log_value_explicit i v sync marker >>= fun () ->
     begin
       match v with
-        | Value.Vc (us,_)     ->
+        | (_, Value.Vc (us,_)) ->
           let size = List.length us in
           let () = Statistics.new_harvest statistics size in
           Lwt.return ()
-        | Value.Vm _  -> Lwt.return ()
+        | (_, Value.Vm _) -> Lwt.return ()
     end  >>= fun () ->
     let t1 = Unix.gettimeofday() in
     let d = t1 -. t0 in
@@ -902,6 +902,18 @@ let _main_2 (type s)
           | Tlogcommon.TLogSabotage ->
             let rc = 50 in
             Logger.fatal_f_ "[rc=%i] Somebody has been messing with the available tlogs" rc >>= fun () ->
+            Lwt.return rc
+          | Value.ValueCheckSumError (i, value) ->
+            let rc = 51 in
+            Logger.fatal_f_ "[rc=%i] Value has a checksum error, tlog diverged from other nodes: sn=%s, value=%s"
+              rc (Sn.string_of i) (Value.value2s value) >>= fun () ->
+            Lwt.return rc
+          | Catchup.StoreChecksumError (i, scs, tcs) ->
+            let rc = 52 in
+            Logger.fatal_f_
+              "[rc=%i] Store and tlog have different checksums: i=%s, store_cs=%s, tlog_cs=%s"
+              rc (Sn.string_of i) (Log_extra.option2s Checksum.Crc32.string_of scs)
+              (Log_extra.option2s Checksum.Crc32.string_of tcs) >>= fun () ->
             Lwt.return rc
           | exn ->
             begin
