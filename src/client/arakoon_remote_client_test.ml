@@ -214,6 +214,41 @@ let _test_user_function (client:Arakoon_client.client) =
 let test_user_function () =
   __client_server_wrapper__ _test_user_function
 
+let test_user_hook () =
+  Registry.HookRegistry.register "t3k"
+                                 (fun (ic,oc,_) _ _ ->
+                                  Llio.input_string ic >>= fun arg ->
+                                  Llio.output_string oc ("cucu " ^ arg));
+  Registry.HookRegistry.register "rev_range"
+                                 (fun (_,oc,_) user_db _ ->
+                                  let _count, keys = user_db # with_cursor
+                                                         (fun cur ->
+                                                          Registry.Cursor_store.fold_rev_range
+                                                            cur
+                                                            (Some "t")
+                                                            false
+                                                            "a"
+                                                            false
+                                                            (-1)
+                                                            (fun _ k _ acc ->
+                                                             k :: acc)
+                                                            []) in
+                                  Llio.output_list Llio.output_key oc keys
+                                 );
+  __client_server_wrapper__ (fun client ->
+                             client # user_hook "t3k" >>= fun (ic,oc) ->
+                             Llio.output_string oc "cthulhu" >>= fun () ->
+                             Llio.input_string ic >>= fun response ->
+                             OUnit.assert_equal response "cucu cthulhu";
+
+                             let keys = ["a"; "b"; "c"; "f"; "t"] in
+                             Lwt_list.iter_p (fun k -> client # set k k) keys >>= fun () ->
+
+                             client # user_hook "rev_range" >>= fun (ic,_) ->
+                             Llio.input_list Llio.input_string ic >>= fun response ->
+                             OUnit.assert_equal response ["f"; "c"; "b"];
+                             Lwt.return ())
+
 let _clear (client:Arakoon_client.client)  () =
   client # range None true None true 1000 >>= fun xn ->
   Lwt_list.iter_s (fun x -> client # delete x) xn
@@ -347,6 +382,7 @@ let suite = "remote_client" >::: [
     "test_and_set_to_none"  >:: test_and_set_to_none;
     "sequence"   >:: test_sequence;
     "user_function" >:: test_user_function;
+    "user_hook" >:: test_user_hook;
     "get_key_count" >:: test_get_key_count;
     "confirm"    >:: test_confirm;
     "reverse_range" >:: test_reverse_range;

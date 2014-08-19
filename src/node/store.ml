@@ -93,6 +93,8 @@ sig
 
   val on_consensus : t -> Value.t * int64 * Int64.t -> update_result list Lwt.t
 
+  val get_read_user_db : t -> Registry.read_user_db
+
   val _set_i : t -> Sn.t -> unit
 end
 
@@ -188,8 +190,8 @@ struct
     _wrap_exception store "GET" CorruptStore
                     (fun () -> _get store key)
 
-  let _set store tx key value =
-    S.set store.s tx (__prefix ^ key) value
+  let _put store tx key vo =
+    S.put store.s tx (__prefix ^ key) vo
 
   let _get_option store key =
     try
@@ -499,32 +501,23 @@ struct
         List.rev vs)
 
   let _delete store tx key =
-    S.delete store.s tx (__prefix ^ key)
+    let pk = (__prefix ^ key) in
+    if S.exists store.s pk
+    then
+      S.put store.s tx pk None
+    else
+      raise Not_found
 
   let _test_and_set store tx key expected wanted =
     let existing = _get_option store key in
     if existing = expected
     then
-      begin
-        match wanted with
-          | None ->
-            begin
-              match existing with
-                | None -> ()
-                | Some _ -> _delete store tx key
-            end
-          | Some wanted_s -> _set store tx key wanted_s
-      end;
+      _put store tx key wanted;
     existing
 
   let _replace store tx key wanted =
     let r = _get_option store key in
-    begin
-      match wanted,r with
-      | Some v, _      -> _set store tx key v
-      | None  , None   -> ()
-      | None  , Some _ -> _delete store tx key
-    end;
+    _put store tx key wanted;
     r
 
   let fold_range store prefix first finc last linc max f init =
@@ -646,30 +639,86 @@ struct
     let range_s = Buffer.contents buf in
     S.set store.s tx __interval_key range_s
 
+  class store_cursor_db cur =
+    object(self: #Registry.cursor_db)
+      val mutable is_valid = None
+
+      method assert_valid () =
+        if is_valid = None
+        then
+          failwith "invalid cursor"
+      method invalidate () =
+        is_valid <- None;
+        false
+      method validate_by_key () =
+        let k = S.cur_get_key cur in
+        let valid =
+          try
+            k.[0] = __prefix.[0]
+          with Invalid_argument "index out of bounds" ->
+            false in
+        if valid
+        then
+          begin
+            is_valid <- Some (Key.make k);
+            true
+          end
+        else
+          self # invalidate ()
+
+      method get_key () =
+        match is_valid with
+        | None -> failwith "invalid cursor"
+        | Some k -> k
+
+      method get_value () =
+        self # assert_valid ();
+        S.cur_get_value cur
+
+      method move_and_validate f =
+        if f ()
+        then
+          self # validate_by_key ()
+        else
+          self # invalidate ()
+
+      method jump ?(inc=true) ?(right=true) k =
+        self # move_and_validate (fun () -> CS.cur_jump' cur (__prefix ^ k) ~inc ~right)
+
+      method last () =
+        self # move_and_validate (fun () -> S.cur_last cur)
+
+      method next () =
+        self # move_and_validate (fun () -> S.cur_next cur)
+
+      method prev () =
+        self # move_and_validate (fun () -> S.cur_prev cur)
+  end
+
+  class store_read_user_db store =
+    object(_ : #Registry.read_user_db)
+      method get k =
+        _get_option store k
+
+      method with_cursor f =
+        S.with_cursor
+          store.s
+          (fun cur -> f (new store_cursor_db cur :> Registry.cursor_db))
+
+      method get_interval () =
+        store.interval
+  end
+
+  let get_read_user_db store = new store_read_user_db store
+
   class store_user_db store tx =
-    let test k =
-      if not (Interval.is_ok store.interval k) then
-        raise (Common.XException (Arakoon_exc.E_OUTSIDE_INTERVAL, k))
-    in
-    let test_option = function
-      | None -> ()
-      | Some k -> test k
-    in
-    let test_range first last = test_option first; test_option last
-    in
 
-    (object
-      method set k v = test k ; _set store tx k v
-      method get k   = test k ; _get store k
+  object
+    inherit store_read_user_db store
 
-      method delete k = test k ; _delete store tx k
-
-      method test_and_set k e w = test k; _test_and_set store tx k e w
-
-      method range_entries first finc last linc max =
-        test_range first last;
-        Array.of_list (List.rev (_range_entries store first finc last linc max))
-    end : Registry.user_db)
+    method put k v =
+      _put store tx k v
+  end
 
   let _user_function store (name:string) (po:string option) tx =
     Lwt.catch
@@ -725,7 +774,7 @@ struct
         _wrap_exception store "_insert_update" Server.FOOBAR (fun () ->
             (Lwt.wrap f) >>= return) in
       match update with
-        | Update.Set(key,value) -> wrap (fun () -> _set store tx key value)
+        | Update.Set(key,value) -> wrap (fun () -> _put store tx key (Some value))
         | Update.MasterSet (m, lease) -> set_master store tx m lease >>= return
         | Update.Delete(key) ->
           Logger.debug_f_ "store # delete %S" key >>= fun () ->
@@ -783,9 +832,7 @@ struct
           end
         | Update.AdminSet(k,vo) ->
           let () =
-            match vo with
-              | None   -> S.delete store.s tx (__adminprefix ^ k)
-              | Some v -> S.set    store.s tx (__adminprefix ^ k) v
+            S.put store.s tx (__adminprefix ^ k) vo
           in
           Lwt.return (Ok None)
     in

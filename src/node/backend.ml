@@ -25,6 +25,8 @@ open Client_cfg
 open Arakoon_client
 
 class type backend = object
+  inherit Registry.backend
+
   method exists: consistency:consistency -> string -> bool
   method get: consistency:consistency -> string -> string
   method set: string -> string -> unit Lwt.t
@@ -79,6 +81,9 @@ class type backend = object
   method collapse : int -> (int -> unit Lwt.t) -> (unit -> unit Lwt.t) -> unit Lwt.t
 
   method user_function: string -> string option -> (string option) Lwt.t
+
+  method read_allowed : consistency -> unit
+  method get_read_user_db : unit -> Registry.read_user_db
 
   method set_interval : Interval.t -> unit Lwt.t
   method get_interval : unit -> Interval.t
