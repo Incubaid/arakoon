@@ -154,12 +154,14 @@ let is_synced = function
   | (_, Vm _) -> false
 
 let clear_self_master_set me = function
-  | (_, Vm (m, _)) when m = me -> create_master_value_nocheck ~lease_start:0. m
+  | (cso, Vm (m, _)) when m = me -> (cso, Vm (m, 0.))
   | (_, Vc _)
   | (_, Vm _) as v -> v
 
 let fill_other_master_set me = function
-  | (_, Vm (m, _)) when m <> me -> create_master_value_nocheck m
+  | (cso, Vm (m, _)) when m <> me ->
+    let lease_start = Unix.gettimeofday () in
+    (cso, Vm (m, lease_start))
   | (_, Vc _)
   | (_, Vm _) as v -> v
 
