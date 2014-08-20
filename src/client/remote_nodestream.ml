@@ -53,7 +53,7 @@ end
 class remote_nodestream ((ic,oc) as conn) = (object
   method iterate i ~f_entry ~f_head ~f_file =
     let outgoing buf =
-      command_to buf LAST_ENTRIES2;
+      command_to buf LAST_ENTRIES3;
       Sn.sn_to buf i
     in
     let incoming ic =

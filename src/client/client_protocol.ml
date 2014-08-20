@@ -312,18 +312,24 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
     end
   | LAST_ENTRIES ->
     begin
-      Sn.input_sn ic >>= fun i ->
-      Logger.debug_f_ "connection=%s LAST_ENTRIES: i=%Li" id i >>= fun () ->
-      response_ok oc >>= fun () ->
-      backend # last_entries i oc >>= fun () ->
-      Lwt.return false
+      wrap_exception
+      (fun () ->
+         let msg = "Operation LAST_ENTRIES is not supported" in
+         Lwt.fail (XException(Arakoon_exc.E_NOT_SUPPORTED, msg)))
     end
   | LAST_ENTRIES2 ->
     begin
+      wrap_exception
+      (fun () ->
+         let msg = "Operation LAST_ENTRIES2 is not supported" in
+         Lwt.fail (XException(Arakoon_exc.E_NOT_SUPPORTED, msg)))
+    end
+  | LAST_ENTRIES3 ->
+    begin
       Sn.input_sn ic >>= fun i ->
-      Logger.debug_f_ "connection=%s LAST_ENTRIES2: i=%Li" id i >>= fun () ->
+      Logger.debug_f_ "connection=%s LAST_ENTRIES3: i=%Li" id i >>= fun () ->
       response_ok oc >>= fun () ->
-      backend # last_entries2 i oc >>= fun () ->
+      backend # last_entries i oc >>= fun () ->
       Lwt.return false
     end
   | WHO_MASTER ->

@@ -49,6 +49,7 @@ type client_command =
   | TEST_AND_SET
   | LAST_ENTRIES
   | LAST_ENTRIES2
+  | LAST_ENTRIES3
   | RANGE_ENTRIES
   | MIGRATE_RANGE
   | SEQUENCE
@@ -133,6 +134,7 @@ let code2int = [
   GET_TXID                , 0x43l;
   COPY_DB_TO_HEAD         , 0x44l;
   USER_HOOK               , 0x45l;
+  LAST_ENTRIES3           , 0x46l;
 ]
 
 let int2code =

@@ -52,7 +52,6 @@ class type backend = object
   method prefix_keys:
     consistency:consistency -> string -> int -> (Key.t counted_list)
   method last_entries : Sn.t ->Lwt_io.output_channel -> unit Lwt.t
-  method last_entries2: Sn.t ->Lwt_io.output_channel -> unit Lwt.t
 
   method multi_get:
     consistency:consistency ->

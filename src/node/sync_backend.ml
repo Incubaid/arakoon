@@ -195,12 +195,6 @@ struct
              Catchup.last_entries (module S) store tlog_collection start_i oc
           )
 
-      method last_entries2 (start_i:Sn.t) (oc:Lwt_io.output_channel) =
-        self # with_blocked_collapser start_i
-          (fun () ->
-             Catchup.last_entries2 (module S) store tlog_collection start_i oc
-          )
-
       method range_entries ~consistency
                (first:string option) finc (last:string option) linc max =
         let start = Unix.gettimeofday() in
