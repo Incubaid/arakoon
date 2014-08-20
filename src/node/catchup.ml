@@ -24,7 +24,6 @@ open Log_extra
 open Tlogcommon
 
 exception StoreAheadOfTlogs of (Int64.t * Sn.t)
-exception StoreChecksumError of (Sn.t * Checksum.Crc32.t option * Checksum.Crc32.t option)
 exception StoreCounterTooLow of string
 
 let with_connection ~tls_ctx address f = match tls_ctx with
@@ -318,30 +317,12 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
   let si_o = S.consensus_i store in
   Logger.info_f_ "verify_n_catchup_store; too_far_i=%s current_i=%s si_o:%s"
     (Sn.string_of too_far_i) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
+  begin
    match too_far_i, si_o with
     | i, None when i <= 0L -> Lwt.return ()
-    | i, Some j when i = j ->
-      begin
-        let store_cs = S.get_checksum store in
-        let tlog_cs = tlog_coll # get_previous_checksum (Sn.succ i) in
-        if store_cs <> tlog_cs
-        then Lwt.fail (StoreChecksumError (i, store_cs, tlog_cs))
-        else Lwt.return ()
-      end
+    | i, Some j when i = j -> Lwt.return ()
     | i, Some j when i > j ->
-      let entry = ref None in
-      let check e = Lwt.return (entry := Some e) in
-      tlog_coll # iterate j (Sn.succ j) check >>= fun () ->
-      let store_cs = S.get_checksum store in
-      let tlog_cs =
-        match !entry with
-          | None -> None
-          | Some e -> Value.checksum_of (Entry.v_of e) in
-      if store_cs <> tlog_cs
-      then
-        Lwt.fail (StoreChecksumError (j, store_cs, tlog_cs))
-      else
-        catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
+      catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
     | _, None ->
       catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
     | _,_ ->
@@ -352,6 +333,9 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
       Logger.fatal_ msg >>= fun () ->
       let maybe a = function | None -> a | Some b -> b in
       Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, too_far_i))
+  end
+  >>= fun () ->
+  S.validate store tlog_coll
 
 let last_entries
       (type s) (module S : Store.STORE with type t = s)

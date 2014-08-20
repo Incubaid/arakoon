@@ -908,7 +908,7 @@ let _main_2 (type s)
             Logger.fatal_f_ "[rc=%i] Value has a checksum error, tlog diverged from other nodes: sn=%s, value=%s"
               rc (Sn.string_of i) (Value.value2s value) >>= fun () ->
             Lwt.return rc
-          | Catchup.StoreChecksumError (i, scs, tcs) ->
+          | Store.StoreChecksumError (i, scs, tcs) ->
             let rc = 52 in
             Logger.fatal_f_
               "[rc=%i] Store and tlog have different checksums: i=%s, store_cs=%s, tlog_cs=%s"

@@ -31,6 +31,7 @@ type update_result =
   | Update_fail of Arakoon_exc.rc * string
 
 exception CorruptStore
+exception StoreChecksumError of (Sn.t * Checksum.Crc32.t option * Checksum.Crc32.t option)
 
 type key_or_transaction =
   | Key of transaction_lock
@@ -43,6 +44,7 @@ sig
   val make_store : lcnum:int -> ncnum:int -> ?read_only:bool -> string -> t Lwt.t
   val consensus_i : t -> Sn.t option
   val get_checksum : t -> Checksum.Crc32.t option
+  val validate : t -> Tlogcollection.tlog_collection -> unit Lwt.t
   val flush : t -> unit Lwt.t
   val close : ?flush : bool -> ?sync:bool -> t -> unit Lwt.t
   val get_location : t -> string
@@ -303,6 +305,25 @@ struct
       Some cs
     with Not_found ->
       None
+
+  let validate store tlog_coll =
+    let io = _consensus_i store.s in
+    match io with
+      | None -> Lwt.return ()
+      | Some i ->
+        let entry = ref None in
+        let check e = Lwt.return (entry := Some e) in
+        tlog_coll # iterate i (Sn.succ i) check >>= fun () ->
+        let store_cs = get_checksum store in
+        let tlog_cs =
+          match !entry with
+            | None -> None
+            | Some e -> Value.checksum_of (Tlogcommon.Entry.v_of e) in
+        if store_cs <> tlog_cs
+        then
+          Lwt.fail (StoreChecksumError (i, store_cs, tlog_cs))
+        else
+          Lwt.return ()
 
   let _get_j store =
     try
