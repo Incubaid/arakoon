@@ -334,43 +334,12 @@ struct
   let _set_j store tx j =
     S.set store.s tx __j_key (string_of_int j)
 
-  let _new_i = function
-    | None -> Sn.start
-    | Some i -> Sn.succ i
-
-  let _incr_i store tx =
-    let old_i = _consensus_i store.s in
-    let new_i = _new_i old_i in
-    let new_is =
+  let _set_i_checksum store tx (i, cso) =
+    let is =
       let buf = Buffer.create 10 in
-      let () = Sn.sn_to buf new_i in
+      let () = Sn.sn_to buf i in
       Buffer.contents buf
     in
-    let () = S.set store.s tx __i_key new_is in
-    let () = _set_j store tx 0 in
-    store.store_i <- Some new_i;
-    Logger.debug_f_ "Store.incr_i old_i:%s -> new_i:%s"
-      (Log_extra.option2s Sn.string_of old_i) (Sn.string_of new_i)
-
-  let incr_i store =
-    if quiesced store
-    then
-      begin
-        let new_i = _new_i store.store_i in
-        store.store_i <- Some new_i;
-        Lwt.return ()
-      end
-    else
-      S.with_transaction store.s (fun tx -> _incr_i store tx)
-
-  let _set_i store i =
-    if quiesced store
-    then
-      store.store_i <- Some i
-    else
-      failwith "_set_i is only meant to be used on a quiesced store to cheat with tlog replay"
-
-  let _set_checksum store cso tx =
     let csso =
       match cso with
         | None -> None
@@ -379,8 +348,19 @@ struct
           let () = Checksum.Crc32.checksum_to buf cs in
           Some (Buffer.contents buf)
     in
+    let () = S.set store.s tx __i_key is in
     let () = S.put store.s tx __checksum_key csso in
-    Logger.debug_f_ "Store.set_checksum: %s" (Log_extra.option2s Checksum.Crc32.string_of cso)
+    let () = _set_j store tx 0 in
+    store.store_i <- Some i;
+    Logger.debug_f_ "Store.set_i_checksum i:%s, checksum:%s"
+      (Sn.string_of i) (Log_extra.option2s Checksum.Crc32.string_of cso)
+
+  let _set_i store i =
+    if quiesced store
+    then
+      store.store_i <- Some i
+    else
+      failwith "_set_i is only meant to be used on a quiesced store"
 
   let _with_transaction_lock store f =
     Lwt_mutex.with_lock store._tx_lock_mutex (fun () ->
@@ -903,7 +883,8 @@ struct
     let f u = _insert_update store u kt in
     Lwt_list.map_s f us
 
-  let _insert_value store (value:Value.t) kt =
+  let _insert_value store i value kt =
+    let cs = Value.checksum_of value in
     let updates = Value.updates_from_value value in
     let j = _get_j store in
     let rec skip n l =
@@ -921,9 +902,7 @@ struct
     end
     >>= fun () ->
     _insert_updates store updates' kt >>= fun (urs:update_result list) ->
-    _with_transaction store kt (fun tx -> _incr_i store tx) >>= fun () ->
-    let cs = Value.checksum_of value in
-    _with_transaction store kt (fun tx -> _set_checksum store cs tx) >>= fun () ->
+    _with_transaction store kt (fun tx -> _set_i_checksum store tx (i, cs)) >>= fun () ->
     let prepend_oks n l =
       let rec inner l = function
         | 0 -> l
@@ -950,12 +929,12 @@ struct
           if quiesced store
           then
             begin
-              incr_i store >>= fun () ->
+              _set_i store i;
               Lwt.return [Ok None]
             end
           else
             begin
-              _insert_value store value kt
+              _insert_value store i value kt
             end
         in
         inner t)
@@ -991,13 +970,16 @@ struct
                 | (_, Value.Vm (m, ls)) -> set_master_no_inc store m ls
                 | (_, Value.Vc _) -> Lwt.return ()
             end >>= fun () ->
-            incr_i store >>= fun () ->
+            _set_i store i;
             Lwt.return [Ok None]
           end
         else
-          _with_transaction_lock store (fun key -> _insert_value store v (Key key)))
+          _with_transaction_lock store (fun key -> _insert_value store i v (Key key)))
 
-  let get_succ_store_i store = _new_i (consensus_i store)
+  let get_succ_store_i store =
+    match consensus_i store with
+      | None -> Sn.start
+      | Some i -> Sn.succ i
 
   let get_catchup_start_i = get_succ_store_i
 
