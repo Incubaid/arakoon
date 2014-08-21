@@ -460,25 +460,29 @@ let power_failure () =
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
 
-  let t_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node0 () in
-  let t_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node1 () in
-  let run_previous_master = _make_run_rc ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1;v2;v3] node2 in
-  Logger.debug_ "start of scenario" >>= fun () ->
-  Lwt.ignore_result t_node0;
-  Lwt.ignore_result t_node1;
-  (* sleep a bit so the previous 2 slaves can make progress *)
-  Lwt_unix.sleep ((float lease_period) *. 1.5) >>= fun () ->
-  let t_previous_master = run_previous_master () >>= function
+  let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node0 in
+  let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1] node1 in
+  let run_previous_master () =
+    Lwt_unix.sleep 2.0 >>= fun () ->
+    _make_run_rc ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v1;v2;v3] node2 () >>= function
     | 51 -> Lwt.return ()
-    | 0 -> Lwt.return (OUnit.assert_bool "the node should fail" false)
     | rc ->
       let msg = Printf.sprintf "it threw the wrong exception: %i" rc in
-      Lwt.return (OUnit.assert_bool msg false) in
-  Lwt.ignore_result t_previous_master;
-  (* allow previous master to catch up with the others *)
-  Lwt_unix.sleep 1. >>= fun () ->
+      Lwt.return (OUnit.assert_bool msg false)
+  in
+  let eventually_stop () =
+    Lwt_unix.sleep 5.0 >>= fun () ->
+    Lwt.return (OUnit.assert_bool "node power_failure_was_master should have failed" false)
+  in
+
+  Logger.debug_ "start of scenario" >>= fun () ->
+  Lwt.pick [run_node0 ();
+            run_node1 ();
+            begin Lwt_unix.sleep 2.0 >>= fun () -> run_previous_master () end;
+            eventually_stop ();
+           ]
+  >>= fun () ->
   Logger.debug_ "end of scenario" >>= fun () ->
-  List.iter (fun t -> Lwt.cancel t) [t_node0; t_node1; t_previous_master];
   Lwt_list.iter_s (_dump_tlc ~tlcs) [node0; node1; node2]
 
 
