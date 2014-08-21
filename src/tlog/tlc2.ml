@@ -731,6 +731,7 @@ class tlc2
             failwith msg
 
     method set_previous_checksum cso =
+      _previous_entry <- None;
       _previous_checksum <- cso
 
     method close ?(wait_for_compression=false) () =
