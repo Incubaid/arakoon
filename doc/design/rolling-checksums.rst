@@ -4,8 +4,9 @@ Rolling Checksums
 
 Problem
 =======
-If a node crashed, and failed to write some tlog entries to disk, this is not detected by Arakoon. The node announces it's in sync up to the last entry in the tlogs, even if other nodes diverged while the node was offline.
-Note that this should not happen if fsync is set to true (which is the default) and none of the layers below (file system, hardware) lie about fsync behaviour.
+If a node crashed, and failed to write some tlog entries to disk, this is not detected by Arakoon. The node announces it's in sync up to the last entry in the tlogs, even if other nodes diverged while the node was offline. Note that this should not happen if fsync is set to true (which is the default) and none of the layers below (file system, hardware) lie about fsync behaviour.
+
+Another problematic situation occurs when for some reason tlog files, databases or even nodes end up in the wrong cluster. The nodes will continue as if nothing happened, and don't know they are diverged.
 
 Example
 -------
@@ -47,6 +48,8 @@ This problem can be solved by using a rolling checksum, computed over all the en
 4. The slaves compute the rolling checksum, and compare it with the checksum in the value.
 5. If the checksums are equal, the tlogs are in sync, the value is written to the tlogs, and the algorithm proceeds as usual.
 6. If the checksums are different, something bad happened. The node halts, and the tlogs need to be inspected manually.
+
+The catchup consists of two phases. In the first phase, the missing tlog entries are received from another node. The checksum of the first of these entries will be validated, to prevent a catchup from a diverged node. During the second phase, the tlog entries are replayed to the store, and all checksums are validated.
 
 Remark
 ------
@@ -91,4 +94,4 @@ To upgrade Arakoon to the new version, with a new tlog format, the nodes need to
 
 Nodes that need to do a catchup will do this as usual. The first received values will have checksum None, and are written to the tlogs in the old format, until all values from before the upgrade are synced. All values that are created after the upgrade will get a checksum. The checksum of the first value is a normal checksum (not depending on previous values), and all following checksums are rolling.
 
-New and old nodes can not and will not communicate. If the nodes are restarted one by one, the old nodes will keep going as long as possible, while the new nodes can't make progress because they don't have a majority. When the critical point is reached, the new nodes will do a catchup and take over.
+New and old nodes can not and will not communicate (they have a different magic). If the nodes are restarted one by one, the old nodes will keep going as long as possible, while the new nodes can't make progress because they don't have a majority. When the critical point is reached, the new nodes will do a catchup and take over.
