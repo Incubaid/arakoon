@@ -191,22 +191,29 @@ let make_f ~stop (type s) (module S : Store.STORE with type t = s) me log_i acc 
   in
   match !acc with
     | None ->
-      let () = acc := Some(i,value) in
+      let () = acc := Some (None, i, value) in
       Logger.debug_f_ "value %s has no previous" (Sn.string_of i) >>= fun () ->
       Lwt.return ()
-    | Some (pi,pv) ->
+    | Some (pivo, pi, pv) ->
       if pi < i
       then
         begin
+          let () =
+            match pivo with
+              | None -> () (* the first value is already validated in catchup_tlog *)
+              | Some piv ->
+                if not (Value.is_valid_next piv pv)
+                then raise (Value.ValueCheckSumError (pi, pv))
+          in
           log_i pi >>= fun () ->
           prepare_and_insert_value (module S) me store pi pv >>= fun () ->
-          let () = acc := Some(i,value) in
+          let () = acc := Some (Some pv, i, value) in
           Lwt.return ()
         end
       else
         begin
           Logger.debug_f_ "%s => skip" (Sn.string_of pi) >>= fun () ->
-          let () = acc := Some(i,value) in
+          let () = acc := Some (pivo, i, value) in
           Lwt.return ()
         end
 
@@ -214,8 +221,15 @@ let make_f ~stop (type s) (module S : Store.STORE with type t = s) me log_i acc 
 let epilogue (type s) (module S : Store.STORE with type t = s) me acc store =
   match !acc with
     | None -> Lwt.return ()
-    | Some(i,value) ->
+    | Some (pivo, i, value) ->
       begin
+        let () =
+          match pivo with
+            | None -> ()
+            | Some piv ->
+              if not (Value.is_valid_next piv value)
+              then raise (Value.ValueCheckSumError (i, value))
+        in
         Logger.debug_f_ "%s => store" (Sn.string_of i) >>= fun () ->
         prepare_and_insert_value (module S) me store i value
       end

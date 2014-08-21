@@ -141,6 +141,14 @@ let is_valid tlog_coll i (cso, c) =
     | None -> true
     | Some cs -> cs = checksum tlog_coll i c
 
+let is_valid_next (pcso, _) (cso, c) =
+  match cso with
+    | None -> true
+    | Some cs ->
+      let s = _string_of_content c in
+      let cs' = Checksum.Crc32.update pcso s in
+      cs = cs'
+
 let is_master_set = function
   | (_, Vc _) -> false
   | (_, Vm _) -> true
