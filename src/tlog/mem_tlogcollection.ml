@@ -82,13 +82,13 @@ class mem_tlog_collection _name =
 
     method dump_tlog_file _start_i _oc = failwith "dump_tlog_file not supported"
 
-    method save_tlog_file ?validate:_ _name _length _ic =
+    method save_tlog_file ?validate_i:_ _name _length _ic =
       failwith "save_tlog_file not supported"
 
     method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
     method log_value_explicit i (v:Value.t) ?(validate = true) _sync marker =
-      if validate && not (Value.validate self i v)
+      if validate && not (Value.is_valid self i v)
       then Lwt.fail (Value.ValueCheckSumError (i, v))
       else
         let entry = Entry.make i v 0L marker in

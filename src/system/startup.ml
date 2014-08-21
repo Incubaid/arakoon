@@ -424,11 +424,11 @@ let interrupted_election () =
   Lwt_list.iter_s (_dump_tlc ~tlcs)   [node2; node3]
 
 
-let disk_failure () =
+let power_failure () =
   let lease_period = 2 in
-  let node0 = "disk_failure_slave0" in
-  let node1 = "disk_failure_slave1" in
-  let node2 = "disk_failure_was_master" in
+  let node0 = "power_failure_slave0" in
+  let node1 = "power_failure_slave1" in
+  let node2 = "power_failure_was_master" in
   let node0_cfg = _make_cfg node0 0 lease_period in
   let node1_cfg = _make_cfg node1 1 lease_period in
   let node2_cfg = _make_cfg node2 2 lease_period in
@@ -497,5 +497,5 @@ let suite = "startup" >:::[
     "restart_slaves" >:: w restart_slaves;
     "ahead_master_loses_role" >:: w ahead_master_loses_role;
     "interrupted_election" >:: w interrupted_election;
-    "disk_failure" >:: w disk_failure;
+    "power_failure" >:: w power_failure;
   ]

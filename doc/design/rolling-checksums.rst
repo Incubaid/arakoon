@@ -5,6 +5,7 @@ Rolling Checksums
 Problem
 =======
 If a node crashed, and failed to write some tlog entries to disk, this is not detected by Arakoon. The node announces it's in sync up to the last entry in the tlogs, even if other nodes diverged while the node was offline.
+Note that this should not happen if fsync is set to true (which is the default) and none of the layers below (file system, hardware) lie about fsync behaviour.
 
 Example
 -------

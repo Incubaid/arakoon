@@ -92,11 +92,12 @@ let head_saved_epilogue hfn tlog_coll =
   begin
     tlog_coll # set_previous_checksum hcso;
     match hio with
-      | None -> Lwt.return ()
+      | None -> Lwt.return None
       | Some head_i ->
         begin
           Logger.info_f_ "head_i = %s" (Sn.string_of head_i) >>= fun () ->
-          tlog_coll # remove_below head_i
+          tlog_coll # remove_below head_i >>= fun () ->
+          Lwt.return (Some (Sn.succ head_i))
         end
   end
 
@@ -119,18 +120,22 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id mr_name
   and mr_name = Node_cfg.node_name mr_cfg in
   Logger.info_f_ "getting last_entries from %s" mr_name >>= fun () ->
 
-  let r_validate = ref false in
-  let validate () =
-    let _validate = !r_validate in
+  let r_validate_i = ref (Some current_i) in
+  let validate_i () =
+    let _validate_i = !r_validate_i in
     begin
-      r_validate := false;
-      _validate
+      r_validate_i := None;
+      _validate_i
     end
   in
 
   let f_entry (i, value) =
-    let validate = validate () in
-    tlog_coll # log_value_explicit i value ~validate:validate false None >>= fun _ ->
+    let validate =
+      match validate_i () with
+        | None -> false
+        | Some _ -> true
+    in
+    tlog_coll # log_value_explicit i value ~validate false None >>= fun () ->
     stop_fuse stop
   in
 
@@ -138,7 +143,8 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id mr_name
     tlog_coll # save_head ic >>= fun () ->
     let hfn = tlog_coll # get_head_name () in
     Logger.info_f_ "head_saved %s" hfn >>= fun () ->
-    head_saved_epilogue hfn tlog_coll >>= fun () ->
+    head_saved_epilogue hfn tlog_coll >>= fun io ->
+    let () = r_validate_i := io in
     let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
       let target_name = S.get_location store in
@@ -149,8 +155,8 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id mr_name
   in
 
   let f_file name length ic =
-    let validate = validate () in
-    tlog_coll # save_tlog_file ~validate:validate name length ic
+    let validate_i = validate_i () in
+    tlog_coll # save_tlog_file ~validate_i name length ic
   in
 
   let copy_tlog connection =
@@ -317,6 +323,7 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
   let si_o = S.consensus_i store in
   Logger.info_f_ "verify_n_catchup_store; too_far_i=%s current_i=%s si_o:%s"
     (Sn.string_of too_far_i) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
+  S.validate store tlog_coll >>= fun () ->
   begin
    match too_far_i, si_o with
     | i, None when i <= 0L -> Lwt.return ()
@@ -334,8 +341,6 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
       let maybe a = function | None -> a | Some b -> b in
       Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, too_far_i))
   end
-  >>= fun () ->
-  S.validate store tlog_coll
 
 let last_entries
       (type s) (module S : Store.STORE with type t = s)

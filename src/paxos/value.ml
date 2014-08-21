@@ -136,7 +136,7 @@ let create_master_value
   let c = Vm (m, lease_start) in
   create_value tlog_coll i c
 
-let validate tlog_coll i (cso, c) =
+let is_valid tlog_coll i (cso, c) =
   match cso with
     | None -> true
     | Some cs -> cs = checksum tlog_coll i c

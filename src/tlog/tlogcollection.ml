@@ -32,7 +32,7 @@ class type tlog_collection = object
   method dump_head : Lwt_io.output_channel -> Sn.t Lwt.t
   method save_head : Lwt_io.input_channel -> unit Lwt.t
   method dump_tlog_file : Sn.t -> Lwt_io.output_channel -> Sn.t Lwt.t
-  method save_tlog_file : ?validate:bool -> string -> int64 -> Lwt_io.input_channel -> unit Lwt.t
+  method save_tlog_file : ?validate_i:Sn.t option -> string -> int64 -> Lwt_io.input_channel -> unit Lwt.t
   method get_head_name : unit -> string
   method get_tlog_from_i : Sn.t -> Sn.t
   method get_tlog_count: unit -> int Lwt.t

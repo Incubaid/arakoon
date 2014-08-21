@@ -519,7 +519,7 @@ class tlc2
 
 
     method log_value_explicit i value ?(validate = true) sync marker =
-      if validate && not (Value.validate self i value)
+      if validate && not (Value.is_valid self i value)
       then Lwt.fail (Value.ValueCheckSumError (i, value))
       else
         Lwt_mutex.with_lock _write_lock
@@ -836,28 +836,26 @@ class tlc2
       let next_i = Sn.add start_i (Sn.of_int !tlogEntriesPerFile) in
       Lwt.return next_i
 
-    method save_tlog_file ?(validate = true) name length ic =
+    method save_tlog_file ?(validate_i = None) name length ic =
       (* what with rotation (jump to new tlog), open streams, ...*)
       let canon = get_full_path tlog_dir tlf_dir name in
       let tmp = canon ^ ".tmp" in
       Logger.debug_f_ "save_tlog_file: %s" tmp >>= fun () ->
-      let validate_and_copy oc =
-        Sn.input_sn ic >>= fun i ->
-        Llio.input_int32 ic >>= fun crc ->
-        Llio.input_string ic >>= fun cmd ->
-        let value = Value.value_from (Llio.make_buffer cmd 0) in
-        if validate && not (Value.validate self i value)
-        then Lwt.fail (Value.ValueCheckSumError (i, value))
-        else
-          Sn.output_sn oc i >>= fun () ->
-          Llio.output_int32 oc crc >>= fun () ->
-          Llio.output_string oc cmd >>= fun () ->
-          let length = Int64.sub length (Lwt_io.position ic) in
-          Llio.copy_stream ~length ~ic ~oc
-      in
-      Lwt_io.with_file ~mode:Lwt_io.output tmp validate_and_copy >>= fun () ->
-      File_system.rename tmp canon
-
+      Lwt_io.with_file ~mode:Lwt_io.output tmp (fun oc -> Llio.copy_stream ~length ~ic ~oc) >>= fun () ->
+      match validate_i with
+        | None -> File_system.rename tmp canon
+        | Some i ->
+          let folder, _, index = folder_for tmp None in
+          let too_far_i = Some (Sn.succ i) in
+          let f _ entry = Lwt.return (Some (Entry.v_of entry)) in
+          let ic_f ic = folder ic ~index i too_far_i ~first:i None f in
+          Lwt_io.with_file ~mode:Lwt_io.input tmp ic_f >>= fun vo ->
+          match vo with
+            | None -> failwith "tlog file is empty"
+            | Some value ->
+              if not (Value.is_valid self i value)
+              then Lwt.fail (Value.ValueCheckSumError (i, value))
+              else File_system.rename tmp canon
 
     method remove_oldest_tlogs count =
       get_tlog_names tlog_dir tlf_dir >>= fun existing ->
