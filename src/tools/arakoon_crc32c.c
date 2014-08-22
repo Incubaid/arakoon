@@ -67,6 +67,11 @@ CAMLprim value update_crc32c(value crc32c, value buffer, value offset, value len
   const int32_t ioffset = Int_val(offset);
   const uint8_t * buffer2 = (const uint8_t *) String_val(buffer) + ioffset;
   int32_t crc32c2 = Int32_val(crc32c);
-  const uint32_t res = bsd_update_crc32c(crc32c2, buffer2, ilength);
+  uint32_t res = 0;
+  if (has_sse_4_2) {
+    res = crc32c_sse4_2(crc32c2, buffer2, ilength);
+  } else {
+    res = bsd_update_crc32c(crc32c2, buffer2, ilength);
+  }
   CAMLreturn(caml_copy_int32(res));
 }

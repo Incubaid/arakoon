@@ -11,8 +11,8 @@ extern "C" {
 uint32_t bsd_calculate_crc32c(const unsigned char *buffer, unsigned int length);
 uint32_t bsd_update_crc32c(uint32_t crc32c, const unsigned char *buffer, unsigned int length);
 
-uint32_t sse4_2_crc32c(const unsigned char *buffer,
-				uint32_t length);
+uint32_t sse4_2_crc32c(const unsigned char *buffer, uint32_t length);
+uint32_t crc32c_sse4_2(uint32_t crc, unsigned char const *p, uint32_t len);
 
 #if defined(__cplusplus)
 }
