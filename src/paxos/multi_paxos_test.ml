@@ -68,7 +68,6 @@ let test_generic network_factory n_nodes () =
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None true "???">>= fun tlog_coll ->
   let base = {me = "???";
 	          others = [] ;
-	          is_learner = false;
 	          send = send;
 	          get_value = get_value tlog_coll;
 	          on_accept= on_accept "???";
@@ -237,7 +236,6 @@ let test_master_loop network_factory ()  =
   S.make_store "MEM#store" >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None true me >>= fun tlog_coll ->
   let constants = {me = me;
-		   is_learner = false;
 		   others = others;
 		   send = send;
 		   get_value = get_value tlog_coll;
@@ -359,7 +357,6 @@ let test_simulation filters () =
   Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None true me >>= fun tlog_coll ->
   let constants = {
     me = me;
-	is_learner = false;
 	others = ["c1";"c2"];
 	send = send;
 	get_value = get_value tlog_coll;
