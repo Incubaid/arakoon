@@ -193,7 +193,7 @@ let slave_steady_state (type s) constants state event =
     | LeaseExpired n' ->
         let ns  = (Sn.string_of n)
         and ns' = (Sn.string_of n') in
-        if (not (is_election constants || constants.is_learner)) || n' < n
+        if (not (is_election constants)) || n' < n
         then
 	      begin
             let log_e = ELog (fun () ->
@@ -399,7 +399,7 @@ let slave_wait_for_accept (type s) constants (n,i, maybe_previous) event =
       end
     | ElectionTimeout n'
     | LeaseExpired n' ->
-      if (not (is_election constants || constants.is_learner)) || n' < n
+      if not (is_election constants) || n' < n
       then
         begin
         let ns = (Sn.string_of n) and

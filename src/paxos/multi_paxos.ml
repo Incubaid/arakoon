@@ -132,7 +132,6 @@ type 'a constants =
      lease_expiration: int;
      inject_event: paxos_event -> unit Lwt.t;
      cluster_id : string;
-     is_learner: bool;
      quiesced : bool;
      mutable lease_expiration_id : int;
     }
@@ -147,14 +146,13 @@ let is_election constants =
     | Elected | Preferred _ -> true
     | _ -> false
 
-let make (type s) me is_learner others send _receive get_value
+let make (type s) me others send _receive get_value
     on_accept on_consensus on_witness
     last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
     other_cfgs lease_expiration inject_event ~cluster_id
     quiesced =
   {
     me=me;
-    is_learner = is_learner;
     others=others;
     send = send;
     get_value= get_value;
@@ -264,7 +262,7 @@ let handle_prepare (type s) constants dest n n' i' =
             | Some si -> Sn.succ si
 	end in
       let reply = Nak( n',(n,nak_i)) in
-      Logger.debug_f_ "%s: replying with %S to learner %s" me (string_of reply) dest
+      Logger.debug_f_ "%s: replying with %S to %s" me (string_of reply) dest
       >>= fun () ->
       constants.send reply me dest >>= fun () ->
       Lwt.return Nak_sent

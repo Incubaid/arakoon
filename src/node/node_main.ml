@@ -340,8 +340,7 @@ let _main_2 (type s)
       let master = cluster_cfg._master in
       let lease_period = cluster_cfg._lease_period in
       let quorum_function = cluster_cfg.quorum_function in
-      let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
-      let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
+      let in_cluster_names = List.map (fun cfg -> cfg.node_name) cfgs in
       let n_nodes = List.length in_cluster_names in
 
       let () = match cluster_cfg.overwrite_tlog_entries with
@@ -356,15 +355,11 @@ let _main_2 (type s)
             let node_address = cfg.ips, cfg.client_port in
             ClientCfg.add ccfg cfg.node_name node_address
           in
-          List.iter add_one in_cluster_cfgs;
+          List.iter add_one cfgs;
           ccfg
         end
       in
-      let other_names =
-	    if me.is_learner
-	    then me.targets
-	    else List.filter ((<>) name) in_cluster_names
-      in
+      let other_names = List.filter ((<>) name) in_cluster_names in
       let _ = Lwt_unix.on_signal 10
 	    (fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
       in
@@ -603,7 +598,6 @@ let _main_2 (type s)
 	      in
 	      let constants =
 	        Multi_paxos.make my_name
-	          me.is_learner
 	          other_names send receive
 	          get_last_value
 	          on_accept
@@ -637,14 +631,10 @@ let _main_2 (type s)
 	    let to_run =
 	      match master with
 	        | Forced master  ->
-              if master = my_name
-	          then Multi_paxos_fsm.enter_forced_master
-	          else
-		        begin
-		          if me.is_learner
-		          then Multi_paxos_fsm.enter_simple_paxos
-		          else Multi_paxos_fsm.enter_forced_slave
-		        end
+                  if master = my_name then
+                    Multi_paxos_fsm.enter_forced_master
+                  else
+                    Multi_paxos_fsm.enter_forced_slave
 	        | _ -> Multi_paxos_fsm.enter_simple_paxos
 	    in
         to_run ~stop constants buffers new_i vo
