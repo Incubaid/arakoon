@@ -92,20 +92,55 @@ let exists filename =
       | e -> Lwt.fail e
     )
 
-let copy_file source target ~overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
-  Logger.info_f_ "copy_file %S %S" source target >>= fun () ->
+let with_tmp_file tmp dest f =
+  Lwt_unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_EXCL] 0o644 >>= fun fd ->
+  Lwt.finalize
+    (fun () ->
+     let mode = Lwt_io.output
+     and close () = Lwt.return () in
+     let oc = Lwt_io.of_fd ~mode ~close fd in
+
+     f oc >>= fun () ->
+
+     Lwt_io.close oc >>= fun () ->
+     Lwt_unix.fsync fd >>= fun () ->
+     rename tmp dest)
+    (fun () -> Lwt_unix.close fd)
+
+let copy_file source target ~overwrite ~throttling =
+  (* LOOKS LIKE Clone.copy_stream ... *)
+  Logger.info_f_ "copy_file %s %s (overwrite=%b,throttling=%f)"
+                 source target overwrite throttling >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let buffer = String.create bs in
+  let throttle =
+    match throttling with
+    | 0.0   -> fun f  -> f ()
+    | factor ->
+       fun f ->
+       let t0 = Unix.gettimeofday () in
+       f () >>= fun r ->
+       let t1 = Unix.gettimeofday () in
+       let dt = t1 -. t0 in
+       Lwt_unix.sleep (factor *. dt) >>= fun () ->
+       Lwt.return r
+  in
   let copy_all ic oc =
     let rec loop () =
-      Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
-      if bytes_read > 0
-      then
-        begin
-          Lwt_io.write oc buffer >>= fun () -> loop ()
-        end
-      else
-        Lwt.return ()
+      throttle
+        (fun () ->
+         Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
+         if bytes_read > 0
+         then
+           begin
+             Lwt_io.write oc buffer >>= fun () ->
+             Lwt.return `Continue
+           end
+         else
+           Lwt.return `Stop)
+      >>= function
+        | `Continue -> loop ()
+        | `Stop -> Lwt.return ()
     in
     loop () >>= fun () ->
     Logger.info_ "done: copy_file"
@@ -120,10 +155,8 @@ let copy_file source target ~overwrite = (* LOOKS LIKE Clone.copy_stream ... *)
       unlink tmp_file >>= fun () ->
       Lwt_io.with_file ~mode:Lwt_io.input source
         (fun ic ->
-           Lwt_io.with_file ~flags:[Unix.O_WRONLY;Lwt_unix.O_EXCL;Lwt_unix.O_CREAT] ~mode:Lwt_io.output tmp_file
-             (fun oc -> copy_all ic oc)
-        ) >>= fun () ->
-      rename tmp_file target
+         with_tmp_file tmp_file target
+                       (fun oc -> copy_all ic oc))
     end
 
 let safe_rename src dest =

@@ -202,7 +202,7 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~nam
        Catchup.catchup ~tls_ctx ~stop:(ref false)
                        me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
-       S.close ~flush:true store >>= fun () ->
+       S.close store ~flush:true ~sync:true >>= fun () ->
        tlc # close () >>= fun () ->
        Lwt.return true)
       (fun exn ->
@@ -293,11 +293,11 @@ module X = struct
 
   let last_master_log_stmt = ref 0L
 
-  let on_consensus (type s) (module S : Store.STORE with type t = s) store vni =
+  let on_consensus me (type s) (module S : Store.STORE with type t = s) store vni =
     let (v,n,i) = vni in
     begin
       let t0 = Unix.gettimeofday() in
-      let v' = Value.fill_if_master_set v in
+      let v' = Value.fill_other_master_set me v in
       let vni' = v',n,i in
       begin
         match v' with
@@ -367,7 +367,7 @@ let _main_2 (type s)
       (module S : Store.STORE with type t = s)
       make_tlog_coll
       make_config get_snapshot_name ~name
-      ~daemonize ~catchup_only stop : int Lwt.t =
+      ~daemonize ~catchup_only ~stop : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
@@ -481,7 +481,12 @@ let _main_2 (type s)
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
-      let messaging  = _config_messaging ?ssl_context me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size ~stop in
+      let messaging  = _config_messaging
+                         ?ssl_context
+                         me cfgs cookie me.is_laggy
+                         (float me.lease_period)
+                         cluster_cfg.max_buffer_size
+                         ~stop in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       begin
         if not me.fsync
@@ -504,7 +509,9 @@ let _main_2 (type s)
           let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
           Lwt.catch
             (fun () ->
-               S.copy_store2 full_snapshot_path db_name false
+             S.copy_store2 full_snapshot_path db_name
+                           ~overwrite:false
+                           ~throttling:Node_cfg.default_head_copy_throttling
             )
             (function
               | Not_found -> Lwt.return ()
@@ -551,12 +558,13 @@ let _main_2 (type s)
           let inject_push v = Lwt_buffer.add v inject_buffer in
           let read_only = master = ReadOnly in
           let module SB = Sync_backend.Sync_backend(S) in
+          let act_not_preferred = ref false in
           let sb =
             let test = Node_cfg.Node_cfg.test cluster_cfg in
             new SB.sync_backend me
               (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
               inject_push
-              store (S.copy_store2, full_snapshot_path)
+              store (S.copy_store2, full_snapshot_path, me.head_copy_throttling)
               tlog_coll lease_period
               ~quorum_function n_nodes
               ~expect_reachable
@@ -564,6 +572,7 @@ let _main_2 (type s)
               ~read_only
               ~max_value_size:cluster_cfg.max_value_size
               ~collapse_slowdown:me.collapse_slowdown
+              ~act_not_preferred
           in
           let backend = (sb :> Backend.backend) in
 
@@ -578,10 +587,11 @@ let _main_2 (type s)
             let period = ((float lease_period) /. 2.) in
             let send_message_loop other =
               let rec inner () =
+                send msg me.node_name other >>= fun () ->
                 Lwt_unix.sleep period >>= fun () ->
                 if !fuse
                 then
-                  send msg me.node_name other
+                  Lwt.return ()
                 else
                   inner () in
               inner () in
@@ -590,9 +600,92 @@ let _main_2 (type s)
               List.iter (fun other -> Lwt.ignore_result (send_message_loop other.node_name)) others in
           start_liveness_detection_loop stop;
 
-          let on_consensus = X.on_consensus (module S) store in
+          let start_preferred_master_loop fuse =
+            match master with
+            | Preferred ps ->
+               let is_preferred_master n =
+                 List.mem n ps in
+
+               let lease_period = float lease_period in
+               let get_txid_maybe_drop_master store_i master =
+                 let master_cfg = List.hd
+                                    (List.filter
+                                       (fun ncfg -> ncfg.node_name = master)
+                                       cfgs) in
+                 let addrs = List.map (fun ip -> Network.make_address ip master_cfg.client_port) master_cfg.ips in
+                 Client_main.with_connection'
+                   ~tls:ssl_context
+                   addrs
+                   (fun _addr conn ->
+                    Arakoon_remote_client.make_remote_client cluster_id conn >>= fun client ->
+                    let open Arakoon_client in
+                    client # get_txid ()
+                    >>= function
+                      | Consistent
+                      | No_guarantees -> failwith "preferred_master_loop: should never receive this from get_txid"
+                      | At_least master_i ->
+                         if (Sn.diff master_i store_i) < (Sn.of_int 5)
+                         then
+                           (* in sync (or close enough) with the current not-preferred master *)
+                           Remote_nodestream.make_remote_nodestream
+                             ~skip_prologue:true cluster_id conn >>= fun client' ->
+                           client' # drop_master ()
+                         else
+                           Lwt.return_unit) in
+               let rec inner () =
+                 Lwt.catch
+                   (fun () ->
+                    if (S.quiesced store) || !act_not_preferred
+                    then
+                      Lwt.return_unit
+                    else
+                      begin
+                        match S.who_master store with
+                        | None -> Lwt.return_unit
+                        | Some (m, ls) ->
+                           if m = my_name
+                              || is_preferred_master m
+                              || (Unix.gettimeofday ()) -. ls > lease_period
+                           then
+                             (* no master or the current master is also preferred *)
+                             Lwt.return_unit
+                           else
+                             begin
+                               match S.consensus_i store with
+                               | None ->
+                                  Lwt.return_unit
+                               | Some store_i ->
+                                  (* if we're in sync we should become the master... *)
+                                  get_txid_maybe_drop_master store_i m
+                             end
+                      end)
+                   (function
+                     | Canceled -> Lwt.fail Canceled
+                     | exn -> Logger.info_f_ ~exn "Ignoring exception in preferred_master_loop")
+                 >>= fun () ->
+                 Lwt_unix.sleep lease_period >>= fun () ->
+                 if !fuse
+                 then
+                   Lwt.return ()
+                 else
+                   inner ()
+               in
+
+               (* only run this loop for nodes which are preferred master *)
+               if is_preferred_master my_name
+               then
+                 Lwt.ignore_result (inner ())
+            | Elected
+            | Forced _
+            | ReadOnly ->
+               ()
+          in
+          start_preferred_master_loop stop;
+
+          let on_consensus = X.on_consensus my_name (module S) store in
           let on_witness (name:string) (i: Sn.t) = backend # witness name i in
           let last_witnessed (name:string) = backend # last_witnessed name in
+
           let statistics = backend # get_statistics () in
           let on_accept = X.on_accept statistics tlog_coll in
 
@@ -609,7 +702,9 @@ let _main_2 (type s)
                        (fun u -> Lwt_buffer.add u client_buffer)
                        fc),
                   "client_buffer"
-                | Multi_paxos.FromNode _
+                | Multi_paxos.FromNode (m,source)  ->
+                  (fun () -> Lwt_buffer.add (Mp_msg.MPMessage.generic_of m, source) node_buffer),
+                  "node_buffer"
                 | Multi_paxos.LeaseExpired _
                 | Multi_paxos.Quiesce  _
                 | Multi_paxos.Unquiesce
@@ -655,7 +750,6 @@ let _main_2 (type s)
               inject_event
               is_alive
               ~cluster_id
-              false
               stop
           in
           let reporting_period = me.reporting in
@@ -749,7 +843,7 @@ let _main_2 (type s)
                  inner (succ i) in
              inner 0, stop in
            let count_close_store, stop = count_thread "Closing store (%is)" in
-           Lwt.pick [ S.close ~flush:false store ;
+           Lwt.pick [ S.close ~flush:false ~sync:true store ;
                       count_close_store ] >>= fun () ->
            stop := true;
            Logger.fatal_f_
@@ -825,9 +919,9 @@ let main_t make_config name daemonize catchup_only : int Lwt.t =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only (ref false)
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop:(ref false)
 
-let test_t make_config name stop =
+let test_t make_config name ~stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
   let make_tlog_coll ~compressor =
     ignore compressor;
@@ -836,4 +930,4 @@ let test_t make_config name stop =
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false
   and catchup_only = false in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only stop
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop

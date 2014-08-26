@@ -26,9 +26,9 @@ let default_max_buffer_size = 32 * 1024 * 1024
 let default_client_buffer_capacity = 32
 let default_lcnum = 16384
 let default_ncnum = 8192
+let default_head_copy_throttling = 0.0
 open Master_type
 open Client_cfg
-open Log_extra
 
 exception InvalidHomeDir of string
 exception InvalidTlogDir of string
@@ -73,19 +73,19 @@ module TLSConfig = struct
         let cipher_list t = t.cipher_list
 
         let to_string t =
-            let p = match t.protocol with
-              | Ssl.SSLv23 -> "SSLv23"
-              | Ssl.SSLv3 -> "SSLv3"
-              | Ssl.TLSv1 -> "TLSv1"
-              | Ssl.TLSv1_1 -> "TLSv1_1"
-              | Ssl.TLSv1_2 -> "TLSv1_2"
-            and c = match t.cipher_list with
-              | None -> "None"
-              | Some s -> Printf.sprintf "Some %S" s
-            in
-            Printf.sprintf
-                "{ ca_cert = %S; service = %b; service_validate_peer = %b; protocol = %s; cipher_list = %s }"
-                t.ca_cert t.service t.service_validate_peer p c
+            let open To_string in
+            record [ "ca_cert", string t.ca_cert
+                   ; "service", bool t.service
+                   ; "service_validate_peer", bool t.service_validate_peer
+                   ; "protocol", begin match t.protocol with
+                     | Ssl.SSLv23 -> "SSLv23"
+                     | Ssl.SSLv3 -> "SSLv3"
+                     | Ssl.TLSv1 -> "TLSv1"
+                     | Ssl.TLSv1_1 -> "TLSv1_1"
+                     | Ssl.TLSv1_2 -> "TLSv1_2"
+                   end
+                   ; "cipher_list", option string t.cipher_list
+                   ]
     end
 
     module Node : sig
@@ -107,8 +107,10 @@ module TLSConfig = struct
         let key t = t.key
 
         let to_string t =
-            Printf.sprintf "{ cert = %S; key = %S }"
-                t.cert t.key
+            let open To_string in
+            record [ "cert", string t.cert
+                   ; "key", string t.key
+                   ]
     end
 end
 
@@ -139,38 +141,38 @@ module Node_cfg = struct
             reporting: int;
             node_tls : TLSConfig.Node.t option;
             collapse_slowdown : float option;
+            head_copy_throttling: float;
            }
 
-  let _so2s = Log_extra.string_option2s
-
-  let string_of (t:t) =
-    let template =
-      "{node_name=%S; ips=%s; client_port=%d; " ^^
-        "messaging_port=%d; home=%S; tlog_dir=%S; " ^^
-        "log_dir=%S; tlx_dir=%S; head_dir=%s; " ^^
-        "log_level:%S; log_config=%s; " ^^
-        "batched_transaction_config=%s; lease_period=%i; " ^^
-        "master=%S; is_laggy=%b; is_learner=%b; is_witness=%b; " ^^
-        "targets=%s; compressor=%s; fsync=%b; is_test=%b; " ^^
-        "reporting=%i; _fsync_tlog_dir=%b; " ^^
-        "node_tls=%s; collapse_slowdown=%s" ^^
-        "}"
-    in
-    Printf.sprintf template
-      t.node_name
-      (list2s (fun s -> s) t.ips)
-      t.client_port
-      t.messaging_port t.home t.tlog_dir
-      t.log_dir t.tlx_dir t.head_dir
-      t.log_level (_so2s t.log_config)
-      (_so2s t.batched_transaction_config) t.lease_period
-      (master2s t.master) t.is_laggy t.is_learner t.is_witness
-      (list2s (fun s -> s) t.targets)
-      (Compression.compressor2s t.compressor)
-      t.fsync t.is_test
-      t.reporting t._fsync_tlog_dir
-      (option2s TLSConfig.Node.to_string t.node_tls)
-      (option2s string_of_float t.collapse_slowdown)
+  let string_of t =
+    let open To_string in
+    record [ "node_name", string t.node_name
+           ; "ips", list string t.ips
+           ; "client_port", int t.client_port
+           ; "messaging_port", int t.messaging_port
+           ; "home", string t.home
+           ; "tlog_dir", string t.tlog_dir
+           ; "log_dir", string t.log_dir
+           ; "tlx_dir", string t.tlx_dir
+           ; "head_dir", string t.head_dir
+           ; "log_level", string t.log_level
+           ; "log_config", option string t.log_config
+           ; "batched_transaction_config", option string t.batched_transaction_config
+           ; "lease_period", int t.lease_period
+           ; "master", string (master2s t.master)
+           ; "is_laggy", bool t.is_laggy
+           ; "is_learner", bool t.is_learner
+           ; "is_witness", bool t.is_witness
+           ; "targets", list id t.targets
+           ; "compressor", Compression.compressor2s t.compressor
+           ; "fsync", bool t.fsync
+           ; "is_test", bool t.is_test
+           ; "reporting", int t.reporting
+           ; "_fsync_tlog_dir", bool t._fsync_tlog_dir
+           ; "node_tls", option TLSConfig.Node.to_string t.node_tls
+           ; "collapse_slowdown", option To_string.float t.collapse_slowdown
+           ; "head_copy_throttling", To_string.float t.head_copy_throttling
+           ]
 
   type log_cfg =
     {
@@ -180,8 +182,11 @@ module Node_cfg = struct
     }
 
   let string_of_log_cfg lcfg =
-    Printf.sprintf "{ client_protocol=%s; paxos=%s; tcp_messaging=%s }"
-      (_so2s lcfg.client_protocol) (_so2s lcfg.paxos) (_so2s lcfg.tcp_messaging)
+    let open To_string in
+    record [ "client_protocol", option string lcfg.client_protocol
+           ; "paxos", option string lcfg.paxos
+           ; "tcp_messaging", option string lcfg.tcp_messaging
+           ]
 
   let get_default_log_config () =
     {
@@ -197,9 +202,10 @@ module Node_cfg = struct
     }
 
   let string_of_btc (btc:batched_transaction_cfg) =
-    Printf.sprintf "{ max_entries=%s; max_size=%s }"
-      (Log_extra.int_option2s btc.max_entries)
-      (Log_extra.int_option2s btc.max_size)
+    let open To_string in
+    record [ "max_entries", option int btc.max_entries
+           ; "max_size", option int btc.max_size
+           ]
 
   let get_default_batched_transaction_config () =
     {
@@ -227,35 +233,24 @@ module Node_cfg = struct
       tls : TLSConfig.Cluster.t option;
 }
 
-  let string_of_cluster_cfg cluster_cfg =
-    let buffer = Buffer.create 200 in
-    let add s = Buffer.add_string buffer s in
-    add "{ node_cfgs=[ ";
-    List.iter (fun cfg -> add (string_of cfg); add ",") cluster_cfg.cfgs;
-    List.iter (fun (name,lcfg) ->
-        add ("]; log_cfg['" ^ name ^ "']=");
-        add (string_of_log_cfg lcfg)) cluster_cfg.log_cfgs;
-    List.iter (fun (name,btcfg) ->
-        add ("; batched_transaction_cfg['" ^ name ^ "']=");
-        add (string_of_btc btcfg)) cluster_cfg.batched_transaction_cfgs;
-    add "; nursery_cfg=";
-    add (Log_extra.option2s (fun (s,ncfg) -> s ^ "," ^ ClientCfg.to_string ncfg)
-           cluster_cfg.nursery_cfg);
-    add
-      (Printf.sprintf
-         ("; _master=%s; _lease_period=%i; cluster_id=%s; plugins=%s; "
-          ^^ "overwrite_tlog_entries=%s; max_value_size=%i; max_buffer_size=%i; "
-          ^^ "client_buffer_capacity=%i; tls=%s; "
-          ^^ "lcnum=%i; bcnum=%i }")
-         (master2s cluster_cfg._master) cluster_cfg._lease_period
-         cluster_cfg.cluster_id
-         (List.fold_left (^) "" cluster_cfg.plugins)
-         (Log_extra.int_option2s cluster_cfg.overwrite_tlog_entries)
-         cluster_cfg.max_value_size cluster_cfg.max_buffer_size
-         cluster_cfg.client_buffer_capacity
-         (option2s TLSConfig.Cluster.to_string cluster_cfg.tls)
-         cluster_cfg.lcnum cluster_cfg.ncnum);
-    Buffer.contents buffer
+  let string_of_cluster_cfg c =
+    let open To_string in
+    record [ "cfgs", list string_of c.cfgs
+           ; "log_cfgs", list (pair string string_of_log_cfg) c.log_cfgs
+           ; "batched_transaction_cfgs", list (pair string string_of_btc) c.batched_transaction_cfgs
+           ; "_master", master2s c._master
+           ; "_lease_period", int c._lease_period
+           ; "cluster_id", string c.cluster_id
+           ; "plugins", list string c.plugins
+           ; "nursery_cfg", option (pair string ClientCfg.to_string) c.nursery_cfg
+           ; "overwrite_tlog_entries", option int c.overwrite_tlog_entries
+           ; "max_value_size", int c.max_value_size
+           ; "max_buffer_size", int c.max_buffer_size
+           ; "client_buffer_capacity", int c.client_buffer_capacity
+           ; "lcnum", int c.lcnum
+           ; "ncnum", int c.ncnum
+           ; "tls", option TLSConfig.Cluster.to_string c.tls
+           ]
 
   let make_test_config
         ?(base=4000) ?(cluster_id="ricky") ?(node_name = Printf.sprintf "t_arakoon_%i")
@@ -289,6 +284,7 @@ module Node_cfg = struct
         reporting = 300;
         node_tls = None;
         collapse_slowdown = None;
+        head_copy_throttling = default_head_copy_throttling;
       }
     in
     let rec loop acc = function
@@ -552,6 +548,10 @@ module Node_cfg = struct
         end
     in
     let collapse_slowdown = Ini.get inifile node_name "collapse_slowdown" (Ini.p_option Ini.p_float) (Ini.default None) in
+    let head_copy_throttling =
+      Ini.get inifile node_name "head_copy_throttling"
+              Ini.p_float (Ini.default default_head_copy_throttling)
+    in
     {node_name;
      ips;
      client_port;
@@ -577,6 +577,7 @@ module Node_cfg = struct
      reporting;
      node_tls;
      collapse_slowdown;
+     head_copy_throttling;
     }
 
 

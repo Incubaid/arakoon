@@ -32,6 +32,7 @@ type local_action =
   | DumpStore
   | MakeTlog
   | MarkTlog
+  | CloseTlog
   | TruncateTlog
   | CompressTlog
   | UncompressTlog
@@ -86,11 +87,22 @@ let show_version ()=
     Printf.printf "dependencies:\n%s\n" dependencies in
   ()
 
+let interpret_test_results =
+  List.fold_left
+    (fun acc r ->
+     match r with
+     | RSuccess _ -> acc
+     | RFailure _
+     | RError _
+     | RSkip _
+     | RTodo _ -> 1)
+    0
 
 let run_all_tests () =
   All_test.configure_logging();
   let tests = All_test.suite in
-  let _ = OUnit.run_test_tt tests in 0
+  let results = run_test_tt tests in
+  interpret_test_results results
 
 let run_all_tests_xml filename =
   All_test.configure_logging();
@@ -104,15 +116,15 @@ let run_all_tests_xml filename =
                  tmp_start = 0.0;
                  tmp_result = RSuccess []
                } in
-  let (_:test_result list) = perform_timed_tests result tests in
+  let results = perform_timed_tests result tests in
   let () = print_xml result filename in
-  0
+  interpret_test_results results
 
 let run_system_tests () =
   All_test.configure_logging();
   let tests = System_tests.suite in
-  let _ = OUnit.run_test_tt tests in
-  0
+  let results = OUnit.run_test_tt tests in
+  interpret_test_results results
 
 
 let run_some_tests repeat_count filter =
@@ -122,19 +134,19 @@ let run_some_tests repeat_count filter =
   let show_count num =
     if repeat_count > 1 then Printf.printf "-- iteration %d\n" (repeat_count - num + 1)
   in
-  let rec do_n_times f = function
-    | 0 -> ()
+  let rec do_n_times f results = function
+    | 0 -> results
     | n ->
       let () = show_count n in
-      let (_:OUnit.test_result list) = f () in
-      do_n_times f (n-1)
+      let results' = f () in
+      do_n_times f (List.append results' results) (n-1)
   in
   match OUnit.test_filter parts All_test.suite  with
     | Some test ->
       begin
         List.iter do_path (OUnit.test_case_paths test);
-        let () = do_n_times (fun () -> OUnit.run_test_tt_main test) repeat_count in
-        0
+        let results = do_n_times (fun () -> OUnit.run_test_tt_main test) [] repeat_count in
+        interpret_test_results results
       end
 
     | None -> failwith (Printf.sprintf "no test matches '%s'" filter);;
@@ -234,6 +246,11 @@ let main () =
                                Arg.Set_string key;
                              ],
      "<filename> <key>: add a marker to a tlog");
+    ("--unsafe-close-tlog", Arg.Tuple[ set_laction CloseTlog;
+                               Arg.Set_string filename;
+                               Arg.Set_string node_id;
+                             ],
+     "<filename> <node_name>: marks the tlog with 'closed:node_name'. Note when a tlog marker is missing, the node Tokyo Cabinet database could be silently corrupted, which is not fixed by this command.");
     ("--replay-tlogs", Arg.Tuple[ set_laction ReplayTlogs;
                                   Arg.Set_string tlog_dir;
                                   Arg.Set_string tlf_dir;
@@ -403,6 +420,7 @@ let main () =
     | StripTlog -> Tlog_main.strip_tlog !filename
     | MakeTlog -> Tlog_main.make_tlog !filename !counter
     | MarkTlog -> Tlog_main.mark_tlog !filename !key
+    | CloseTlog -> Tlog_main.mark_tlog !filename (Tlc2._make_close_marker !node_id)
     | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !tlf_dir !filename !end_i
     | DumpStore -> Dump_store.dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename
@@ -469,7 +487,7 @@ let main () =
           let lease_period = 60 in
           let node = Master_type.Forced "t_arakoon_0" in
           let make_config () = Node_cfg.make_test_config 3 node lease_period in
-          let main_t = (Node_main.test_t make_config !node_id (ref false)) in
+          let main_t = (Node_main.test_t make_config !node_id ~stop:(ref false)) in
           Lwt_main.run main_t
         end
   in
@@ -492,8 +510,8 @@ let main () =
           | "" -> None
           | s -> Some (s, !tls_key)
         in
-        let cfg = Client_main.TLSConfig.make ~ca_cert ~creds ~protocol in
-        Some cfg
+        let ctx = Client_main.default_create_client_context ~ca_cert ~creds ~protocol in
+        Some ctx
       end
   in
 

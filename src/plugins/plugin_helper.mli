@@ -15,27 +15,17 @@ limitations under the License.
 *)
 
 
+val serialize_string  : Buffer.t -> string -> unit
+val serialize_hashtbl : Buffer.t -> (Buffer.t -> 'a -> 'b -> unit) ->
+                        ('a, 'b) Hashtbl.t -> unit
 
-let id (x : 'a) : 'a = x
+val serialize_string_list: Buffer.t -> string list -> unit
 
-let p_string s = Scanf.sscanf s "%s" id
+type input
+val make_input : string -> int -> input
 
-let p_int s = Scanf.sscanf s "%i" id
+val deserialize_string : input -> string
+val deserialize_hashtbl: input -> (input -> 'a * 'b) -> ('a, 'b) Hashtbl.t
+val deserialize_string_list: input -> string list
 
-let p_float s = Scanf.sscanf s "%f" id
-
-let p_string_list s = Str.split (Str.regexp "[, \t]+") s
-
-let p_bool s = Scanf.sscanf s "%b" id
-
-let p_option p s = Some (p s)
-
-let required section name = failwith  (Printf.sprintf "missing: %s %s" section name)
-
-let default x = fun _ _ -> x
-
-let get inifile section name s2a not_found =
-  try
-    let v_s = inifile # getval section name in
-    s2a v_s
-  with (Inifiles.Invalid_element _) -> not_found section name
+val debug_f: ('a, unit, string, unit) format4 -> 'a

@@ -81,7 +81,6 @@ let test_generic network_factory n_nodes () =
               inject_event = inject_ev inject_buffer;
               is_alive;
               cluster_id = "whatever";
-              quiesced = false;
               stop = ref false;
               election_timeout = None;
               lease_expiration_id = 0;
@@ -279,7 +278,6 @@ let test_master_loop network_factory ()  =
                    inject_event = inject_event;
                    is_alive;
                    cluster_id = "whatever";
-                   quiesced = false;
                    stop = ref false;
                    election_timeout = None;
                    lease_expiration_id = 0;
@@ -417,7 +415,6 @@ let test_simulation filters () =
     inject_event = inject_event;
     is_alive = (fun _id -> true);
     cluster_id = "whatever";
-    quiesced = false;
     stop = ref false;
     election_timeout = None;
     lease_expiration_id = 0;

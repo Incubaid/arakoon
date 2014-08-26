@@ -122,14 +122,18 @@ let set ms tx key value =
   _verify_tx ms tx;
   ms.kv <- StringMap.add key value ms.kv
 
-let optimize _ms ~quiesced ~stop = 
+let optimize _ms ~quiesced ~stop =
     let () = ignore quiesced in
     let () = ignore stop in
     Lwt.return true
-let defrag _ms = Lwt.return ()
+let defrag_condition = (Lwt_condition.create () : unit Lwt_condition.t)
+let defrag _ms = Lwt_condition.wait defrag_condition
 
 let flush _ms = Lwt.return ()
-let close _ms _flush = Lwt.return ()
+let close _ms ~flush ~sync =
+  ignore flush;
+  ignore sync;
+  Lwt.return ()
 
 let reopen _ms _when_closed _quiesced = Lwt.return ()
 
@@ -141,7 +145,11 @@ let get_key_count ms =
   in
   StringMap.fold inc ms.kv 0L
 
-let copy_store2 _old_location _new_location _overwrite = Lwt.return ()
+let copy_store2 (_old_location:string) (_new_location:string)
+                ~(overwrite:bool) ~(throttling:float) =
+  ignore (overwrite,throttling);
+  Lwt.return ()
+
 let relocate _new_location = failwith "Memstore.relocation not implemented"
 
 let make_store ~lcnum ~ncnum _read_only db_name =

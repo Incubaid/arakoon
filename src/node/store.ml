@@ -43,7 +43,7 @@ sig
   val make_store : lcnum:int -> ncnum:int -> ?read_only:bool -> string -> t Lwt.t
   val consensus_i : t -> Sn.t option
   val flush : t -> unit Lwt.t
-  val close : ?flush : bool -> t -> unit Lwt.t
+  val close : ?flush : bool -> ?sync:bool -> t -> unit Lwt.t
   val get_location : t -> string
   val reopen : t -> (unit -> unit Lwt.t) -> unit Lwt.t
   val safe_insert_value : t -> Sn.t -> Value.t -> update_result list Lwt.t
@@ -56,7 +56,10 @@ sig
   val optimize : t -> bool Lwt.t
   val defrag : t -> unit Lwt.t
   val copy_store : t -> Lwt_io.output_channel -> unit Lwt.t
-  val copy_store2 : string -> string -> bool -> unit Lwt.t
+  val copy_store2 : string -> string ->
+                    overwrite:bool ->
+                    throttling:float ->
+                    unit Lwt.t
 
   val get_succ_store_i : t -> int64
   val get_catchup_start_i : t -> int64
@@ -129,17 +132,7 @@ struct
   let _master store =
     try
       let m = S.get store __master_key in
-      let ls =
-        try
-          (* first try new key with more accurate storage *)
-          let ls_buff = S.get store __lease_key2 in
-          let ls = Llio.float_from (Llio.make_buffer ls_buff 0) in
-          ls
-        with Not_found ->
-          (* fallback to old more coarse grained lease period *)
-          let ls_buff = S.get store __lease_key in
-          let ls  = Llio.int64_from (Llio.make_buffer ls_buff 0) in
-          (Int64.to_float ls) +. 1. in
+      let ls = Unix.gettimeofday () in
       Some (m,ls)
     with Not_found ->
       None
@@ -235,11 +228,20 @@ struct
   let flush store =
     S.flush store.s
 
-  let close ?(flush = true) store =
-    store.closed <- true;
-    Logger.debug_ "closing store..." >>= fun () ->
-    S.close store.s flush >>= fun () ->
-    Logger.debug_ "closed store"
+  let close ?(flush = true) ?(sync = true) store =
+    if store.closed
+    then Lwt.return ()
+    else
+      begin
+        store.closed <- true;
+        Logger.debug_ "closing store..." >>= fun () ->
+        let sync = sync && match store.quiesced with
+                           | Quiesce.Mode.ReadOnly -> false
+                           | Quiesce.Mode.Writable | Quiesce.Mode.NotQuiesced -> true in
+        S.close store.s ~flush ~sync >>= fun () ->
+        Logger.debug_ "closed store"
+      end
+
 
   let relocate store loc =
     S.relocate store.s loc
@@ -269,10 +271,6 @@ struct
   let set_master store tx master lease_start =
     _wrap_exception store "SET_MASTER" Server.FOOBAR (fun () ->
         S.set store.s tx __master_key master;
-        let buffer = Buffer.create 8 in
-        let () = Llio.float_to buffer lease_start in
-        let lease = Buffer.contents buffer in
-        S.set store.s tx __lease_key2 lease;
         store.master <- Some (master, lease_start);
         Lwt.return ())
 
@@ -408,9 +406,9 @@ struct
       let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
       raise ex
 
-  let copy_store2 old_location new_location overwrite =
+  let copy_store2 old_location new_location ~overwrite ~throttling =
     (* TODO quiesced checking *)
-    S.copy_store2 old_location new_location overwrite
+    S.copy_store2 old_location new_location ~overwrite ~throttling
 
   let defrag store =
     S.defrag store.s

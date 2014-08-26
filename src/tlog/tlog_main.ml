@@ -132,10 +132,7 @@ let compress_tlog tlu archive_type=
   let tlx = Tlc2.to_archive_name compressor tlu in
   let () = if Sys.file_exists tlx then failwith "Can't compress %s as %s already exists" tlu tlx in
   let t =
-    let tmp = tlx ^ ".tmp" in
-    Compression.compress_tlog ~cancel:(ref false) tlu tmp compressor
-    >>= fun () ->
-    File_system.rename tmp tlx >>= fun () ->
+    Compression.compress_tlog ~cancel:(ref false) tlu tlx compressor >>= fun () ->
     File_system.unlink tlu
   in
   Lwt_main.run t;
