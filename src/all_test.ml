@@ -86,4 +86,5 @@ let suite = "universe" >::: [
     system;
     nursery;
     store;
+    Std.List.Test.suite;
   ]
