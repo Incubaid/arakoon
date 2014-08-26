@@ -15,26 +15,17 @@ limitations under the License.
 *)
 
 
+val serialize_string  : Buffer.t -> string -> unit
+val serialize_hashtbl : Buffer.t -> (Buffer.t -> 'a -> 'b -> unit) ->
+                        ('a, 'b) Hashtbl.t -> unit
 
-open Lwt
-open Tlogcommon
+val serialize_string_list: Buffer.t -> string list -> unit
 
-class tlogWriter oc lastI =
+type input
+val make_input : string -> int -> input
 
-  object
+val deserialize_string : input -> string
+val deserialize_hashtbl: input -> (input -> 'a * 'b) -> ('a, 'b) Hashtbl.t
+val deserialize_string_list: input -> string list
 
-    val mutable lastWrittenI = lastI;
-
-    method log_value i value =
-      if isValidSuccessor i lastWrittenI  then
-        begin
-          write_entry oc i value >>= fun () ->
-          Lwt_io.flush oc >>= fun () ->
-          let () = lastWrittenI <- i in
-          Lwt.return ()
-        end
-      else
-        Llio.lwt_failfmt "invalid successor %s" (Sn.string_of i)
-
-
-  end
+val debug_f: ('a, unit, string, unit) format4 -> 'a

@@ -33,6 +33,7 @@ Local_store
 Log_extra
 Logger
 Lwt_buffer
+Lwt_extra
 Main
 Master
 Master_type
@@ -57,6 +58,7 @@ Quorum
 Registry
 Remote_nodestream
 Replay_main
+Ring_buffer
 Routing
 Server
 Simple_store
@@ -70,9 +72,9 @@ Std
 Store
 Sync_backend
 System_tests
+Tcp_info
 Tcp_messaging
 Tlc2
-Tlc_compression
 Tlogcollection
 Tlogcommon
 Tlog_main

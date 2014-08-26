@@ -20,7 +20,7 @@ open Lwt
 open Lwt_buffer
 open Network
 
-type connection = Lwt_io.input_channel * Lwt_io.output_channel
+type connection = Lwt_unix.file_descr * Lwt_io.input_channel * Lwt_io.output_channel
 
 let section =
   let s = Logger.Section.make "tcp_messaging" in
@@ -44,6 +44,24 @@ module RR = struct
   let fold f a0 t = List.fold_left f a0 t.addresses
 end
 
+let run_report connections =
+  let rec loop () =
+    let go = Hashtbl.fold (fun (addr, port) (socket, _, _) rest -> fun () ->
+      begin try
+        let info = Tcp_info.tcp_info (Lwt_unix.unix_file_descr socket) in
+        Logger.info_f_ "TCP info for %s:%d: %s" addr port (Tcp_info.to_string info)
+      with exn ->
+        Logger.error_f_ ~exn "TCP info lookup for %s:%d failed" addr port
+      end >>=
+      rest)
+      connections
+      Lwt.return
+    in
+    go () >>= fun () ->
+    Lwt_unix.sleep 60.0 >>=
+    loop
+  in
+  loop ()
 
 class tcp_messaging
   ?(timeout=60.0)
@@ -133,13 +151,13 @@ class tcp_messaging
       >>= fun () ->
       Lwt_unix.with_timeout timeout
         (fun () ->__open_connection ?ssl_context socket_address)
-      >>= fun (ic,oc) ->
+      >>= fun (socket, ic, oc) ->
       Llio.output_int64 oc _MAGIC >>= fun () ->
       Llio.output_int oc _VERSION >>= fun () ->
       Llio.output_string oc my_cookie >>= fun () ->
       Llio.output_string oc my_ip >>= fun () ->
       Llio.output_int oc my_port  >>= fun () ->
-      Lwt.return (ic,oc)
+      Lwt.return (socket, ic, oc)
     (* open_connection can also fail with Unix.Unix_error (63, "connect",_)
        on local host *)
 
@@ -170,7 +188,7 @@ class tcp_messaging
                   timeout
                   (fun () ->
                    self # _get_connection addresses >>= fun connection ->
-                   let ic,oc = connection in
+                   let _, _ic, oc = connection in
                    let pickled = self # _pickle source target msg in
                    Llio.output_string oc pickled >>= fun () ->
                    Lwt_io.flush oc)
@@ -259,7 +277,7 @@ class tcp_messaging
         begin
           let conn = Hashtbl.find _connections address in
           Logger.debug_ "found connection, closing it" >>= fun () ->
-          let ic,oc = conn in
+          let _, ic, oc = conn in
           (* something with conn *)
           Lwt.catch
             (fun () ->
@@ -356,7 +374,7 @@ class tcp_messaging
           "connection from (%s,%i) was idle too long (> %f)"
           ip port timeout
       in
-      let protocol (ic,oc,cid) =
+      let protocol (ic,_oc,_cid) =
         Lwt_unix.with_timeout timeout (fun () -> read_prologue ic)
         >>= fun address ->
         let rec loop b0 =
@@ -391,6 +409,7 @@ class tcp_messaging
         Lwt.join sts
       in
       _running <- true;
+      _my_threads <- (run_report _connections) :: _my_threads;
       Lwt_condition.broadcast _running_c ();
       servers_t () >>= fun () ->
       Logger.info_f_ "tcp_messaging %s: end of run" me >>= fun () ->

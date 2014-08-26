@@ -106,8 +106,6 @@ let setup () =
   ignore_ex (fun () -> File_system.mkdir  _dir_name 0o750 ) >>= fun () ->
   ignore_ex (fun () -> File_system.mkdir  _tlx_dir 0o750 )
 
-
-
 let test_common () =
   Logger.info_ "test_common" >>= fun () ->
   Tlc2.make_tlc2 ~compressor:Compression.Snappy
@@ -119,8 +117,8 @@ let test_common () =
   S.make_store ~lcnum:1024 ~ncnum:512 db_name >>= fun store ->
   Catchup.catchup_store ~stop:(ref false) me ((module S),store,tlog_coll) 500L >>= fun() ->
   Logger.info_ "TODO: validate store after this" >>= fun ()->
-  tlog_coll # close () >>= fun () ->
-  S.close store
+  S.close store >>= fun () ->
+  tlog_coll # close ~wait_for_compression:true ()
 
 
 let teardown () =
@@ -138,7 +136,7 @@ let teardown () =
   clean_dir _dir_name >>= fun () ->
   Logger.debug_ "end of teardown"
 
-let _tic (type s) filler_function n name verify_store =
+let _tic filler_function n name verify_store =
   Tlogcommon.tlogEntriesPerFile := 101;
   Tlc2.make_tlc2 ~compressor:Compression.Snappy  _dir_name _tlx_dir _tlx_dir
                  ~fsync:false "node_name" ~fsync_tlog_dir:true >>= fun tlog_coll ->
@@ -151,25 +149,25 @@ let _tic (type s) filler_function n name verify_store =
   let new_i = S.get_succ_store_i store in
   verify_store store new_i >>= fun () ->
   Logger.info_f_ "new_i=%s" (Sn.string_of new_i) >>= fun () ->
-  tlog_coll # close () >>= fun () ->
-  S.close store
+  S.close store >>= fun () ->
+  tlog_coll # close ~wait_for_compression:true ()
 
 
 
 let test_interrupted_catchup () =
   Logger.info_ "test_interrupted_catchup" >>= fun () ->
-  _tic _fill 1000 "tic" (fun store new_i -> Lwt.return ())
+  _tic _fill 1000 "tic" (fun _store _new_i -> Lwt.return ())
 
 
 let test_with_doubles () =
   Logger.info_ "test_with_doubles" >>= fun () ->
-  _tic _fill2 1000 "twd" (fun store new_i -> Lwt.return ())
+  _tic _fill2 1000 "twd" (fun _store _new_i -> Lwt.return ())
 
 
 let test_batched_with_failures () =
   Logger.info_ "test_batched_with_failures" >>= fun () ->
   _tic _fill3 3000 "tbwf"
-    (fun store new_i ->
+    (fun store _new_i ->
        let assert_not_exists k =
          let exists = S.exists store k in
          if exists
@@ -191,8 +189,7 @@ let test_batched_with_failures () =
 
 let test_large_tlog_catchup () =
   _tic _fill 60_000 "tcs"
-    (fun store new_i -> Lwt.return ())
-
+    (fun _store _new_i -> Lwt.return ())
 let suite =
   let w f = lwt_bracket setup f teardown in
   "catchup" >:::[

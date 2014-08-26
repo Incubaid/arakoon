@@ -32,20 +32,15 @@ type namedValue =
   | NAMED_VALUELIST of string * (namedValue list)
 
 let named_value_info = function
-  | NAMED_INT       (n, i) -> n, 1
-  | NAMED_INT64     (n, i) -> n, 2
-  | NAMED_FLOAT     (n, f) -> n, 3
-  | NAMED_STRING    (n, s) -> n, 4
-  | NAMED_VALUELIST (n, l) -> n, 5
+  | NAMED_INT       (n, _i) -> n, 1
+  | NAMED_INT64     (n, _i) -> n, 2
+  | NAMED_FLOAT     (n, _f) -> n, 3
+  | NAMED_STRING    (n, _s) -> n, 4
+  | NAMED_VALUELIST (n, _l) -> n, 5
 
 let lwt_failfmt fmt =
   let k x = Lwt.fail (Failure x) in
   Printf.ksprintf k fmt
-
-let (<: ) = Int32.shift_left
-let (<::) = Int64.shift_left
-let (>: ) = Int32.shift_right_logical
-let (>::) = Int64.shift_right_logical
 
 type buffer = {buf : string ; mutable pos : int }
 let make_buffer buf pos = {buf;pos}
@@ -54,8 +49,10 @@ let buffer_pos b = b.pos
 
 let buffer_set_pos b pos = b.pos <- pos
 
-external get32_prim : string -> int -> int32  = "%caml_string_get32"
-external get64_prim : string -> int -> int64  = "%caml_string_get64"
+external get32_prim : string -> int -> int32 = "%caml_string_get32"
+external set32_prim : string -> int -> int32 -> unit = "%caml_string_set32"
+external get64_prim : string -> int -> int64 = "%caml_string_get64"
+external set64_prim : string -> int -> int64 -> unit = "%caml_string_set64"
 
 let int_from b =
   let result = get32_prim b.buf b.pos in
@@ -68,17 +65,9 @@ let int32_from b =
   result
 
 let int32_to buffer i32 =
-  let char_at n =
-    let pos = n * 8 in
-    let mask = Int32.of_int 0xff <: pos in
-    let code = (Int32.logand i32 mask) >: pos in
-    Char.chr (Int32.to_int code)
-  in
-  let add i = Buffer.add_char buffer (char_at i) in
-  add 0;
-  add 1;
-  add 2;
-  add 3
+  let s = String.create 4 in
+  set32_prim s 0 i32;
+  Buffer.add_string buffer s
 
 let int_to buffer i = int32_to buffer (Int32.of_int i)
 
@@ -91,28 +80,20 @@ let int64_from b =
   r
 
 let int64_to buf i64 =
-  let char_at n =
-    let pos = n * 8 in
-    let mask = Int64.of_int 0xff <:: pos in
-    let code = (Int64.logand i64 mask) >:: pos in
-    Char.chr (Int64.to_int code)
-  in
-  let set x = Buffer.add_char buf (char_at x) in
-  set 0; set 1; set 2; set 3;
-  set 4; set 5; set 6; set 7;
-  ()
+  let s = String.create 8 in
+  set64_prim s 0 i64;
+  Buffer.add_string buf s
 
 
 let output_int64 oc i64 =
-  let buf = Buffer.create 8 in
-  let _ = int64_to buf i64 in
-  Lwt_io.write oc (Buffer.contents buf)
+  let s = String.create 8 in
+  set64_prim s 0 i64;
+  Lwt_io.write oc s
 
 let input_int64 ic =
   let buf = String.create 8 in
   Lwt_io.read_into_exactly ic buf 0 8 >>= fun () ->
-  let b = make_buffer buf 0 in
-  let r = int64_from b in
+  let r = get64_prim buf 0 in
   Lwt.return r
 
 
@@ -165,10 +146,9 @@ let bool_from b =
 
 
 let output_int32 oc (i:int32) =
-  let buf = Buffer.create 4 in
-  let () = int32_to buf i in
-  let cts = Buffer.contents buf in
-  Lwt_io.write oc cts
+  let s = String.create 4 in
+  set32_prim s 0 i;
+  Lwt_io.write oc s
 
 
 let output_bool oc (b:bool) =
@@ -184,7 +164,7 @@ let input_bool ic =
 let input_int32 ic =
   let buf = String.create 4 in
   Lwt_io.read_into_exactly ic buf 0 4 >>= fun () ->
-  let r = int32_from (make_buffer buf 0) in
+  let r = get32_prim buf 0 in
   Lwt.return r
 
 
@@ -192,8 +172,7 @@ let output_int oc i =
   output_int32 oc (Int32.of_int i)
 
 let input_int ic =
-  input_int32 ic >>= fun i32 ->
-  Lwt.return (Int32.to_int i32)
+  Lwt.map Int32.to_int (input_int32 ic)
 
 let output_string oc (s:string) =
   let size = String.length s in

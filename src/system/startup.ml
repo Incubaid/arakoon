@@ -68,13 +68,14 @@ let _make_cfg name n lease_period =
     _fsync_tlog_dir = false;
     is_test = true;
     reporting = 300;
-    tls_cert = None;
-    tls_key = None;
+    node_tls = None;
     collapse_slowdown = None;
+    head_copy_throttling = 0.0;
   }
 
 let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
                     ~fsync node_id ~fsync_tlog_dir =
+  let () = ignore compressor in
   Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return ()
@@ -88,7 +89,7 @@ let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
   Hashtbl.add tlcs tlc_name tlc;
   Lwt.return tlc
 
-let stop = ref false
+let stop = ref (ref false)
 let node_ts = ref []
 
 let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
@@ -111,7 +112,7 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
     ~name
     ~daemonize:false
     ~catchup_only:false
-    stop
+    ~stop:!stop
           >>= fun _ -> Lwt.return () in
   node_ts := t :: !node_ts;
   t
@@ -152,13 +153,11 @@ let post_failure () =
     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
     lcnum = 8192;
     ncnum = 4096;
-    tls_ca_cert = None;
-    tls_service = false;
-    tls_service_validate_peer = false;
+    tls = None;
   }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value (node0,0.0)  in
+  let v0 = Value.create_master_value ~lease_start:0. node0 in
   let v1 = Value.create_client_value [Update.Set("x","y")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
@@ -214,18 +213,15 @@ let restart_slaves () =
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
      lcnum = Node_cfg.default_lcnum;
      ncnum = Node_cfg.default_ncnum;
-     tls_ca_cert = None;
-     tls_service = false;
-     tls_service_validate_peer = false;
+     tls = None;
     }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value (node2, 0.0) in
+  let v0 = Value.create_master_value ~lease_start:0. node2 in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
-
   let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0] node0 in
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 in
   (* let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node2 in *)
@@ -275,13 +271,11 @@ let ahead_master_loses_role () =
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
      lcnum = 8192;
      ncnum = 4096;
-     tls_ca_cert = None;
-     tls_service = false;
-     tls_service_validate_peer = false;
+     tls = None;
     }
   in
   let get_cfgs () = cluster_cfg in
-  let v0 = Value.create_master_value (node0, 0.0) in
+  let v0 = Value.create_master_value ~lease_start:0. node0 in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let v2 = Value.create_client_value [Update.Set("invalidkey", "shouldnotbepresent")] false in
   let tlcs = Hashtbl.create 5 in
@@ -315,14 +309,124 @@ let ahead_master_loses_role () =
   Lwt_list.iter_s check_store [node0;node1;node2]
 
 
-let setup () =
-  stop := false;
-  Lwt.return ()
+let setup () = Lwt.return ()
 let teardown () =
-  stop := true;
+  !stop := true;
+  stop := ref false;
   Lwt.join !node_ts >>= fun () ->
   node_ts := [];
   Logger.debug_ "teardown"
+
+let interrupted_election () =
+  let lease_period = 4 in
+  let cluster_id = "ricky" in
+  let wannabe_master = "wannabe_master" in
+  let node2 = "node2" in
+  let node3 = "node3" in
+  let wannabe_master_cfg = _make_cfg wannabe_master 0 lease_period in
+  let node2_cfg = _make_cfg node2 1 lease_period in
+  let node3_cfg = _make_cfg node3 2 lease_period in
+  let cluster_cfg =
+    {cfgs = [wannabe_master_cfg;node2_cfg;node3_cfg];
+     log_cfgs = [_make_log_cfg ()];
+     batched_transaction_cfgs = [_make_batched_transaction_cfg ()];
+     _master = Elected;
+     quorum_function = Quorum.quorum_function;
+     _lease_period = 2;
+     cluster_id;
+     plugins = [];
+     nursery_cfg = None;
+     overwrite_tlog_entries = None;
+     max_value_size = Node_cfg.default_max_value_size;
+     max_buffer_size = Node_cfg.default_max_buffer_size;
+     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
+     lcnum = 8192;
+     ncnum = 4096;
+     tls = None;
+    }
+  in
+  let get_cfgs () = cluster_cfg in
+  let v0 = Value.create_master_value ~lease_start:0. wannabe_master in
+  let tlcs = Hashtbl.create 5 in
+  let stores = Hashtbl.create 5 in
+  let now = Unix.gettimeofday () in
+  let t_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0] node2 () in
+  let t_node3 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0] node3 () in
+  Lwt.ignore_result t_node2;
+  Lwt.ignore_result t_node3;
+  (* 2 phases: - wait until wannabe_master is the master
+               - wait until another node becomes the master
+     and a timeout on all this
+   *)
+  let get_master_from cfg =
+    Client_main.with_client
+      cfg ~tls:None cluster_id
+      (fun client -> client # who_master ())
+  in
+  let rec phase1 () =
+    Lwt.catch
+      (fun () ->
+       get_master_from node2_cfg >>=
+         function
+         | Some m ->
+            if m = wannabe_master
+            then Lwt.return true
+            else failwith (Printf.sprintf "%s became master instead of %s" m wannabe_master)
+         | None ->
+            begin
+              get_master_from node3_cfg >>=
+                function
+                | None ->
+                   Lwt.return false
+                | Some m ->
+                   if m = wannabe_master
+                   then Lwt.return true
+                   else failwith (Printf.sprintf "%s became master instead of %s" m wannabe_master)
+            end)
+      (function
+        | Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
+           Lwt.return false
+        | exn -> Lwt.fail exn) >>= fun continue ->
+    if continue
+    then Lwt.return ()
+    else Lwt_unix.sleep 1. >>= fun () ->
+         phase1 ()
+  in
+
+  let rec phase2 () =
+    Lwt.catch
+      (fun () ->
+       Client_main.find_master ~tls:None cluster_cfg >>= fun m ->
+       if m <> wannabe_master
+       then Lwt.return true
+       else Lwt.return false)
+      (function
+        | Failure "No Master" ->
+           Lwt.return false
+        | exn -> Lwt.fail exn) >>= fun continue ->
+    if continue
+    then
+      Lwt.return ()
+    else
+      Lwt_unix.sleep 1. >>= fun () ->
+      phase2 () in
+
+  Lwt.pick
+    [(let t0 = Unix.gettimeofday () in
+      phase1 () >>= fun () ->
+      phase2 () >>= fun () ->
+      let t1 = Unix.gettimeofday () in
+      let delta = t1 -. t0 in
+      if (delta > (float lease_period))
+      then Lwt.return ()
+      else Lwt.fail (Failure (Printf.sprintf "test only took while %f seconds while expected duration is at least %i seconds" delta lease_period)));
+     (Lwt_unix.timeout 60. >>= fun () -> failwith "test did not finish quick enough")]
+  >>= fun () ->
+
+  List.iter (fun t -> Lwt.cancel t) [t_node2; t_node3;];
+
+  Lwt_list.iter_s (_dump_tlc ~tlcs)   [node2; node3]
+
 
 let w f = Extra.lwt_bracket setup f teardown
 
@@ -330,4 +434,5 @@ let suite = "startup" >:::[
     "post_failure" >:: w post_failure;
     "restart_slaves" >:: w restart_slaves;
     "ahead_master_loses_role" >:: w ahead_master_loses_role;
+    "interrupted_election" >:: w interrupted_election;
   ]

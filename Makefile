@@ -12,7 +12,10 @@ clean:
 	ocamlbuild -clean
 
 build:
-	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs
+	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
+
+bench:
+	ocamlbuild -use-ocamlfind bs_bench.native
 
 test:
 	./arakoon.native --run-all-tests
@@ -37,6 +40,8 @@ install_client:
 	  _build/src/client/arakoon_remote_client.cmi \
           _build/src/plugins/registry.mli \
           _build/src/plugins/registry.cmi \
+          _build/src/plugins/plugin_helper.mli \
+          _build/src/plugins/plugin_helper.cmi \
           _build/src/tools/llio.mli \
           _build/src/tools/llio.cmi \
           _build/src/arakoon_client.a
@@ -52,9 +57,9 @@ coverage:
 man:
 	ln -s ./arakoon.native arakoon
 	help2man --name='Arakoon, a consistent key value store' ./arakoon > debian/arakoon.man
-	rm arakoon 
+	rm arakoon
 
-.PHONY: install test build install_client
+.PHONY: install test build install_client bench
 
 
 indent-tabs-to-spaces:

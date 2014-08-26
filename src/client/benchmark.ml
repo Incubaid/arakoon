@@ -110,7 +110,7 @@ let _fill client max_n k_size v_size (t0:float) (oc:Lwt_io.output_channel) =
         and value = _cat v0 n in
         check_timing
           (fun () ->client # set key value)
-          (fun () ->Printf.sprintf "get %i" n)
+          (fun () ->Printf.sprintf "set %i" n)
         >>= fun () ->
         loop (n+1)
       end

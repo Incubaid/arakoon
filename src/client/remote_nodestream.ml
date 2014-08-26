@@ -48,10 +48,11 @@ class type nodestream = object
   method drop_master: unit -> unit Lwt.t
 end
 
-class remote_nodestream ((ic,oc) as conn) = (object
+class remote_nodestream ((ic,oc) as conn) =
+        (object
   method iterate (i:Sn.t) (f: Sn.t * Value.t -> unit Lwt.t)
-           (tlog_coll: Tlogcollection.tlog_collection)
-           ~head_saved_cb
+    (tlog_coll: Tlogcollection.tlog_collection)
+    ~head_saved_cb
     =
     let outgoing buf =
       command_to buf LAST_ENTRIES2;
@@ -175,8 +176,13 @@ class remote_nodestream ((ic,oc) as conn) = (object
     Common.drop_master conn
 end :nodestream)
 
-let make_remote_nodestream cluster connection =
-  prologue cluster connection >>= fun () ->
+
+let make_remote_nodestream ?(skip_prologue=false) cluster connection =
+  begin
+    if skip_prologue
+    then Lwt.return_unit
+    else prologue cluster connection
+  end >>= fun () ->
   let rns = new remote_nodestream connection in
   let a = (rns :> nodestream) in
   Lwt.return a

@@ -29,15 +29,13 @@ let try_connect (ips, port) =
   Lwt.catch
     (fun () ->
        let sa = Network.make_address ips port in
-       Network.__open_connection sa >>= fun (ic,oc) ->
+       Network.__open_connection sa >>= fun (_, ic, oc) ->
        let r = Some (ic,oc) in
        Lwt.return r
     )
     (function
       | Canceled -> Lwt.fail Canceled
       | _ -> Lwt.return None)
-
-
 
 
 module NC = struct
@@ -69,7 +67,7 @@ module NC = struct
     {rc; connections;masters;keeper_cn}
 
   let _get_connection t nn =
-    let (cn,node) = nn in
+    let (cn,_node) = nn in
     match Hashtbl.find t.connections nn with
       | Address (ips,port) ->
         begin
@@ -111,8 +109,6 @@ module NC = struct
       Logger.debug_f_ "Found master %s" m >>= fun () ->
       Lwt.return m
 
-
-
   let _find_master t cn =
     let m = Hashtbl.find t.masters cn in
     match m with
@@ -126,7 +122,7 @@ module NC = struct
     _get_connection t nn >>= fun connection ->
     todo connection
 
-  let __migrate t clu_left sep clu_right publish migration =
+  let __migrate t _clu_left sep _clu_right publish migration =
     Logger.debug_f_ "migrate %s" (Log_extra.string_option2s sep) >>= fun () ->
     let from_cn, to_cn, direction = migration in
     Logger.debug_f_ "from:%s to:%s" from_cn to_cn >>= fun () ->
@@ -230,7 +226,7 @@ module NC = struct
       Logger.debug_f_ "delete lower - upper : %s - %s" (so2s lower) (so2s upper) >>= fun () ->
       match lower, upper with
         | None, None -> failwith "Cannot remove last cluster from nursery"
-        | Some x, None ->
+        | Some _, None ->
           begin
             match sep with
               | None ->
@@ -242,10 +238,10 @@ module NC = struct
                       __migrate t cluster_id sep prev
                         publish (cluster_id, prev, Routing.UPPER_BOUND)
                 end
-              | Some y ->
+              | Some _ ->
                 failwith "Cannot set separator when removing a boundary cluster from the nursery"
           end
-        | None, Some x ->
+        | None, Some _ ->
           begin
             match sep with
               | None ->
@@ -257,15 +253,15 @@ module NC = struct
                       __migrate t cluster_id sep next
                         publish (cluster_id, next, Routing.LOWER_BOUND)
                 end
-              | Some y ->
+              | Some _y ->
                 failwith "Cannot set separator when removing a boundary cluster from a nursery"
           end
-        | Some x, Some y ->
+        | Some _x, Some _y ->
           begin
             match sep with
               | None ->
                 failwith "Need to set replacement boundary when removing an inner cluster from the nursery"
-              | Some y ->
+              | Some _y ->
                 let m_next = Routing.next_cluster r cluster_id in
                 let m_prev = Routing.prev_cluster r cluster_id in
                 begin

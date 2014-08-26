@@ -17,7 +17,7 @@ limitations under the License.
 open Tlogcollection
 open Tlogcommon
 
-class mem_tlog_collection name =
+class mem_tlog_collection _name =
   object (self: #tlog_collection)
 
     val mutable data = []
@@ -62,16 +62,15 @@ class mem_tlog_collection name =
           data in
       Lwt_list.iter_s f (List.rev data')
 
-
     method get_tlog_count() = failwith "get_tlog_count not supported"
 
-    method dump_tlog_file start_i oc = failwith "dump_tlog_file not supported"
+    method dump_tlog_file _start_i _oc = failwith "dump_tlog_file not supported"
 
-    method save_tlog_file name length ic = failwith "save_tlog_file not supported"
+    method save_tlog_file _name _length _ic = failwith "save_tlog_file not supported"
 
-    method which_tlog_file start_i = failwith "which_tlog_file not supported"
+    method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
-    method log_value_explicit i (v:Value.t) sync marker =
+    method log_value_explicit i (v:Value.t) _sync marker =
       let entry = Entry.make i v 0L marker in
       let () = data <- entry::data in
       let () = last_entry <- (Some entry) in
@@ -79,22 +78,26 @@ class mem_tlog_collection name =
 
     method log_value i v = self #log_value_explicit i v false None
 
+    method dump_head _oc = Llio.lwt_failfmt "dump_head not implemented"
 
-    method dump_head oc = Llio.lwt_failfmt "dump_head not implemented"
-    method save_head ic = Llio.lwt_failfmt "save_head not implemented"
+    method save_head _ic = Llio.lwt_failfmt "save_head not implemented"
 
     method get_head_name () = failwith "get_head_name not implemented"
 
     method get_tlog_from_i _ = Sn.start
 
-    method close ?(wait_for_compression = false) () = Lwt.return ()
+    method close ?(wait_for_compression = false) () = 
+        let () = ignore wait_for_compression in 
+        Lwt.return ()
 
-    method remove_oldest_tlogs count = Lwt.return ()
+    method remove_oldest_tlogs _count = Lwt.return ()
 
-    method remove_below i = Lwt.return ()
+    method remove_below _i = Lwt.return ()
   end
 
-let make_mem_tlog_collection tlog_dir tlf_dir head_dir ~fsync name ~fsync_tlog_dir =
+let make_mem_tlog_collection _tlog_dir _tlf_dir _head_dir ~fsync name ~fsync_tlog_dir =
+  let () = ignore fsync in 
+  let () = ignore fsync_tlog_dir in 
   let x = new mem_tlog_collection name in
   let x2 = (x :> tlog_collection) in
   Lwt.return x2

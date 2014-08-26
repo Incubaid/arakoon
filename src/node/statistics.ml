@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
+let section = Logger.Section.main
 
 type x_stats ={
   mutable n : int;
@@ -196,9 +196,15 @@ module Statistics = struct
     update_x_stats t.op_time_stats x ;
     x
 
+  let log_slowness descr total_time =
+    if total_time > 1.0 then
+      Logger.ign_info_f_ "statistics %s :: took %f seconds" descr total_time
+    else
+      ()
 
   let new_set t (_key:string) (value:string) (start:float)=
     let x = new_op t start in
+    let () = log_slowness "set" x in
     update_x_stats t.set_time_stats x;
     let size = float(String.length value) in
     let n' = t.set_time_stats.n in
@@ -207,10 +213,9 @@ module Statistics = struct
 
   let new_harvest t n = update_x_stats t.harvest_stats (float n)
 
-
-
   let new_get t (_key:string) (value:string) (start:float) =
     let x = new_op t start in
+    let () = log_slowness "get" x in
     update_x_stats t.get_time_stats x;
     let size = float(String.length value) in
     let n' = t.get_time_stats.n in
@@ -219,22 +224,27 @@ module Statistics = struct
 
   let new_delete t (start:float)=
     let x = new_op t start in
+    let () = log_slowness "delete" x in
     update_x_stats t.del_time_stats x
 
   let new_sequence t (start:float)=
     let x = new_op t start in
+    let () = log_slowness "sequence" x in
     update_x_stats t.seq_time_stats x
 
   let new_multiget t (start:float)=
     let x = new_op t start in
+    let () = log_slowness "multiget" x in
     update_x_stats t.mget_time_stats x
 
   let new_multiget_option t (start:float) =
     let x = new_op t start in
+    let () = log_slowness "multiget_option" x in
     update_x_stats t.mget_option_time_stats x
 
   let new_testandset t (start:float)=
     let x = new_op t start in
+    let () = log_slowness "testandset" x in
     update_x_stats t.tas_time_stats x
 
   let new_replace t (start:float) =
@@ -243,6 +253,7 @@ module Statistics = struct
 
   let new_prefix_keys t (start:float) n_keys =
     let x = new_op t start in
+    let () = log_slowness "prefix_keys" x in
     update_x_stats t.prefix_time_stats x;
     let n = t.prefix_time_stats.n in
     let nf = float n in
@@ -250,6 +261,7 @@ module Statistics = struct
 
   let new_range t (start:float) n_keys =
     let x = new_op t start in
+    let () = log_slowness "range" x in
     update_x_stats t.range_time_stats x;
     let n = t.range_time_stats.n in
     let nf = float n in
@@ -257,6 +269,7 @@ module Statistics = struct
 
   let new_range_entries t (start:float) n_keys =
     let x = new_op t start in
+    let () = log_slowness "range_entries" x in
     update_x_stats t.range_entries_time_stats x;
     let n = t.range_entries_time_stats.n in
     let nf = float n in
@@ -264,6 +277,7 @@ module Statistics = struct
 
   let new_rev_range_entries t (start:float) n_keys =
     let x = new_op t start in
+    let () = log_slowness "rev_range_entries" x in
     update_x_stats t.rev_range_entries_time_stats x;
     let n = t.rev_range_entries_time_stats.n in
     let nf = float n in
@@ -271,6 +285,7 @@ module Statistics = struct
 
   let new_delete_prefix t (start:float) n_keys =
     let x = new_op t start in
+    let () = log_slowness "delete_prefix" x in
     update_x_stats t.delete_prefix_time_stats x;
     let n = t.delete_prefix_time_stats.n in
     let nf = float n in
@@ -341,18 +356,27 @@ module Statistics = struct
 
     let extract_list = function
       | Llio.NAMED_VALUELIST (_,l) -> l
-      | _ -> failwith "Wrong value type (expected list)"
+      | Llio.NAMED_FLOAT _
+      | Llio.NAMED_INT _
+      | Llio.NAMED_INT64 _
+      | Llio.NAMED_STRING _ -> failwith "Wrong value type (expected list)"
     in
     let extract_float (value:Llio.namedValue) : float =
       begin
         match value with
           | Llio.NAMED_FLOAT (_,f) -> f
-          | _ -> failwith "Wrong value type (expected float)"
+          | Llio.NAMED_INT _
+          | Llio.NAMED_INT64 _
+          | Llio.NAMED_STRING _
+          | Llio.NAMED_VALUELIST _ -> failwith "Wrong value type (expected float)"
       end
     in
     let extract_int = function
       | Llio.NAMED_INT (_,i) -> i
-      | _ -> failwith "Wrong value type (expected int)"
+      | Llio.NAMED_FLOAT _
+      | Llio.NAMED_INT64 _
+      | Llio.NAMED_STRING _
+      | Llio.NAMED_VALUELIST _ -> failwith "Wrong value type (expected int)"
     in
     let extract_x_stats (value:Llio.namedValue) : x_stats =
       begin
@@ -371,7 +395,10 @@ module Statistics = struct
             let v, _ = extract_next l in
             let var = extract_float v in
             {n; min; max; m2; avg; var;}
-          | _ -> failwith "Wrong value type (expected list)"
+          | Llio.NAMED_FLOAT _
+          | Llio.NAMED_INT _
+          | Llio.NAMED_INT64 _
+          | Llio.NAMED_STRING _ -> failwith "Wrong value type (expected list)"
       end
     in
 
@@ -470,7 +497,10 @@ module Statistics = struct
     let insert_node value =
       match value with
         | Llio.NAMED_INT64(n,i) -> Hashtbl.replace node_is n i
-        | _ -> failwith "Wrong value type (expected int64)."
+        | Llio.NAMED_FLOAT _
+        | Llio.NAMED_INT _
+        | Llio.NAMED_STRING _
+        | Llio.NAMED_VALUELIST _ -> failwith "Wrong value type (expected int64)."
     in
     List.iter insert_node node_list;
     let t =  {

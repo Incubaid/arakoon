@@ -86,7 +86,7 @@ let head_saved_epilogue hfn tlog_coll =
   S.make_store ~lcnum:default_lcnum
     ~ncnum:default_ncnum ~read_only:true hfn >>= fun store ->
   let hio = S.consensus_i store in
-  S.close store >>= fun () ->
+  S.close store ~flush:false ~sync:false >>= fun () ->
   Logger.info_ "closed head" >>= fun () ->
   begin
     match hio with
@@ -120,7 +120,7 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((mo
     let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
       let target_name = S.get_location store in
-      File_system.copy_file hfn target_name ~overwrite:true
+      File_system.copy_file hfn target_name ~overwrite:true ~throttling:0.0
     in
     S.reopen store when_closed >>= fun () ->
     Lwt.return ()
@@ -145,14 +145,16 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((mo
   >>= fun () ->
   Lwt.return (tlog_coll # get_last_i ())
 
-let prepare_value pv me =
+
+let prepare_and_insert_value (type s) (module S : Store.STORE with type t = s) me store i v =
   (* assume consensus for the masterset has only now been reached,
-     this is playing it safe *)
-  let pv' = Value.fill_if_master_set pv in
+               this is playing it safe *)
+  let v' = Value.fill_other_master_set me v in
   (* but do clear the master set if it's about the node itself,
-     so the node can't erronously think it's master while it's not *)
-  let pv'' = Value.clear_self_master_set me pv' in
-  pv''
+               so the node can't erronously think it's master while it's not *)
+  let v'' = Value.clear_self_master_set me v' in
+  S.safe_insert_value store i v'' >>= fun _ ->
+  Lwt.return ()
 
 let make_f ~stop (type s) (module S : Store.STORE with type t = s) me log_i acc store entry =
   stop_fuse stop >>= fun () ->
@@ -169,8 +171,7 @@ let make_f ~stop (type s) (module S : Store.STORE with type t = s) me log_i acc 
       then
         begin
           log_i pi >>= fun () ->
-          let pv' = prepare_value pv me in
-          S.safe_insert_value store pi pv' >>= fun _ ->
+          prepare_and_insert_value (module S) me store pi pv >>= fun () ->
           let () = acc := Some(i,value) in
           Lwt.return ()
         end
@@ -188,8 +189,7 @@ let epilogue (type s) (module S : Store.STORE with type t = s) me acc store =
     | Some(i,value) ->
       begin
         Logger.debug_f_ "%s => store" (Sn.string_of i) >>= fun () ->
-        let pv' = prepare_value value me in
-        S.safe_insert_value store i pv'  >>= fun _ -> Lwt.return ()
+        prepare_and_insert_value (module S) me store i value
       end
 
 
@@ -270,8 +270,7 @@ let catchup_store ~stop (type s) me
           >>= fun msg -> Lwt.fail (StoreCounterTooLow msg)
         else
           Lwt.return ()
-      end >>= fun () ->
-      S.flush store
+      end
     end
 
 let catchup ~tls_ctx ~stop me other_configs ~cluster_id ((_,_,tlog_coll) as dbt) mr_name =

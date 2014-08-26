@@ -16,8 +16,8 @@ limitations under the License.
 
 open Lwt
 open OUnit
-open Node_cfg
 open Remote_nodestream
+open Node_cfg
 open Arakoon_remote_client
 open Routing
 
@@ -39,7 +39,7 @@ let __wrap__ port conversation =
                          1 (Master_type.Elected) lease_period
   in
   let cluster_cfg = make_config () in
-  let t0 = Node_main.test_t make_config "sweety_0" stop >>= fun _ -> Lwt.return () in
+  let t0 = Node_main.test_t make_config "sweety_0" ~stop >>= fun _ -> Lwt.return () in
 
   let client_t () =
     let sp = float(lease_period) *. 0.5 in
@@ -83,7 +83,7 @@ let get_fringe port ()=
   let conversation conn =
     fill_it_a_bit ()  >>= fun () ->
     let (ic,oc) = conn in
-    make_remote_nodestream cluster_id conn >>= fun ns ->
+    make_remote_nodestream cluster_id conn >>= fun _ns ->
     Logger.debug_ "starting get_fringe" >>= fun () ->
     (* ns # get_fringe (Some "k") Routing.LOWER_BOUND >>= fun kvs -> *)
     (* let got = List.length kvs in *)

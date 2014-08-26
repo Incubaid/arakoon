@@ -20,9 +20,8 @@ open Mp_msg
 open Lwt
 open MPMessage
 open Messaging
-open Tcp_messaging
-open Extra
 open Multi_paxos
+open Extra
 open Update
 open Lwt_buffer
 open Master_type
@@ -31,7 +30,7 @@ module S = (val (Store.make_store_module (module Mem_store)))
 
 let sn2s = Sn.string_of
 
-let test_take () = Lwt.return (None, (fun s -> Lwt.return ()))
+let test_take () = Lwt.return (None, (fun _s -> Lwt.return ()))
 
 let build_name j = "c" ^ (string_of_int j)
 
@@ -41,7 +40,7 @@ let build_names n =
     | j -> _loop (build_name j :: names ) (j-1)
   in _loop [] n
 
-let on_witness who i = ()
+let on_witness _who _i = ()
 
 let get_value tlog_coll i = tlog_coll # get_last_value i
 
@@ -51,14 +50,14 @@ let test_generic network_factory n_nodes () =
   let current_n = 42L
   and current_i = 0L in
   let values = Hashtbl.create 10 in
-  let on_accept me (v,n,i) = Logger.debug_f_ "%s: on_accept(%s,%s)" me (sn2s n) (sn2s i)
+  let on_accept me (_v,n,i) = Logger.debug_f_ "%s: on_accept(%s,%s)" me (sn2s n) (sn2s i)
   in
   let on_consensus me (v,n,i) =
     let () = Hashtbl.add values me v in
     Logger.debug_f_ "%s: on_consensus(%s,%s)" me (sn2s n) (sn2s i) >>= fun () ->
     Lwt.return [Store.Ok None]
   in
-  let last_witnessed who = Sn.of_int (-1000) in
+  let last_witnessed _who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
   let inject_ev q e = Lwt_buffer.add e q in
   S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" >>= fun store ->
@@ -113,7 +112,19 @@ let test_generic network_factory n_nodes () =
               (Multi_paxos_type.show_transition key) >>= fun () ->
             match key with
               | (Multi_paxos_type.Slave_steady_state ((_,i,_) as x)) when i = 1L -> Lwt.return (Some x)
-              | _ -> Lwt.return None
+              | Multi_paxos_type.Start_transition
+              | Multi_paxos_type.Election_suggest _
+              | Multi_paxos_type.Slave_fake_prepare _
+              | Multi_paxos_type.Slave_steady_state _
+              | Multi_paxos_type.Slave_discovered_other_master _
+              | Multi_paxos_type.Wait_for_promises _
+              | Multi_paxos_type.Promises_check_done _
+              | Multi_paxos_type.Wait_for_accepteds _
+              | Multi_paxos_type.Accepteds_check_done _
+              | Multi_paxos_type.Master_consensus _
+              | Multi_paxos_type.Stable_master _
+              | Multi_paxos_type.Master_dictate _
+              | Multi_paxos_type.Read_only -> Lwt.return None
           in
           let client_buffer = Lwt_buffer.create () in
           let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
@@ -123,7 +134,7 @@ let test_generic network_factory n_nodes () =
                            inject_buffer, election_timeout_buffer) in
           Multi_paxos_fsm.expect_run_forced_slave
             constants buffers expected steps (current_i,Sn.start)
-          >>= fun result ->
+          >>= fun _result ->
           Logger.debug_f_ "%s: node done." me >>= fun () ->
           Lwt.return ()
         in
@@ -146,7 +157,18 @@ let test_generic network_factory n_nodes () =
         (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
         | (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
-        | _ -> Lwt.return None
+        | Multi_paxos_type.Start_transition
+        | Multi_paxos_type.Election_suggest _
+        | Multi_paxos_type.Slave_fake_prepare _
+        | Multi_paxos_type.Slave_steady_state _
+        | Multi_paxos_type.Slave_discovered_other_master _
+        | Multi_paxos_type.Wait_for_promises _
+        | Multi_paxos_type.Promises_check_done _
+        | Multi_paxos_type.Wait_for_accepteds _
+        | Multi_paxos_type.Accepteds_check_done _
+        | Multi_paxos_type.Master_consensus _
+        | Multi_paxos_type.Master_dictate _
+        | Multi_paxos_type.Read_only  -> Lwt.return None
     in
     let inject_buffer = Lwt_buffer.create () in
     let election_timeout_buffer = Lwt_buffer.create () in
@@ -158,7 +180,7 @@ let test_generic network_factory n_nodes () =
                      election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_master constants buffers
       expected steps current_n current_i
-    >>= fun (n, i,_) ->
+    >>= fun (n, _i,_) ->
     Logger.debug_f_ "%s: consensus reached on n:%s" me (Sn.string_of n)
   in
   let addresses = List.map (fun name -> name , ("127.0.0.1", 7777))
@@ -199,7 +221,7 @@ let test_generic network_factory n_nodes () =
 
 
 let test_master_loop network_factory ()  =
-  let get_buffer, (send, nw_run, nw_register, is_alive) =
+  let get_buffer, (send, _nw_run, _nw_register, is_alive) =
     network_factory () in
   let me = "c0" in
   let i0 = 0L in
@@ -213,7 +235,7 @@ let test_master_loop network_factory ()  =
       create_updates (update :: acc) (n-1)
   in
   let updates = create_updates [] 5 in
-  let finished = fun (a:Store.update_result) ->
+  let finished = fun (_a:Store.update_result) ->
     Logger.debug_f_ "%s: finished" me >>= fun () ->
     Lwt.return ()
   in
@@ -229,9 +251,9 @@ let test_master_loop network_factory ()  =
     Logger.debug_f_ "%s: consensus: n:%s i:%s" me (sn2s n) (sn2s i) >>= fun () ->
     Lwt.return [Store.Ok None]
   in
-  let on_accept (v,n,i) = Logger.debug_f_ "%s: accepted n:%s i:%s" me (sn2s n) (sn2s i)
+  let on_accept (_v,n,i) = Logger.debug_f_ "%s: accepted n:%s i:%s" me (sn2s n) (sn2s i)
   in
-  let last_witnessed who = Sn.of_int (-1000) in
+  let last_witnessed _who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create() in
   let inject_event e = Lwt_buffer.add e inject_buffer in
@@ -276,7 +298,18 @@ let test_master_loop network_factory ()  =
           else
             let () = continue := (!continue -1) in
             Lwt.return None
-        | _ -> Lwt.return None
+        | Multi_paxos_type.Start_transition
+        | Multi_paxos_type.Election_suggest _
+        | Multi_paxos_type.Slave_fake_prepare _
+        | Multi_paxos_type.Slave_steady_state _
+        | Multi_paxos_type.Slave_discovered_other_master _
+        | Multi_paxos_type.Wait_for_promises _
+        | Multi_paxos_type.Promises_check_done _
+        | Multi_paxos_type.Wait_for_accepteds _
+        | Multi_paxos_type.Accepteds_check_done _
+        | Multi_paxos_type.Master_consensus _
+        | Multi_paxos_type.Master_dictate _
+        | Multi_paxos_type.Read_only -> Lwt.return None
     in
     let current_n = Sn.start in
     let buffers =
@@ -286,7 +319,7 @@ let test_master_loop network_factory ()  =
          inject_buffer,
          election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_master constants buffers expected 20 current_n i0
-    >>= fun result -> Logger.debug_f_ "%s: after loop" me
+    >>= fun _result -> Logger.debug_f_ "%s: after loop" me
   in
   Lwt.pick [ c0_t ();]
 
@@ -311,13 +344,12 @@ let build_perfect () =
   in
   let get_buffer = get_q in
   let run () = Lwt_unix.sleep 2.0 in
-  let register (xs:(string * (string * int)) list) = () in
-  let is_alive id = true in
+  let register (_xs:(string * (string * int)) list) = () in
+  let is_alive _id = true in
   get_buffer, (send, run, register, is_alive)
 
-
 let build_tcp () =
-  let (m : messaging) = new tcp_messaging (["127.0.0.1"], 7777) "yummie"
+  let (m : messaging) = new Tcp_messaging.tcp_messaging (["127.0.0.1"], 7777) "yummie"
     (fun _ _ _ -> false) Node_cfg.default_max_buffer_size ~stop:(ref false)
   in
   let network = network_of_messaging m in
@@ -332,13 +364,13 @@ let test_simulation filters () =
   let me = "c0" in
   let current_n = 42L in
   let current_i = 0L in
-  let on_accept me (v,n,i) = Logger.debug_f_ "%s: on_accept: (%s,%s)" me (sn2s n) (sn2s i) in
-  let on_consensus me (v,n,i) =
+  let on_accept me (_v,n,i) = Logger.debug_f_ "%s: on_accept: (%s,%s)" me (sn2s n) (sn2s i) in
+  let on_consensus me (_v,n,i) =
     Logger.debug_f_ "%s: on_consensus: (%s,%s) " me (sn2s n) (sn2s i)
     >>= fun () ->
     Lwt.return [Store.Ok None]
   in
-  let last_witnessed who = Sn.of_int (-1000) in
+  let last_witnessed _who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create () in
   let election_timeout_buffer = Lwt_buffer.create () in
   let buffers = Hashtbl.create 7 in
@@ -383,7 +415,7 @@ let test_simulation filters () =
     other_cfgs = [];
     lease_expiration = 60;
     inject_event = inject_event;
-    is_alive = (fun id -> true);
+    is_alive = (fun _id -> true);
     cluster_id = "whatever";
     quiesced = false;
     stop = ref false;
@@ -398,7 +430,18 @@ let test_simulation filters () =
         (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
         | (Multi_paxos_type.Stable_master x) -> Lwt.return (Some x)
-        | _ -> Lwt.return None
+        | Multi_paxos_type.Start_transition
+        | Multi_paxos_type.Election_suggest _
+        | Multi_paxos_type.Slave_fake_prepare _
+        | Multi_paxos_type.Slave_steady_state _
+        | Multi_paxos_type.Slave_discovered_other_master _
+        | Multi_paxos_type.Wait_for_promises _
+        | Multi_paxos_type.Promises_check_done _
+        | Multi_paxos_type.Wait_for_accepteds _
+        | Multi_paxos_type.Accepteds_check_done _
+        | Multi_paxos_type.Master_consensus _
+        | Multi_paxos_type.Master_dictate _
+        | Multi_paxos_type.Read_only -> Lwt.return None
     in
     let buffers = Multi_paxos_fsm.make_buffers
                     (client_buffer,
@@ -428,7 +471,18 @@ let test_simulation filters () =
         (Multi_paxos_type.show_transition key) >>= fun () ->
       match key with
         | (Multi_paxos_type.Slave_steady_state x) -> Lwt.return (Some x)
-        | _ -> Lwt.return None
+        | Multi_paxos_type.Stable_master _
+        | Multi_paxos_type.Start_transition
+        | Multi_paxos_type.Election_suggest _
+        | Multi_paxos_type.Slave_fake_prepare _
+        | Multi_paxos_type.Slave_discovered_other_master _
+        | Multi_paxos_type.Wait_for_promises _
+        | Multi_paxos_type.Promises_check_done _
+        | Multi_paxos_type.Wait_for_accepteds _
+        | Multi_paxos_type.Accepteds_check_done _
+        | Multi_paxos_type.Master_consensus _
+        | Multi_paxos_type.Master_dictate _
+        | Multi_paxos_type.Read_only -> Lwt.return None
     in
     let buffers = Multi_paxos_fsm.make_buffers
                     (client_buffer,
@@ -436,7 +490,7 @@ let test_simulation filters () =
                      inject_buffer,
                      election_timeout_buffer) in
     Multi_paxos_fsm.expect_run_forced_slave constants buffers expected 50 (current_i,Sn.start)
-    >>= fun result ->
+    >>= fun _result ->
     Logger.debug_f_ "%s: node done." me >>= fun () ->
     Lwt.return ()
   in
@@ -451,8 +505,8 @@ let test_simulation filters () =
   Logger.debug_f_ "%s: after pick" me
 
 
-let ideal    = [ (fun (msg,s,t) -> true) ]
-let c2_fails = [ (fun (msg,s,t) -> s <> "c2")]
+let ideal    = [ (fun (_msg,_s,_t) -> true) ]
+let c2_fails = [ (fun (_msg,s,_t) -> s <> "c2")]
 
 
 open OUnit

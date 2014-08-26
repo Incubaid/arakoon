@@ -21,7 +21,7 @@ open Lwt
 
 let section = Lwt_log.Section.main
 
-let echo_protocol (ic,oc,cid) =
+let echo_protocol (ic,oc,_cid) =
   let size = 1024 in
   let buffer = String.create size in
   let rec loop () =

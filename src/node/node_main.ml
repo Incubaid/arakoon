@@ -19,7 +19,6 @@ open Tcp_messaging
 open Update
 open Lwt
 open Lwt_buffer
-open Gc
 open Master_type
 open Client_cfg
 open Statistics
@@ -203,10 +202,11 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~nam
        Catchup.catchup ~tls_ctx ~stop:(ref false)
                        me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
-       S.close ~flush:true store >>= fun () ->
+       S.close store ~flush:true ~sync:true >>= fun () ->
        tlc # close () >>= fun () ->
        Lwt.return true)
       (fun exn ->
+       Logger.warning_f_ ~exn "Catchup from %s failed" mr_name >>= fun () ->
        Lwt.return false)
   in
   let rec try_nodes = function
@@ -220,22 +220,37 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~nam
          try_nodes others in
   try_nodes other_configs
 
+let build_ssl_context_helper f cluster = match cluster.tls with
+  | None -> failwith "Node_main: No TLS configuration found"
+  | Some config ->
+      let open Node_cfg in
+      let ctx = f (TLSConfig.Cluster.protocol config) in
+
+      let () = match TLSConfig.Cluster.cipher_list config with
+        | None -> ()
+        | Some l -> Typed_ssl.set_cipher_list ctx l
+      in
+
+      ctx
+
 let get_ssl_cert_paths me cluster =
-  match me.tls_cert with
+  match me.node_tls with
     | None -> None
-    | Some tls_cert ->
-        match me.tls_key with
-          | None -> failwith "get_ssl_cert_paths: no tls_key"
-          | Some tls_key ->
-              match cluster.tls_ca_cert with
-                | None -> failwith "get_ssl_cert_paths: no tls_ca_cert"
-                | Some tls_ca_cert -> Some (tls_cert, tls_key, tls_ca_cert)
+    | Some config ->
+        match cluster.tls with
+          | None -> failwith "get_ssl_cert_paths: no tls_ca_cert"
+          | Some config' ->
+              let open Node_cfg in
+              let cert = TLSConfig.Node.cert config
+              and key = TLSConfig.Node.key config
+              and ca_cert = TLSConfig.Cluster.ca_cert config' in
+              Some (cert, key, ca_cert)
 
 let build_ssl_context me cluster =
   match get_ssl_cert_paths me cluster with
     | None -> None
     | Some (tls_cert, tls_key, tls_ca_cert) ->
-        let ctx = Typed_ssl.create_both_context Ssl.TLSv1 in
+        let ctx = build_ssl_context_helper Typed_ssl.create_both_context cluster in
         Typed_ssl.use_certificate ctx tls_cert tls_key;
         Typed_ssl.set_verify
           ctx
@@ -246,17 +261,25 @@ let build_ssl_context me cluster =
         Some ctx
 
 let build_service_ssl_context me cluster =
-  if not cluster.tls_service
+  let open Node_cfg in
+  let tls_service = match cluster.tls with
+    | None -> false
+    | Some config -> TLSConfig.Cluster.service config
+  in
+  if not tls_service
   then None
   else match get_ssl_cert_paths me cluster with
     | None -> failwith "build_service_ssl_context: tls_service but no cert/key paths"
     | Some (tls_cert, tls_key, tls_ca_cert) ->
-        let ctx = Typed_ssl.create_server_context Ssl.TLSv1 in
+        let ctx = build_ssl_context_helper Typed_ssl.create_server_context cluster in
         Typed_ssl.use_certificate ctx tls_cert tls_key;
         let verify =
-          if cluster.tls_service_validate_peer
-          then [Ssl.Verify_peer; Ssl.Verify_fail_if_no_peer_cert]
-          else []
+          match cluster.tls with
+            | None -> failwith "Node_main: Impossible!"
+            | Some config ->
+                if TLSConfig.Cluster.service_validate_peer config
+                then [Ssl.Verify_peer; Ssl.Verify_fail_if_no_peer_cert]
+                else []
         in
         Typed_ssl.set_verify ctx verify (Some Ssl.client_verify_callback);
         Typed_ssl.set_client_CA_list_from_file ctx tls_ca_cert;
@@ -270,11 +293,11 @@ module X = struct
 
   let last_master_log_stmt = ref 0L
 
-  let on_consensus (type s) (module S : Store.STORE with type t = s) store vni =
+  let on_consensus me (type s) (module S : Store.STORE with type t = s) store vni =
     let (v,n,i) = vni in
     begin
       let t0 = Unix.gettimeofday() in
-      let v' = Value.fill_if_master_set v in
+      let v' = Value.fill_other_master_set me v in
       let vni' = v',n,i in
       begin
         match v' with
@@ -310,7 +333,7 @@ module X = struct
     >>= fun () ->
     let sync = Value.is_synced v in
     let marker = (None:string option) in
-    tlog_coll # log_value_explicit i v sync marker >>= fun _wr_result ->
+    tlog_coll # log_value_explicit i v sync marker >>= fun () ->
     begin
       match v with
         | Value.Vc (us,_)     ->
@@ -344,19 +367,8 @@ let _main_2 (type s)
       (module S : Store.STORE with type t = s)
       make_tlog_coll
       make_config get_snapshot_name ~name
-      ~daemonize ~catchup_only stop : int Lwt.t =
+      ~daemonize ~catchup_only ~stop : int Lwt.t =
   Lwt_io.set_default_buffer_size 32768;
-  let control  = {
-    minor_heap_size = 32 * 1024;
-    major_heap_increment = 124 * 1024;
-    space_overhead = 80;
-    verbose = 0;
-    max_overhead = 0;
-    stack_limit = 256 * 1024;
-    allocation_policy = 1;
-  }
-  in
-  Gc.set control;
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
   let me, others = _split name cfgs in
@@ -377,6 +389,11 @@ let _main_2 (type s)
   let ssl_context = build_ssl_context me cluster_cfg in
   let service_ssl_context = build_service_ssl_context me cluster_cfg in
 
+  let () = match cluster_cfg.overwrite_tlog_entries with
+    | None -> ()
+    | Some i ->  Tlogcommon.tlogEntriesPerFile := i
+  in
+
   if catchup_only
   then
     begin
@@ -394,11 +411,6 @@ let _main_2 (type s)
       let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
       let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
       let n_nodes = List.length in_cluster_names in
-
-      let () = match cluster_cfg.overwrite_tlog_entries with
-        | None -> ()
-        | Some i ->  Tlogcommon.tlogEntriesPerFile := i
-      in
 
       let my_clicfg =
         begin
@@ -469,7 +481,12 @@ let _main_2 (type s)
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
-      let messaging  = _config_messaging ?ssl_context me cfgs cookie me.is_laggy (float me.lease_period) cluster_cfg.max_buffer_size ~stop in
+      let messaging  = _config_messaging
+                         ?ssl_context
+                         me cfgs cookie me.is_laggy
+                         (float me.lease_period)
+                         cluster_cfg.max_buffer_size
+                         ~stop in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
       begin
         if not me.fsync
@@ -492,7 +509,9 @@ let _main_2 (type s)
           let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
           Lwt.catch
             (fun () ->
-               S.copy_store2 full_snapshot_path db_name false
+             S.copy_store2 full_snapshot_path db_name
+                           ~overwrite:false
+                           ~throttling:Node_cfg.default_head_copy_throttling
             )
             (function
               | Not_found -> Lwt.return ()
@@ -539,12 +558,13 @@ let _main_2 (type s)
           let inject_push v = Lwt_buffer.add v inject_buffer in
           let read_only = master = ReadOnly in
           let module SB = Sync_backend.Sync_backend(S) in
+          let act_not_preferred = ref false in
           let sb =
             let test = Node_cfg.Node_cfg.test cluster_cfg in
             new SB.sync_backend me
               (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
               inject_push
-              store (S.copy_store2, full_snapshot_path)
+              store (S.copy_store2, full_snapshot_path, me.head_copy_throttling)
               tlog_coll lease_period
               ~quorum_function n_nodes
               ~expect_reachable
@@ -552,6 +572,7 @@ let _main_2 (type s)
               ~read_only
               ~max_value_size:cluster_cfg.max_value_size
               ~collapse_slowdown:me.collapse_slowdown
+              ~act_not_preferred
           in
           let backend = (sb :> Backend.backend) in
 
@@ -566,10 +587,11 @@ let _main_2 (type s)
             let period = ((float lease_period) /. 2.) in
             let send_message_loop other =
               let rec inner () =
+                send msg me.node_name other >>= fun () ->
                 Lwt_unix.sleep period >>= fun () ->
                 if !fuse
                 then
-                  send msg me.node_name other
+                  Lwt.return ()
                 else
                   inner () in
               inner () in
@@ -578,9 +600,92 @@ let _main_2 (type s)
               List.iter (fun other -> Lwt.ignore_result (send_message_loop other.node_name)) others in
           start_liveness_detection_loop stop;
 
-          let on_consensus = X.on_consensus (module S) store in
+          let start_preferred_master_loop fuse =
+            match master with
+            | Preferred ps ->
+               let is_preferred_master n =
+                 List.mem n ps in
+
+               let lease_period = float lease_period in
+               let get_txid_maybe_drop_master store_i master =
+                 let master_cfg = List.hd
+                                    (List.filter
+                                       (fun ncfg -> ncfg.node_name = master)
+                                       cfgs) in
+                 let addrs = List.map (fun ip -> Network.make_address ip master_cfg.client_port) master_cfg.ips in
+                 Client_main.with_connection'
+                   ~tls:ssl_context
+                   addrs
+                   (fun _addr conn ->
+                    Arakoon_remote_client.make_remote_client cluster_id conn >>= fun client ->
+                    let open Arakoon_client in
+                    client # get_txid ()
+                    >>= function
+                      | Consistent
+                      | No_guarantees -> failwith "preferred_master_loop: should never receive this from get_txid"
+                      | At_least master_i ->
+                         if (Sn.diff master_i store_i) < (Sn.of_int 5)
+                         then
+                           (* in sync (or close enough) with the current not-preferred master *)
+                           Remote_nodestream.make_remote_nodestream
+                             ~skip_prologue:true cluster_id conn >>= fun client' ->
+                           client' # drop_master ()
+                         else
+                           Lwt.return_unit) in
+               let rec inner () =
+                 Lwt.catch
+                   (fun () ->
+                    if (S.quiesced store) || !act_not_preferred
+                    then
+                      Lwt.return_unit
+                    else
+                      begin
+                        match S.who_master store with
+                        | None -> Lwt.return_unit
+                        | Some (m, ls) ->
+                           if m = my_name
+                              || is_preferred_master m
+                              || (Unix.gettimeofday ()) -. ls > lease_period
+                           then
+                             (* no master or the current master is also preferred *)
+                             Lwt.return_unit
+                           else
+                             begin
+                               match S.consensus_i store with
+                               | None ->
+                                  Lwt.return_unit
+                               | Some store_i ->
+                                  (* if we're in sync we should become the master... *)
+                                  get_txid_maybe_drop_master store_i m
+                             end
+                      end)
+                   (function
+                     | Canceled -> Lwt.fail Canceled
+                     | exn -> Logger.info_f_ ~exn "Ignoring exception in preferred_master_loop")
+                 >>= fun () ->
+                 Lwt_unix.sleep lease_period >>= fun () ->
+                 if !fuse
+                 then
+                   Lwt.return ()
+                 else
+                   inner ()
+               in
+
+               (* only run this loop for nodes which are preferred master *)
+               if is_preferred_master my_name
+               then
+                 Lwt.ignore_result (inner ())
+            | Elected
+            | Forced _
+            | ReadOnly ->
+               ()
+          in
+          start_preferred_master_loop stop;
+
+          let on_consensus = X.on_consensus my_name (module S) store in
           let on_witness (name:string) (i: Sn.t) = backend # witness name i in
           let last_witnessed (name:string) = backend # last_witnessed name in
+
           let statistics = backend # get_statistics () in
           let on_accept = X.on_accept statistics tlog_coll in
 
@@ -597,8 +702,13 @@ let _main_2 (type s)
                        (fun u -> Lwt_buffer.add u client_buffer)
                        fc),
                   "client_buffer"
-                | _ ->
-                  (fun () -> Lwt_buffer.add e inject_buffer), "inject"
+                | Multi_paxos.FromNode (m,source)  ->
+                  (fun () -> Lwt_buffer.add (Mp_msg.MPMessage.generic_of m, source) node_buffer),
+                  "node_buffer"
+                | Multi_paxos.LeaseExpired _
+                | Multi_paxos.Quiesce  _
+                | Multi_paxos.Unquiesce
+                | Multi_paxos.DropMaster _ -> (fun () -> Lwt_buffer.add e inject_buffer), "inject"
             in
             Logger.debug_f Multi_paxos.section "XXX injecting event %s into '%s'"
               (Multi_paxos.paxos_event2s e)
@@ -614,9 +724,12 @@ let _main_2 (type s)
                            election_timeout_buffer)
           in
           let catchup_tls_ctx =
-            if cluster_cfg.tls_service
-              then ssl_context
-              else None
+            match cluster_cfg.tls with
+              | None -> None
+              | Some config ->
+                  if Node_cfg.TLSConfig.Cluster.service config
+                  then ssl_context
+                  else None
           in
           let constants =
             Multi_paxos.make ~catchup_tls_ctx:catchup_tls_ctx my_name
@@ -668,7 +781,7 @@ let _main_2 (type s)
                     then Multi_paxos_fsm.enter_simple_paxos
                     else Multi_paxos_fsm.enter_forced_slave
                   end
-              | _ -> Multi_paxos_fsm.enter_simple_paxos
+              | Elected | ReadOnly |Preferred _  -> Multi_paxos_fsm.enter_simple_paxos
         in
         to_run ~stop constants buffers new_i
       in
@@ -731,7 +844,7 @@ let _main_2 (type s)
                  inner (succ i) in
              inner 0, stop in
            let count_close_store, stop = count_thread "Closing store (%is)" in
-           Lwt.pick [ S.close ~flush:false store ;
+           Lwt.pick [ S.close ~flush:false ~sync:true store ;
                       count_close_store ] >>= fun () ->
            stop := true;
            Logger.fatal_f_
@@ -807,9 +920,9 @@ let main_t make_config name daemonize catchup_only : int Lwt.t =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only (ref false)
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop:(ref false)
 
-let test_t make_config name stop =
+let test_t make_config name ~stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
   let make_tlog_coll ~compressor =
     ignore compressor;
@@ -818,4 +931,4 @@ let test_t make_config name stop =
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false
   and catchup_only = false in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only stop
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop

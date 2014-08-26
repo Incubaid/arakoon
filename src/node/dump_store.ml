@@ -57,7 +57,7 @@ let dump_store filename =
   let t () =
     S.make_store ~lcnum:1024 ~ncnum:512 filename >>= fun store ->
     summary store >>= fun () ->
-    S.close store
+    S.close store ~sync:false ~flush:false
   in
   Lwt_main.run (t());
   0
@@ -88,7 +88,7 @@ let inject_as_head fn node_id cfg_fn ~force ~in_place =
     let read_i head_name =
       S.make_store ~lcnum:1024 ~ncnum:512 head_name >>= fun head ->
       let head_i = S.consensus_i head in
-      S.close head >>= fun () ->
+      S.close ~flush:false ~sync:false head >>= fun () ->
       Lwt.return head_i in
 
     (Lwt.catch
@@ -128,7 +128,7 @@ let inject_as_head fn node_id cfg_fn ~force ~in_place =
       if (not in_place)
       then begin
         Lwt_io.printf "cp %S %S" fn old_head_name >>=fun () ->
-        File_system.copy_file fn old_head_name ~overwrite:true
+        File_system.copy_file fn old_head_name ~overwrite:true ~throttling:0.0
       end
       else begin
         Lwt_io.printf "rename %S %S" fn old_head_name >>= fun () ->

@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-open Unix
 open Arg
 open Camltc
 open Lwt
@@ -35,7 +34,7 @@ let set_loop t vs n =
   let set k v = Bdb.put db k v in
   let rec loop i =
     if i = n
-    then sync t
+    then Lwt.return (sync t)
     else
       let key = make_key i in
       let () = set key v in
@@ -75,7 +74,7 @@ let delete_loop t n =
   let delete k = Bdb.out db k in
   let rec loop i =
     if i = n
-    then sync t
+    then Lwt.return (sync t)
     else
       let key = make_key i in
       let () = delete key in

@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-
-
 open Interval
 open Routing
 
@@ -86,7 +84,7 @@ module Update = struct
         Printf.sprintf "UserFunction;%s;%i" name ps
       | AdminSet (key,vo)      -> Printf.sprintf "AdminSet        ;%S;%i;%S" key (_size_of vo) (maybe_o vo)
       | AdminAssert (key, vo)  -> Printf.sprintf "AdminAssert     ;%S;%i;%S" key (_size_of vo) (maybe_o vo)
-      | AdminTestAndSet (key, expected, wanted) ->
+      | AdminTestAndSet (key, _, wanted) ->
         Printf.sprintf "AdminTestAndSet        ;%S;%i;%S" key (_size_of wanted) (maybe_o wanted)
       | SyncedSequence _updates -> Printf.sprintf "SyncedSequence  ;..."
       | DeletePrefix prefix     -> Printf.sprintf "DeletePrefix    ;%S" prefix
@@ -120,10 +118,10 @@ module Update = struct
         Llio.string_to b k;
         Llio.string_option_to b e;
         Llio.string_option_to b w
-      | MasterSet (m,i) ->
+      | MasterSet (m,_) ->
         Llio.int_to    b 4;
         Llio.string_to b m;
-        Llio.int64_to b (Int64.of_float i)
+        Llio.int64_to b 0L
       | Sequence us ->
         Llio.int_to b 5;
         _us_to b us
@@ -213,8 +211,8 @@ module Update = struct
         TestAndSet(k,e,w)
       | 4 ->
         let m = Llio.string_from b in
-        let l = Llio.int64_from b  in
-        MasterSet (m,Int64.to_float l)
+        let _ = Llio.int64_from b  in
+        MasterSet (m,0.0)
       | 5 ->
         let us = _us_from b in
         Sequence us
@@ -277,6 +275,23 @@ module Update = struct
 
   let is_synced = function
     | SyncedSequence _ -> true
-    | _ -> false
+    | Set _
+    | Delete _
+    | MasterSet _
+    | TestAndSet _
+    | Sequence _
+    | SetInterval _
+    | SetRouting _
+    | SetRoutingDelta _
+    | Nop
+    | Assert _
+    | Assert_exists _
+    | UserFunction _
+    | AdminSet _
+    | DeletePrefix _
+    | Replace _
+    | AdminAssert _
+    | AdminTestAndSet _
+    | DeleteRange _ -> false
 
 end

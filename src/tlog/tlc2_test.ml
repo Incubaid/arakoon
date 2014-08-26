@@ -33,7 +33,7 @@ let prepare_tlog_scenarios (dn,factory) =
   let old_tlog_entries_value = !Tlogcommon.tlogEntriesPerFile in
   Tlogcommon.tlogEntriesPerFile := 5 ;
   factory dn "node_name" >>= fun (tlog_coll:tlog_collection) ->
-  let value = Value.create_master_value ("me",0.0) in
+  let value = Value.create_master_value ~lease_start:0. "me" in
   tlog_coll # log_value  0L value  >>= fun () ->
   tlog_coll # log_value  1L value  >>= fun () ->
   tlog_coll # log_value  2L value  >>= fun () ->
@@ -47,7 +47,7 @@ let test_interrupted_rollover (dn, tlx_dir, factory) =
   (*let fn = Tlc2.get_full_path dn tlx_dir "001.tlog" in
     Unix.unlink fn; *)
   factory dn "node_name" >>= fun tlog_coll ->
-  let value = Value.create_master_value ("me", 0.0) in
+  let value = Value.create_master_value ~lease_start:0. "me" in
   tlog_coll # log_value 5L value >>= fun () ->
   tlog_coll # close () >>= fun _ ->
   Tlc2.get_tlog_names dn tlx_dir >>= fun tlog_names ->
@@ -61,7 +61,7 @@ let test_validate_at_rollover_boundary (dn, tlx_dir, factory) =
   prepare_tlog_scenarios (dn,factory) >>= fun old_tlog_entries_value ->
   factory dn "node_name" >>= fun val_tlog_coll ->
   Logger.debug_ "1" >>= fun () ->
-  val_tlog_coll # validate_last_tlog () >>= fun (validity, lasteo, index) ->
+  val_tlog_coll # validate_last_tlog () >>= fun (_validity, lasteo, _index) ->
   let lasti, lasti_str =
     begin
       match lasteo with
@@ -77,7 +77,7 @@ let test_validate_at_rollover_boundary (dn, tlx_dir, factory) =
   end;
   OUnit.assert_equal ~msg lasti 4L;
   factory dn "node_name" >>= fun (tlog_coll:tlog_collection) ->
-  let value = Value.create_master_value ("me",0.0) in
+  let value = Value.create_master_value ~lease_start:0. "me" in
   tlog_coll # log_value 5L value >>= fun _ ->
   tlog_coll # log_value 6L value >>= fun _ ->
   tlog_coll # log_value 7L value >>= fun _ ->
@@ -108,7 +108,7 @@ let test_iterate4 (dn, tlx_dir, factory) =
   Lwt.return ()
 
 
-let test_iterate5 (dn, tlx_dir, factory) =
+let test_iterate5 (dn, _tlx_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   let rec loop (tlc:tlog_collection) i =
@@ -145,7 +145,7 @@ let test_iterate5 (dn, tlx_dir, factory) =
   tlc # iterate start_i too_far_i f >>= fun () ->
   Lwt.return ()
 
-let test_iterate6 (dn, tlx_dir, factory) =
+let test_iterate6 (dn, _tlx_dir, factory) =
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
   let sync = false in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->

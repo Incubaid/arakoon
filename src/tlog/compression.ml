@@ -67,7 +67,12 @@ let _compress_tlog
   in
   Lwt_io.with_file ~mode:Lwt_io.input tlog_name
     (fun ic ->
-       Lwt_io.with_file ~mode:Lwt_io.output archive_name
+       let tmp_file = archive_name ^ ".part" in
+       Logger.info_f Logger.Section.main
+                     "Compressing %S to %S via %S"
+                     tlog_name archive_name tmp_file >>= fun () ->
+       File_system.unlink tmp_file >>= fun () ->
+       File_system.with_tmp_file tmp_file archive_name
          (fun oc ->
           write_format oc compressor >>= fun () ->
           let rec fill_buffer (buffer:Buffer.t) (last_i:Sn.t) (counter:int) =
