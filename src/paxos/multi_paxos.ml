@@ -122,7 +122,6 @@ type 'a constants =
    is_alive: id -> bool;
    cluster_id : string;
    is_learner: bool;
-   quiesced : bool;
    stop : bool ref;
    catchup_tls_ctx : [ `Client | `Server ] Typed_ssl.t option;
    mutable election_timeout : (Sn.t * Sn.t * float) option;
@@ -144,7 +143,7 @@ let make (type s) ~catchup_tls_ctx me is_learner others send get_value
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
       other_cfgs lease_expiration inject_event is_alive ~cluster_id
-      quiesced stop =
+      stop =
   {
     me=me;
     is_learner;
@@ -165,7 +164,6 @@ let make (type s) ~catchup_tls_ctx me is_learner others send get_value
     inject_event;
     is_alive;
     cluster_id;
-    quiesced;
     stop;
     catchup_tls_ctx;
     election_timeout = None;

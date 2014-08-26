@@ -750,7 +750,6 @@ let _main_2 (type s)
               inject_event
               is_alive
               ~cluster_id
-              false
               stop
           in
           let reporting_period = me.reporting in
