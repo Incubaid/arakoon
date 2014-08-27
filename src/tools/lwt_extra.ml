@@ -71,3 +71,19 @@ end = struct
                     else ();
                 Lwt.return ()))
 end
+
+module OUnit : sig
+  val bracket :  setup:(unit -> 'a Lwt.t)
+              -> body:('a -> unit Lwt.t)
+              -> teardown:('a -> unit Lwt.t)
+              -> unit
+              -> unit
+end = struct
+  let bracket ~setup ~body ~teardown () =
+    Lwt_main.run begin
+      setup () >>= fun x ->
+      Lwt.map ignore (Lwt.finalize
+        (fun () -> body x)
+        (fun () -> teardown x))
+    end
+end

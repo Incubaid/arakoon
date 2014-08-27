@@ -428,7 +428,7 @@ let interrupted_election () =
   Lwt_list.iter_s (_dump_tlc ~tlcs)   [node2; node3]
 
 
-let w f = Extra.lwt_bracket setup f teardown
+let w body = Lwt_extra.OUnit.bracket ~setup ~body ~teardown
 
 let suite = "startup" >:::[
     "post_failure" >:: w post_failure;

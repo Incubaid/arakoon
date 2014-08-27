@@ -138,7 +138,7 @@ let set_route_delta port () =
   __wrap__ port conversation
 
 let suite =
-  let w f = Extra.lwt_bracket setup f teardown in
+  let w body = Lwt_extra.OUnit.bracket ~setup ~body ~teardown in
   "nursery" >:::
     ["set_interval" >:: w (set_interval 6666);
      "get_fringe"  >:: w (get_fringe  5555);
