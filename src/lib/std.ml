@@ -460,3 +460,9 @@ module Map = struct
 end
 
 type 'a counted_list = (int * 'a list)
+
+module Result = struct
+  type ('a, 'b) t =
+    | Ok of 'a
+    | Error of 'b
+end

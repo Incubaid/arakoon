@@ -16,7 +16,9 @@ limitations under the License.
 
 open OUnit
 open Lwt
-open Node_cfg.Node_cfg
+open Client_config
+open Node_cfg
+open Node_cfg
 open Arakoon_client
 open Master_type
 
@@ -30,17 +32,15 @@ let _start tn =
 let all_same_master (_tn, cluster_cfg, all_t) =
   let scenario () =
     let q = float (cluster_cfg._lease_period) *. 1.5 in
+    let ccfg = Node_cfg.to_client_config cluster_cfg in
     Lwt_unix.sleep q >>= fun () ->
     Logger.debug_ "start of scenario" >>= fun () ->
-    let set_one client = client # set "key" "value" in
-    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
-    let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name)
-                                cluster_cfg.cfgs)
-    in
-    Client_main.with_client ~tls:None master_cfg cluster_cfg.cluster_id set_one >>= fun () ->
+    Client_main.with_master_client ~tls:None
+                                   ccfg
+                                   (fun client -> client # set "key" "value") >>= fun () ->
     let masters = ref [] in
     let do_one cfg =
-      let nn = node_name cfg in
+      let nn = cfg.NodeConfig.name in
       Logger.info_f_ "cfg:name=%s" nn  >>= fun () ->
       let f client =
         client # who_master () >>= function master ->
@@ -49,7 +49,7 @@ let all_same_master (_tn, cluster_cfg, all_t) =
       in
       Client_main.with_client ~tls:None cfg cluster_cfg.cluster_id f
     in
-    let cfgs = cluster_cfg.cfgs in
+    let cfgs = ccfg.ClusterClientConfig.nodes in
     Lwt_list.iter_s do_one cfgs >>= fun () ->
     assert_equal ~printer:string_of_int
       (List.length cfgs)
@@ -73,14 +73,14 @@ let all_same_master (_tn, cluster_cfg, all_t) =
   Lwt.pick [Lwt.join all_t;
             scenario () ]
 
+let get_slave_cfgs cluster_cfg =
+  let ccfg = Node_cfg.to_client_config cluster_cfg in
+    Client_main.find_master_exn' ~tls:None ccfg >>= fun m ->
+    let slave_cfgs = List.filter (fun cfg -> cfg.NodeConfig.name <> m)
+                                 ccfg.ClusterClientConfig.nodes in
+    Lwt.return slave_cfgs
 
 let nothing_on_slave (_tn, cluster_cfg, all_t) =
-  let cfgs = cluster_cfg.cfgs in
-  let find_slaves cfgs =
-    Client_main.find_master ~tls:None cluster_cfg >>= fun m ->
-    let slave_cfgs = List.filter (fun cfg -> cfg.node_name <> m) cfgs in
-    Lwt.return slave_cfgs
-  in
   let named_fail name f =
     should_fail
       f
@@ -104,7 +104,7 @@ let nothing_on_slave (_tn, cluster_cfg, all_t) =
   in
 
   let test_slave cluster_id cfg =
-    Logger.info_f_ "slave=%s" cfg.node_name  >>= fun () ->
+    Logger.info_f_ "slave=%s" cfg.NodeConfig.name  >>= fun () ->
     let f with_client =
       with_client set_on_slave >>= fun () ->
       with_client delete_on_slave >>= fun () ->
@@ -113,7 +113,7 @@ let nothing_on_slave (_tn, cluster_cfg, all_t) =
     f (fun client_action -> Client_main.with_client ~tls:None cfg cluster_id client_action)
   in
   let test_slaves ccfg =
-    find_slaves cfgs >>= fun slave_cfgs ->
+    get_slave_cfgs cluster_cfg >>= fun slave_cfgs ->
     let rec loop = function
       | [] -> Lwt.return ()
       | cfg :: rest -> test_slave ccfg.cluster_id cfg >>= fun () ->
@@ -126,19 +126,11 @@ let nothing_on_slave (_tn, cluster_cfg, all_t) =
 let dirty_on_slave (_tn, cluster_cfg,_) =
   Lwt_unix.sleep (float (cluster_cfg._lease_period)) >>= fun () ->
   Logger.debug_ "dirty_on_slave" >>= fun () ->
-  let cfgs = cluster_cfg.cfgs in
-  Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name)
-                              cluster_cfg.cfgs)
-  in
-  Client_main.with_client ~tls:None master_cfg cluster_cfg.cluster_id
-    (fun client -> client # set "xxx" "xxx")
+  let ccfg = Node_cfg.to_client_config cluster_cfg in
+  Client_main.with_master_client ~tls:None ccfg
+                                 (fun client -> client # set "xxx" "xxx")
   >>= fun () ->
 
-  let find_slaves cfgs =
-    let slave_cfgs = List.filter (fun cfg -> cfg.node_name <> master_name) cfgs in
-    Lwt.return slave_cfgs
-  in
   let do_slave cluster_id cfg =
     let dirty_get (client:Arakoon_client.client) =
       Logger.debug_ "dirty_get" >>= fun () ->
@@ -153,7 +145,7 @@ let dirty_on_slave (_tn, cluster_cfg,_) =
     Client_main.with_client ~tls:None cfg cluster_id dirty_get
   in
   let do_slaves ccfg =
-    find_slaves cfgs >>= fun slave_cfgs ->
+    get_slave_cfgs cluster_cfg >>= fun slave_cfgs ->
     let rec loop = function
       | [] -> Lwt.return ()
       | cfg::rest -> do_slave ccfg.cluster_id cfg >>= fun () ->
@@ -519,31 +511,14 @@ let _multi_get_option (client:client) =
       Lwt.fail (Failure "bad order or arity")
 
 
-let find_master ~tls cluster_cfg =
-  let lp = cluster_cfg._lease_period in
-  let timeout = 3 * lp in
-  let go () =
-    let open Client_main.MasterLookupResult in
-    Client_main.find_master_loop ~tls cluster_cfg >>= function
-      | Found m -> return m.node_name
-      | No_master _ -> Lwt.fail (Failure "No Master")
-      | Too_many_nodes_down _ -> Lwt.fail (Failure "too many nodes down")
-      | Unknown_node (n, _) -> return n
-      | Exception exn -> Lwt.fail exn
-  in
-  Lwt_unix.with_timeout (float timeout) go
-
 let _with_master ((_tn:string), cluster_cfg, _) f =
-  let sp = float(cluster_cfg._lease_period) *. 0.5 in
-  Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
-  Logger.info_ "cluster should have reached stability" >>= fun () ->
-  find_master ~tls:None cluster_cfg >>= fun master_name ->
-  Logger.info_f_ "master=%S" master_name >>= fun () ->
-  let master_cfg =
-    List.hd
-      (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
-  in
-  Client_main.with_client ~tls:None master_cfg cluster_cfg.cluster_id f
+  let ccfg = Node_cfg.to_client_config cluster_cfg in
+  Lwt_unix.with_timeout
+    (3. *. (float cluster_cfg._lease_period))
+    (fun () ->
+     Lwt.map ignore
+             (Client_main.find_master_loop ~tls:None ccfg)) >>= fun () ->
+  Client_main.with_master_client ~tls:None ccfg f
 
 
 let trivial_master tpl =
@@ -610,7 +585,7 @@ let setup make_master tn base () =
   let lease_period = 10 in
   let cluster_id = Printf.sprintf "%s_%i" tn base in
   let master = make_master tn 0 in
-  let make_config () = Node_cfg.Node_cfg.make_test_config
+  let make_config () = Node_cfg.make_test_config
                          ~base ~cluster_id
                          ~node_name:(_node_name tn)
                          3 master lease_period

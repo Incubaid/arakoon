@@ -408,6 +408,15 @@ let main () =
   let options = [] in
   let interface = actions @ options in
 
+  let get_cluster_cfg () =
+    Node_cfg.to_client_config (Node_cfg.read_config !config_file) in
+  let get_cluster_id () =
+    (get_cluster_cfg ()).Client_config.ClusterClientConfig.id in
+  let get_node_cfg () =
+    let open Client_config in
+    List.hd (List.filter (fun cfg -> cfg.NodeConfig.name = !node_id)
+                         (get_cluster_cfg ()).ClusterClientConfig.nodes) in
+
   let do_local ~tls = function
     | ShowUsage -> print_endline usage;0
     | RunAllTests -> run_all_tests ()
@@ -426,42 +435,46 @@ let main () =
     | TruncateTlog -> Tlc2.truncate_tlog !filename
     | CompressTlog -> Tlog_main.compress_tlog !filename !archive_type
     | UncompressTlog -> Tlog_main.uncompress_tlog !filename
-    | SET -> Client_main.set ~tls !config_file !key !value
-    | GET -> Client_main.get ~tls !config_file !key
-    | PREFIX -> Client_main.prefix ~tls !config_file !key !max_results
-    | DELETE_PREFIX -> Client_main.delete_prefix ~tls !config_file !key
-    | BENCHMARK ->Client_main.benchmark ~tls !config_file
+    | SET -> Client_main.set ~tls (get_cluster_cfg ()) !key !value
+    | GET -> Client_main.get ~tls (get_cluster_cfg ()) !key
+    | PREFIX -> Client_main.prefix ~tls (get_cluster_cfg ()) !key !max_results
+    | DELETE_PREFIX -> Client_main.delete_prefix ~tls (get_cluster_cfg ()) !key
+    | BENCHMARK ->Client_main.benchmark ~tls (get_cluster_cfg ())
       !key_size !value_size !tx_size !max_n
       !n_clients !scenario
-    | LOAD -> Load_client.main ~tls !config_file
+    | LOAD -> Load_client.main ~tls (get_cluster_cfg ())
                 !n_clients
-    | DELETE -> Client_main.delete ~tls !config_file !key
-    | WHO_MASTER -> Client_main.who_master ~tls !config_file ()
-    | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible ~tls !config_file
-    | STATISTICS -> Client_main.statistics ~tls !config_file
+    | DELETE -> Client_main.delete ~tls (get_cluster_cfg ()) !key
+    | WHO_MASTER -> Client_main.who_master ~tls (get_cluster_cfg ()) ()
+    | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible ~tls (get_cluster_cfg ())
+    | STATISTICS -> Client_main.statistics ~tls (get_cluster_cfg ())
     | Collapse_remote -> Collapser_main.collapse_remote
                            ~tls !ip !port !cluster_id !n_tlogs
     | Backup_db -> Nodestream_main.get_db ~tls !ip !port !cluster_id !location
     | Optimize_db -> Nodestream_main.optimize_db ~tls !ip !port !cluster_id
     | Defrag_db   -> Nodestream_main.defrag_db ~tls !ip !port !cluster_id
-    | NumberOfValues -> Client_main.get_key_count ~tls !config_file ()
+    | NumberOfValues -> Client_main.get_key_count ~tls (get_cluster_cfg ()) ()
     | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id
     | MigrateNurseryRange -> Nursery_main.migrate_nursery_range
                                !config_file !left_cluster !separator !right_cluster
     | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
     | PING -> Client_main.ping ~tls !ip !port !cluster_id
-    | NODE_VERSION -> Client_main.node_version ~tls !node_id !config_file
-    | NODE_STATE   -> Client_main.node_state ~tls !node_id !config_file
+    | NODE_VERSION -> Client_main.node_version ~tls
+                                               (get_node_cfg ())
+                                               (get_cluster_id ())
+    | NODE_STATE   -> Client_main.node_state ~tls
+                                             (get_node_cfg ())
+                                             (get_cluster_id ())
     | InjectAsHead -> Dump_store.inject_as_head !filename !node_id !config_file
                         ~force:(!force) ~in_place:(!in_place)
     | Drop_master -> Nodestream_main.drop_master ~tls !ip !port !cluster_id
     | RANGE_ENTRIES ->
        Client_main.range_entries
-         ~tls !config_file
+         ~tls (get_cluster_cfg ())
          !left !linc !right !rinc !max_results
     | REV_RANGE_ENTRIES ->
        Client_main.rev_range_entries
-         ~tls !config_file
+         ~tls (get_cluster_cfg ())
          !left !linc !right !rinc !max_results
 
   in

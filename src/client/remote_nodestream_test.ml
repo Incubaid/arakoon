@@ -21,6 +21,7 @@ open Node_cfg
 open Arakoon_remote_client
 open Routing
 open Interval
+open Client_config
 
 let setup port = Lwt.return port
 
@@ -40,19 +41,16 @@ let __wrap__ port conversation =
                          1 (Master_type.Elected) lease_period
   in
   let cluster_cfg = make_config () in
+  let ccfg = Node_cfg.to_client_config cluster_cfg in
   let t0 = Node_main.test_t make_config "sweety_0" ~stop >>= fun _ -> Lwt.return () in
 
   let client_t () =
     let sp = float(lease_period) *. 0.5 in
     Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
     Logger.info_ "cluster should have reached stability" >>= fun () ->
-    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
-    Logger.info_f_ "master=%S" master_name >>= fun () ->
-    let master_cfg =
-      List.hd
-        (List.filter (fun cfg -> cfg.Node_cfg.node_name = master_name) cluster_cfg.Node_cfg.cfgs)
-    in
-    let address = Unix.ADDR_INET (Unix.inet_addr_loopback, master_cfg.Node_cfg.client_port) in
+    Client_main.find_master_exn ~tls:None ccfg >>= fun master_cfg ->
+    Logger.info_f_ "master=%S" master_cfg.NodeConfig.name >>= fun () ->
+    let address = Unix.ADDR_INET (Unix.inet_addr_loopback, master_cfg.NodeConfig.port) in
     Lwt_io.open_connection address >>= fun (ic,oc) ->
     conversation (ic, oc) >>= fun () ->
     Logger.debug section "end_of_senario" >>= fun () ->

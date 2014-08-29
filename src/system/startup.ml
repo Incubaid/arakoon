@@ -18,8 +18,8 @@ limitations under the License.
 
 open OUnit
 open Lwt
-
-open Node_cfg.Node_cfg
+open Node_cfg
+open Node_cfg
 open Update
 open Master_type
 open Tlogcommon
@@ -148,9 +148,9 @@ let post_failure () =
     plugins = [];
     nursery_cfg = None;
     overwrite_tlog_entries = None;
-    max_value_size = Node_cfg.default_max_value_size;
-    max_buffer_size = Node_cfg.default_max_buffer_size;
-    client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
+    max_value_size = default_max_value_size;
+    max_buffer_size = default_max_buffer_size;
+    client_buffer_capacity = default_client_buffer_capacity;
     lcnum = 8192;
     ncnum = 4096;
     tls = None;
@@ -208,11 +208,11 @@ let restart_slaves () =
      plugins = [];
      nursery_cfg = None;
      overwrite_tlog_entries = None;
-     max_value_size = Node_cfg.default_max_value_size;
-     max_buffer_size = Node_cfg.default_max_buffer_size;
-     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
-     lcnum = Node_cfg.default_lcnum;
-     ncnum = Node_cfg.default_ncnum;
+     max_value_size = default_max_value_size;
+     max_buffer_size = default_max_buffer_size;
+     client_buffer_capacity = default_client_buffer_capacity;
+     lcnum = default_lcnum;
+     ncnum = default_ncnum;
      tls = None;
     }
   in
@@ -266,9 +266,9 @@ let ahead_master_loses_role () =
      plugins = [];
      nursery_cfg = None;
      overwrite_tlog_entries = None;
-     max_value_size = Node_cfg.default_max_value_size;
-     max_buffer_size = Node_cfg.default_max_buffer_size;
-     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
+     max_value_size = default_max_value_size;
+     max_buffer_size = default_max_buffer_size;
+     client_buffer_capacity = default_client_buffer_capacity;
      lcnum = 8192;
      ncnum = 4096;
      tls = None;
@@ -337,9 +337,9 @@ let interrupted_election () =
      plugins = [];
      nursery_cfg = None;
      overwrite_tlog_entries = None;
-     max_value_size = Node_cfg.default_max_value_size;
-     max_buffer_size = Node_cfg.default_max_buffer_size;
-     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
+     max_value_size = default_max_value_size;
+     max_buffer_size = default_max_buffer_size;
+     client_buffer_capacity = default_client_buffer_capacity;
      lcnum = 8192;
      ncnum = 4096;
      tls = None;
@@ -360,7 +360,7 @@ let interrupted_election () =
    *)
   let get_master_from cfg =
     Client_main.with_client
-      cfg ~tls:None cluster_id
+      (Node_cfg.node_cfg_to_client_config cfg) ~tls:None cluster_id
       (fun client -> client # who_master ())
   in
   let rec phase1 () =
@@ -396,7 +396,7 @@ let interrupted_election () =
   let rec phase2 () =
     Lwt.catch
       (fun () ->
-       Client_main.find_master ~tls:None cluster_cfg >>= fun m ->
+       Client_main.find_master_exn' ~tls:None (Node_cfg.to_client_config cluster_cfg) >>= fun m ->
        if m <> wannabe_master
        then Lwt.return true
        else Lwt.return false)

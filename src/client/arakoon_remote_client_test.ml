@@ -17,6 +17,7 @@ limitations under the License.
 open OUnit
 open Lwt
 open Log_extra
+open Client_config
 open Node_cfg
 
 let section = Logger.Section.main
@@ -50,18 +51,15 @@ let __client_server_wrapper__ (real_test:real_test) =
                          1 (Master_type.Elected) lease_period
   in
   let cluster_cfg = make_config () in
+  let ccfg = Node_cfg.to_client_config cluster_cfg in
   let t0 = Node_main.test_t make_config "sweety_0" ~stop >>= fun _ -> Lwt.return () in
 
   let client_t () =
     let sp = float(lease_period) *. 0.5 in
     Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
     Logger.info_ "cluster should have reached stability" >>= fun () ->
-    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
-    Logger.info_f_ "master=%S" master_name >>= fun () ->
-    let master_cfg =
-      List.hd
-        (List.filter (fun cfg -> cfg.Node_cfg.node_name = master_name) cluster_cfg.Node_cfg.cfgs)
-    in
+    Client_main.find_master_exn ~tls:None ccfg >>= fun master_cfg ->
+    Logger.info_f_ "master=%S" master_cfg.NodeConfig.name >>= fun () ->
     Client_main.with_client
       ~tls:None
       master_cfg

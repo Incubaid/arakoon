@@ -231,7 +231,7 @@ module Node_cfg = struct
       lcnum : int; (* tokyo cabinet: leaf nodes in cache *)
       ncnum : int; (* tokyo cabinet: internal nodes in cache *)
       tls : TLSConfig.Cluster.t option;
-}
+    }
 
   let string_of_cluster_cfg c =
     let open To_string in
@@ -251,6 +251,18 @@ module Node_cfg = struct
            ; "ncnum", int c.ncnum
            ; "tls", option TLSConfig.Cluster.to_string c.tls
            ]
+
+  let node_cfg_to_client_config t =
+    let open Client_config in
+    NodeConfig.make ~ips:t.ips
+                    ~port:t.client_port
+                    ~name:t.node_name
+
+  let to_client_config t =
+    let open Client_config in
+    ClusterClientConfig.({ id = t.cluster_id;
+                           nodes = List.map node_cfg_to_client_config t.cfgs;
+                         })
 
   let make_test_config
         ?(base=4000) ?(cluster_id="ricky") ?(node_name = Printf.sprintf "t_arakoon_%i")
