@@ -1,5 +1,7 @@
 Arakoon
-======
+=======
+![](https://travis-ci.org/Incubaid/arakoon.svg?branch=1.7)
+
 Arakoon is a distributed key/value store with preference for consistency. More technically, it's a [Multi-Paxos](http://en.wikipedia.org/wiki/Paxos_%28computer_science%29#Multi-Paxos) implementation (written in [OCaml](http://ocaml.org/)) running on top of [TokyoCabinet](http://fallabs.com/tokyocabinet/).
 
 Arakoon is licensed under the Apache License, version 2. For a full license text, see `LICENSE`.
@@ -18,7 +20,7 @@ Start by building Arakoon. To set up a single-node demo server, a basic configur
 ```
 $> cat single.ini
 [global]
-cluster = arakoon_0 
+cluster = arakoon_0
 cluster_id = ricky
 
 [arakoon_0]
@@ -26,7 +28,7 @@ ip = 127.0.0.1
 client_port = 4000
 messaging_port = 4010
 home = /tmp
-log_level = info  
+log_level = info
 ```
 
 Now, start the node using
@@ -40,7 +42,7 @@ This starts a single node cluster for you to play with.
 You can set and retrieve values from the command line using
 
 ```
-$> ./arakoon.native -config examples/single.ini --set hello world  
+$> ./arakoon.native -config examples/single.ini --set hello world
 $> ./arakoon.native -config examples/single.ini --get hello
 "world"
 ```
