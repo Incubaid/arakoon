@@ -31,6 +31,7 @@ def test_read_only():
    cluster.setReadOnly()
    cluster.start()
    assert_raises(ArakoonException, client.set, 'xxx','yyy')
+   client = C.get_client()
    xxx = client['xxx']
    assert_equals(xxx,v)
    
