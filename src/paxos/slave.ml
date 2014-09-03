@@ -28,7 +28,7 @@ let time_for_elections ?invalidate_lease_start_until (type s) constants =
       begin
         let invalidate_lease_start_until = match invalidate_lease_start_until with
           | Some x -> x
-          | None -> Unix.gettimeofday () -. (float constants.lease_expiration) in
+          | None -> Multi_paxos.get_timestamp () -. (float constants.lease_expiration) in
         let lease_start =
           match S.who_master constants.store with
           | None         -> 0.0
@@ -43,7 +43,7 @@ let time_for_elections ?invalidate_lease_start_until (type s) constants =
             | None ->
               return true
             | Some(_, until) ->
-              if Unix.gettimeofday () < until
+              if Multi_paxos.get_timestamp () < until
               then
                 false, "lease expired, but respecting another node running for master"
               else
@@ -287,7 +287,7 @@ let slave_discovered_other_master (type s) constants state () =
       let master_before = S.who_master store in
       let lease_expired = match master_before with
         | None -> true
-        | Some (_, ls) -> ls +. (float_of_int constants.lease_expiration) <= Unix.gettimeofday () in
+        | Some (_, ls) -> ls +. (float_of_int constants.lease_expiration) <= Multi_paxos.get_timestamp () in
       Catchup.catchup
         ~tls_ctx
         ~stop:constants.stop

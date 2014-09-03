@@ -161,7 +161,7 @@ let post_failure () =
   let v1 = Value.create_client_value [Update.Set("x","y")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
-  let now = Unix.gettimeofday () in
+  let now = Multi_paxos.get_timestamp () in
 
   let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node0 in
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 in
@@ -221,7 +221,7 @@ let restart_slaves () =
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
-  let now = Unix.gettimeofday () in
+  let now = Multi_paxos.get_timestamp () in
   let run_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0] node0 in
   let run_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 in
   (* let run_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~updates:[u0;u1] node2 in *)
@@ -280,7 +280,7 @@ let ahead_master_loses_role () =
   let v2 = Value.create_client_value [Update.Set("invalidkey", "shouldnotbepresent")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
-  let now = Unix.gettimeofday () in
+  let now = Multi_paxos.get_timestamp () in
 
   let t_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0] node0 () in
   let t_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 () in
@@ -349,7 +349,7 @@ let interrupted_election () =
   let v0 = Value.create_master_value ~lease_start:0. wannabe_master in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
-  let now = Unix.gettimeofday () in
+  let now = Multi_paxos.get_timestamp () in
   let t_node2 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0] node2 () in
   let t_node3 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0] node3 () in
   Lwt.ignore_result t_node2;
@@ -412,10 +412,10 @@ let interrupted_election () =
       phase2 () in
 
   Lwt.pick
-    [(let t0 = Unix.gettimeofday () in
+    [(let t0 = Multi_paxos.get_timestamp () in
       phase1 () >>= fun () ->
       phase2 () >>= fun () ->
-      let t1 = Unix.gettimeofday () in
+      let t1 = Multi_paxos.get_timestamp () in
       let delta = t1 -. t0 in
       if (delta > (float lease_period))
       then Lwt.return ()

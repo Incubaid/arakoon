@@ -24,7 +24,7 @@ type t =
 
 let create_client_value (us:Update.t list) (synced:bool) = Vc (us, synced)
 let create_master_value
-      ?(lease_start = Unix.gettimeofday ())
+      ?(lease_start = Mp_clock.get_timestamp ())
       m =
   Vm (m,lease_start)
 
@@ -48,7 +48,7 @@ let clear_self_master_set me = function
 
 let fill_other_master_set me = function
   | Vm (m,_) when m <> me ->
-     let now = Unix.gettimeofday () in
+     let now = Mp_clock.get_timestamp () in
      Vm(m,now)
   | Vc _
   | Vm _ as v -> v

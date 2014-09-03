@@ -645,7 +645,7 @@ let _main_2 (type s)
                         | Some (m, ls) ->
                            if m = my_name
                               || is_preferred_master m
-                              || (Unix.gettimeofday ()) -. ls > lease_period
+                              || (Mp_clock.get_timestamp ()) -. ls > lease_period
                            then
                              (* no master or the current master is also preferred *)
                              Lwt.return_unit

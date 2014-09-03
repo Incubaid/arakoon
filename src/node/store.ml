@@ -132,7 +132,7 @@ struct
   let _master store =
     try
       let m = S.get store __master_key in
-      let ls = Unix.gettimeofday () in
+      let ls = Mp_clock.get_timestamp () in
       Some (m,ls)
     with Not_found ->
       None
