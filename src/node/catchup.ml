@@ -86,17 +86,21 @@ let head_saved_epilogue hfn tlog_coll =
   S.make_store ~lcnum:default_lcnum
     ~ncnum:default_ncnum ~read_only:true hfn >>= fun store ->
   let hio = S.consensus_i store in
+  let hcso = S.get_checksum store in
   S.close store ~flush:false ~sync:false >>= fun () ->
   Logger.info_ "closed head" >>= fun () ->
   begin
+    tlog_coll # set_previous_checksum hcso;
     match hio with
-      | None -> Lwt.return ()
+      | None -> Lwt.return None
       | Some head_i ->
         begin
           Logger.info_f_ "head_i = %s" (Sn.string_of head_i) >>= fun () ->
-          tlog_coll # remove_below head_i
+          tlog_coll # remove_below head_i >>= fun () ->
+          Lwt.return (Some (Sn.succ head_i))
         end
   end
+
 
 let stop_fuse stop =
   if !stop
@@ -105,7 +109,8 @@ let stop_fuse stop =
   else
     Lwt.return ()
 
-let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
+let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id mr_name
+      ((module S : Store.STORE with type t = s), store, (tlog_coll:Tlogcollection.tlog_collection))
   =
   let current_i = tlog_coll # get_last_i () in
   Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
@@ -114,9 +119,32 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((mo
   let mr_addresses = Node_cfg.client_addresses mr_cfg
   and mr_name = Node_cfg.node_name mr_cfg in
   Logger.info_f_ "getting last_entries from %s" mr_name >>= fun () ->
-  let head_saved_cb hfn =
-    Logger.info_f_ "head_saved_cb %s" hfn >>= fun () ->
-    head_saved_epilogue hfn tlog_coll >>= fun () ->
+
+  let r_validate_i = ref (Some current_i) in
+  let validate_i () =
+    let _validate_i = !r_validate_i in
+    begin
+      r_validate_i := None;
+      _validate_i
+    end
+  in
+
+  let f_entry (i, value) =
+    let validate =
+      match validate_i () with
+        | None -> false
+        | Some _ -> true
+    in
+    tlog_coll # log_value_explicit i value ~validate false None >>= fun () ->
+    stop_fuse stop
+  in
+
+  let f_head ic =
+    tlog_coll # save_head ic >>= fun () ->
+    let hfn = tlog_coll # get_head_name () in
+    Logger.info_f_ "head_saved %s" hfn >>= fun () ->
+    head_saved_epilogue hfn tlog_coll >>= fun io ->
+    let () = r_validate_i := io in
     let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
       let target_name = S.get_location store in
@@ -126,20 +154,20 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((mo
     Lwt.return ()
   in
 
+  let f_file name length ic =
+    let validate_i = validate_i () in
+    tlog_coll # save_tlog_file ~validate_i name length ic
+  in
+
   let copy_tlog connection =
     make_remote_nodestream cluster_id connection >>= fun (client:nodestream) ->
-    let f (i,value) =
-      tlog_coll # log_value_explicit i value false None >>= fun _ ->
-      stop_fuse stop
-    in
-
-    client # iterate current_i f tlog_coll ~head_saved_cb
+    client # iterate current_i ~f_entry ~f_head ~f_file
   in
 
   Lwt.catch
     (fun () ->
-      _with_client_connection  ~tls_ctx mr_addresses copy_tlog >>= fun () ->
-      Logger.info_f_ "catchup_tlog completed"
+       _with_client_connection  ~tls_ctx mr_addresses copy_tlog >>= fun () ->
+       Logger.info_f_ "catchup_tlog completed"
     )
     (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")
   >>= fun () ->
@@ -163,22 +191,29 @@ let make_f ~stop (type s) (module S : Store.STORE with type t = s) me log_i acc 
   in
   match !acc with
     | None ->
-      let () = acc := Some(i,value) in
+      let () = acc := Some (None, i, value) in
       Logger.debug_f_ "value %s has no previous" (Sn.string_of i) >>= fun () ->
       Lwt.return ()
-    | Some (pi,pv) ->
+    | Some (pivo, pi, pv) ->
       if pi < i
       then
         begin
+          let () =
+            match pivo with
+              | None -> () (* the first value is already validated in catchup_tlog *)
+              | Some piv ->
+                if not (Value.is_valid_next piv pv)
+                then raise (Value.ValueCheckSumError (pi, pv))
+          in
           log_i pi >>= fun () ->
           prepare_and_insert_value (module S) me store pi pv >>= fun () ->
-          let () = acc := Some(i,value) in
+          let () = acc := Some (Some pv, i, value) in
           Lwt.return ()
         end
       else
         begin
           Logger.debug_f_ "%s => skip" (Sn.string_of pi) >>= fun () ->
-          let () = acc := Some(i,value) in
+          let () = acc := Some (pivo, i, value) in
           Lwt.return ()
         end
 
@@ -186,8 +221,15 @@ let make_f ~stop (type s) (module S : Store.STORE with type t = s) me log_i acc 
 let epilogue (type s) (module S : Store.STORE with type t = s) me acc store =
   match !acc with
     | None -> Lwt.return ()
-    | Some(i,value) ->
+    | Some (pivo, i, value) ->
       begin
+        let () =
+          match pivo with
+            | None -> ()
+            | Some piv ->
+              if not (Value.is_valid_next piv value)
+              then raise (Value.ValueCheckSumError (i, value))
+        in
         Logger.debug_f_ "%s => store" (Sn.string_of i) >>= fun () ->
         prepare_and_insert_value (module S) me store i value
       end
@@ -295,6 +337,8 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
   let si_o = S.consensus_i store in
   Logger.info_f_ "verify_n_catchup_store; too_far_i=%s current_i=%s si_o:%s"
     (Sn.string_of too_far_i) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
+  S.validate store tlog_coll >>= fun () ->
+  begin
    match too_far_i, si_o with
     | i, None when i <= 0L -> Lwt.return ()
     | i, Some j when i = j -> Lwt.return ()
@@ -310,83 +354,13 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
       Logger.fatal_ msg >>= fun () ->
       let maybe a = function | None -> a | Some b -> b in
       Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, too_far_i))
+  end
 
 let last_entries
       (type s) (module S : Store.STORE with type t = s)
       store tlog_collection (start_i:Sn.t) (oc:Lwt_io.output_channel)
   =
-  (* This one is kept (for how long?)
-     for x-version clusters during upgrades
-  *)
-  Logger.warning_f_ "DEPRECATED : last_entries " >>= fun () ->
   Logger.debug_f_ "last_entries %s" (Sn.string_of start_i) >>= fun () ->
-  let consensus_i = S.consensus_i store in
-  begin
-    match consensus_i with
-      | None -> Lwt.return ()
-      | Some ci ->
-        begin
-          tlog_collection # get_infimum_i () >>= fun inf_i ->
-          let too_far_i = Sn.succ ci in
-          Logger.debug_f_
-            "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
-            (Sn.string_of too_far_i)
-          >>= fun () ->
-          begin
-            if start_i < inf_i
-            then
-              begin
-                Llio.output_int oc 2 >>= fun () ->
-                tlog_collection # dump_head oc
-              end
-            else
-              Lwt.return start_i
-          end
-          >>= fun start_i2->
-
-
-          let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
-          let rec loop_parts (start_i2:Sn.t) =
-            if Sn.rem start_i2 step = Sn.start &&
-               Sn.add start_i2 step < too_far_i
-            then
-              begin
-                Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
-                >>= fun () ->
-                Llio.output_int oc 3 >>= fun () ->
-                tlog_collection # dump_tlog_file start_i2 oc
-                >>= fun start_i2' ->
-                loop_parts start_i2'
-              end
-            else
-              Lwt.return start_i2
-          in
-          loop_parts start_i2
-          >>= fun start_i3 ->
-          Llio.output_int oc 1 >>= fun () ->
-          let f entry =
-            let i = Entry.i_of entry
-            and v = Entry.v_of entry
-            in
-            Tlogcommon.write_entry oc i v
-          in
-          Lwt.catch
-            (fun () -> tlog_collection # iterate start_i3 too_far_i f)
-            (function
-              | Tlogcommon.TLogUnexpectedEndOfFile _ -> Lwt.return ()
-              | ex -> Lwt.fail ex) >>= fun () ->
-          Sn.output_sn oc (-1L)
-        end
-  end
-  >>= fun () ->
-  Logger.info_f_ "done with_last_entries"
-
-
-let last_entries2
-      (type s) (module S : Store.STORE with type t = s)
-      store tlog_collection (start_i:Sn.t) (oc:Lwt_io.output_channel)
-  =
-  Logger.debug_f_ "last_entries2 %s" (Sn.string_of start_i) >>= fun () ->
   let consensus_i = S.consensus_i store in
 
   begin

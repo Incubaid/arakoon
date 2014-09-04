@@ -786,9 +786,9 @@ static uint32_t _crc32c_sse4_2_byte(uint32_t crc,
           return crc;
   }
 
-static uint32_t crc32c_sse4_2(uint32_t crc,
+uint32_t crc32c_sse4_2(uint32_t crc,
 			      unsigned char const *p,
-			      size_t len){
+			      uint32_t len){
     unsigned int q = len >> 3;
     unsigned int rem = len & 0x7;
     unsigned long *ptmp = (unsigned long *)p;

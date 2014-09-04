@@ -537,6 +537,11 @@ def add_node ( i ):
     cluster.addLocalNode (ni )
     cluster.createDirs(ni)
 
+def remove_node(i):
+    ni = node_names[i]
+    cluster = _getCluster()
+    cluster.removeNode(ni)
+
 def start_all(clusterId = None) :
     cluster = _getCluster(clusterId )
     cluster.start()

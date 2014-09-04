@@ -18,90 +18,163 @@ limitations under the License.
 
 open Update
 
-type t =
+type content =
   | Vc of (Update.t list * bool) (* is_synced *)
   | Vm of (string * float)
 
-let create_client_value (us:Update.t list) (synced:bool) = Vc (us, synced)
-let create_master_value
-      ?(lease_start = Unix.gettimeofday ())
-      m =
-  Vm (m,lease_start)
+type t = Checksum.Crc32.t option * content
 
-let is_master_set  = function
-  | Vc _ -> false
-  | Vm _ ->  true
+exception ValueCheckSumError of Sn.t * t
 
-
-let is_other_master_set me = function
-  | Vm (m, _) -> m <> me
-  | Vc _ -> false
-
-let is_synced = function
-  | Vc (_,s) -> s
-  | Vm _     -> false
-
-let clear_self_master_set me = function
-  | Vm (m,_) when m = me -> Vm(m, 0.0)
-  | Vc _
-  | Vm _ as v -> v
-
-let fill_other_master_set me = function
-  | Vm (m,_) when m <> me ->
-     let now = Unix.gettimeofday () in
-     Vm(m,now)
-  | Vc _
-  | Vm _ as v -> v
-
-let updates_from_value = function
-  | Vc (us,_)     -> us
-  | Vm (m,l)      -> [Update.MasterSet(m,l)]
-
-let value_to buf v=
-  let () = Llio.int_to buf 0xff in
-  match v with
-    | Vc (us,synced)     ->
+let content_to buf = function
+  | Vc (us,synced) -> begin
       Llio.char_to buf 'c';
       Llio.bool_to buf synced;
       Llio.list_to buf Update.to_buffer us
-    | Vm (m,l) ->
-      begin
-        Llio.char_to buf 'm';
-        Llio.string_to buf m;
-        Llio.int64_to buf (Int64.of_float l)
-      end
-
-let value_from b =
-  let pos = Llio.buffer_pos b in
-  let i0 = Llio.int_from b in
-  if i0 = 0xff
-  then
-    let c = Llio.char_from b in
-    match c with
-      | 'c' ->
-        let synced = Llio.bool_from b  in
-        let us     = Llio.list_from b Update.from_buffer in
-        let r = Vc(us,synced) in
-        r
-      | 'm' -> let m = Llio.string_from b in
-        let l = Llio.int64_from b in
-        Vm (m,Int64.to_float l)
-      | _ -> failwith "demarshalling error"
-  else
-    begin
-      (* this is for backward compatibility:
-         formerly, we logged updates iso values *)
-      let () = Llio.buffer_set_pos b pos in
-      let u = Update.from_buffer b in
-      let synced = Update.is_synced u in
-      let r = Vc ([u], synced) in
-      r
+    end
+  | Vm (m,l) -> begin
+      Llio.char_to buf 'm';
+      Llio.string_to buf m;
+      Llio.int64_to buf (Int64.of_float l)
     end
 
+let value_to buf (cso, c) =
+  match cso with
+    | None -> begin
+        Llio.int_to buf 0xff;
+        content_to buf c
+      end
+    | Some cs -> begin
+        Llio.int_to buf 0x100;
+        Checksum.Crc32.checksum_to buf cs;
+        content_to buf c
+      end
 
+let content_from buf =
+  let c = Llio.char_from buf in
+  match c with
+  | 'c' ->
+    let synced = Llio.bool_from buf in
+    let us     = Llio.list_from buf Update.from_buffer in
+    Vc (us, synced)
+  | 'm' ->
+    let m = Llio.string_from buf in
+    let l = Llio.int64_from buf in
+    Vm (m, Int64.to_float l)
+  | _ -> failwith "demarshalling error"
 
-let value2s ?(values=false) = function
-  | Vc (us,synced)  ->
+let value_from buf =
+  let pos = Llio.buffer_pos buf in
+  match Llio.int_from buf with
+  | 0x100 ->
+    let cs = Checksum.Crc32.checksum_from buf in
+    (Some cs, content_from buf)
+  | 0xff -> (None, content_from buf)
+  | _ ->
+    (* this is for backward compatibility:
+       formerly, we logged updates iso values *)
+    let () = Llio.buffer_set_pos buf pos in
+    let u = Update.from_buffer buf in
+    let synced = Update.is_synced u in
+    (None, Vc ([u], synced))
+
+let value2s ?(values=false) (cso, c) =
+  let css = match cso with
+    | None -> "_"
+    | Some cs -> Checksum.Crc32.string_of cs
+  in
+  match c with
+  | Vc (us,synced) ->
     let uss = Log_extra.list2s (fun u -> Update.update2s u ~values) us in
-    Printf.sprintf "(Vc (%s,%b)" uss synced
-  | Vm (m,l)        -> Printf.sprintf "(Vm (%s,%f))" m l
+    Printf.sprintf "(%s, Vc (%s,%b)" css uss synced
+  | Vm (m,l) -> Printf.sprintf "(%s, Vm (%s,%f))" css m l
+
+let _string_of_content c =
+  let buf = Buffer.create 64 in
+  let () = content_to buf c in
+  Buffer.contents buf
+
+let checksum tlog_coll i c =
+  let s = _string_of_content c in
+  let cso = tlog_coll # get_previous_checksum i in
+  Checksum.Crc32.update cso s
+
+let create_client_value_nocheck us synced = (None, Vc (us, synced))
+
+let create_master_value_nocheck
+    ?(lease_start = Unix.gettimeofday ())
+    m =
+  (None, Vm (m, lease_start))
+
+let create_first_value c =
+  let s = _string_of_content c in
+  let cs = Checksum.Crc32.calculate s in
+  (Some cs, c)
+
+let create_value tlog_coll i c =
+  let cs = checksum tlog_coll i c in
+  (Some cs, c)
+
+let create_first_client_value us synced =
+  let c = Vc (us, synced) in
+  create_first_value c
+
+let create_client_value tlog_coll i us synced =
+  let c = Vc (us, synced) in
+  create_value tlog_coll i c
+
+let create_first_master_value
+    ?(lease_start = Unix.gettimeofday ())
+    m =
+  let c = Vm (m, lease_start) in
+  create_first_value c
+
+let create_master_value
+    tlog_coll i
+    ?(lease_start = Unix.gettimeofday ())
+    m =
+  let c = Vm (m, lease_start) in
+  create_value tlog_coll i c
+
+let is_valid tlog_coll i (cso, c) =
+  match cso with
+    | None -> true
+    | Some cs -> cs = checksum tlog_coll i c
+
+let is_valid_next (pcso, _) (cso, c) =
+  match cso with
+    | None -> true
+    | Some cs ->
+      let s = _string_of_content c in
+      let cs' = Checksum.Crc32.update pcso s in
+      cs = cs'
+
+let is_master_set = function
+  | (_, Vc _) -> false
+  | (_, Vm _) -> true
+
+let is_other_master_set me = function
+  | (_, Vm (m, _)) -> m <> me
+  | (_, Vc _) -> false
+
+let is_synced = function
+  | (_, Vc (_,s)) -> s
+  | (_, Vm _) -> false
+
+let clear_self_master_set me = function
+  | (cso, Vm (m, _)) when m = me -> (cso, Vm (m, 0.))
+  | (_, Vc _)
+  | (_, Vm _) as v -> v
+
+let fill_other_master_set me = function
+  | (cso, Vm (m, _)) when m <> me ->
+    let lease_start = Unix.gettimeofday () in
+    (cso, Vm (m, lease_start))
+  | (_, Vc _)
+  | (_, Vm _) as v -> v
+
+let updates_from_value = function
+  | (_, Vc (us,_)) -> us
+  | (_, Vm (m,l)) -> [Update.MasterSet(m,l)]
+
+let checksum_of (cso, _) = cso

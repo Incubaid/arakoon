@@ -49,6 +49,7 @@ def test_catchup_only():
     C.stopOne(n0)
     C.compare_stores(n1,n0)
     C.start_all()
+    time.sleep(1.0)
     C.assert_running_nodes(2)
 
 

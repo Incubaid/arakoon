@@ -31,6 +31,7 @@ type update_result =
   | Update_fail of Arakoon_exc.rc * string
 
 exception CorruptStore
+exception StoreChecksumError of (Sn.t * Checksum.Crc32.t option * Checksum.Crc32.t option)
 
 type key_or_transaction =
   | Key of transaction_lock
@@ -42,6 +43,8 @@ sig
   type t
   val make_store : lcnum:int -> ncnum:int -> ?read_only:bool -> string -> t Lwt.t
   val consensus_i : t -> Sn.t option
+  val get_checksum : t -> Checksum.Crc32.t option
+  val validate : t -> Tlogcollection.tlog_collection -> unit Lwt.t
   val flush : t -> unit Lwt.t
   val close : ?flush : bool -> ?sync:bool -> t -> unit Lwt.t
   val get_location : t -> string
@@ -63,8 +66,6 @@ sig
 
   val get_succ_store_i : t -> int64
   val get_catchup_start_i : t -> int64
-
-  val incr_i : t -> unit Lwt.t
 
   val set_master : t -> transaction -> string -> float -> unit Lwt.t
   val set_master_no_inc : t -> string -> float -> unit Lwt.t
@@ -297,6 +298,33 @@ struct
   let consensus_i store =
     store.store_i
 
+  let get_checksum store =
+    try
+      let cs_string = S.get store.s __checksum_key in
+      let cs = Checksum.Crc32.checksum_from (Llio.make_buffer cs_string 0) in
+      Some cs
+    with Not_found ->
+      None
+
+  let validate store tlog_coll =
+    let io = _consensus_i store.s in
+    match io with
+      | None -> Lwt.return ()
+      | Some i ->
+        let entry = ref None in
+        let check e = Lwt.return (entry := Some e) in
+        tlog_coll # iterate i (Sn.succ i) check >>= fun () ->
+        let store_cs = get_checksum store in
+        let tlog_cs =
+          match !entry with
+            | None -> None
+            | Some e -> Value.checksum_of (Tlogcommon.Entry.v_of e) in
+        if store_cs <> tlog_cs
+        then
+          Lwt.fail (StoreChecksumError (i, store_cs, tlog_cs))
+        else
+          Lwt.return ()
+
   let _get_j store =
     try
       let jstring = S.get store.s __j_key in
@@ -306,41 +334,33 @@ struct
   let _set_j store tx j =
     S.set store.s tx __j_key (string_of_int j)
 
-  let _new_i = function
-    | None -> Sn.start
-    | Some i -> Sn.succ i
-
-  let _incr_i store tx =
-    let old_i = _consensus_i store.s in
-    let new_i = _new_i old_i in
-    let new_is =
+  let _set_i_checksum store tx (i, cso) =
+    let is =
       let buf = Buffer.create 10 in
-      let () = Sn.sn_to buf new_i in
+      let () = Sn.sn_to buf i in
       Buffer.contents buf
     in
-    let () = S.set store.s tx __i_key new_is in
+    let csso =
+      match cso with
+        | None -> None
+        | Some cs ->
+          let buf = Buffer.create 4 in
+          let () = Checksum.Crc32.checksum_to buf cs in
+          Some (Buffer.contents buf)
+    in
+    let () = S.set store.s tx __i_key is in
+    let () = S.put store.s tx __checksum_key csso in
     let () = _set_j store tx 0 in
-    store.store_i <- Some new_i;
-    Logger.debug_f_ "Store.incr_i old_i:%s -> new_i:%s"
-      (Log_extra.option2s Sn.string_of old_i) (Sn.string_of new_i)
-
-  let incr_i store =
-    if quiesced store
-    then
-      begin
-        let new_i = _new_i store.store_i in
-        store.store_i <- Some new_i;
-        Lwt.return ()
-      end
-    else
-      S.with_transaction store.s (fun tx -> _incr_i store tx)
+    store.store_i <- Some i;
+    Logger.debug_f_ "Store.set_i_checksum i:%s, checksum:%s"
+      (Sn.string_of i) (Log_extra.option2s Checksum.Crc32.string_of cso)
 
   let _set_i store i =
     if quiesced store
     then
       store.store_i <- Some i
     else
-      failwith "_set_i is only meant to be used on a quiesced store to cheat with tlog replay"
+      failwith "_set_i is only meant to be used on a quiesced store"
 
   let _with_transaction_lock store f =
     Lwt_mutex.with_lock store._tx_lock_mutex (fun () ->
@@ -863,7 +883,8 @@ struct
     let f u = _insert_update store u kt in
     Lwt_list.map_s f us
 
-  let _insert_value store (value:Value.t) kt =
+  let _insert_value store i value kt =
+    let cs = Value.checksum_of value in
     let updates = Value.updates_from_value value in
     let j = _get_j store in
     let rec skip n l =
@@ -881,7 +902,7 @@ struct
     end
     >>= fun () ->
     _insert_updates store updates' kt >>= fun (urs:update_result list) ->
-    _with_transaction store kt (fun tx -> _incr_i store tx) >>= fun () ->
+    _with_transaction store kt (fun tx -> _set_i_checksum store tx (i, cs)) >>= fun () ->
     let prepend_oks n l =
       let rec inner l = function
         | 0 -> l
@@ -908,12 +929,12 @@ struct
           if quiesced store
           then
             begin
-              incr_i store >>= fun () ->
+              _set_i store i;
               Lwt.return [Ok None]
             end
           else
             begin
-              _insert_value store value kt
+              _insert_value store i value kt
             end
         in
         inner t)
@@ -946,16 +967,19 @@ struct
           begin
             begin
               match v with
-                | Value.Vm (m, ls) -> set_master_no_inc store m ls
-                | Value.Vc _ -> Lwt.return ()
+                | (_, Value.Vm (m, ls)) -> set_master_no_inc store m ls
+                | (_, Value.Vc _) -> Lwt.return ()
             end >>= fun () ->
-            incr_i store >>= fun () ->
+            _set_i store i;
             Lwt.return [Ok None]
           end
         else
-          _with_transaction_lock store (fun key -> _insert_value store v (Key key)))
+          _with_transaction_lock store (fun key -> _insert_value store i v (Key key)))
 
-  let get_succ_store_i store = _new_i (consensus_i store)
+  let get_succ_store_i store =
+    match consensus_i store with
+      | None -> Sn.start
+      | Some i -> Sn.succ i
 
   let get_catchup_start_i = get_succ_store_i
 

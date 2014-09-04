@@ -59,13 +59,14 @@ let setup factory test_name () =
 let teardown (dn, tlf_dir, _factory) =
   Logger.info_f_ "teardown %s,%s" dn tlf_dir
 
-let _make_set_v k v= Value.create_client_value [Update.Set (k,v)] false
+let _make_set_v k v= Value.create_client_value_nocheck [Update.Set (k,v)] false
 
-let _log_repeat tlc (value:Value.t) n =
+let _log_repeat tlc ((_, c):Value.t) n =
   let rec loop i =
     if i = (Sn.of_int n) then Lwt.return ()
     else
       begin
+        let value = Value.create_value tlc i c in
         tlc # log_value i value >>= fun _wr_result ->
         loop (Sn.succ i)
       end
@@ -100,7 +101,7 @@ let test_rollover_1002 (dn, tlf_dir, factory) =
 let test_get_value_bug (dn, _tlf_dir, factory) =
   Logger.info_ "test_get_value_bug" >>= fun () ->
   factory dn "node_name" >>= fun (c0:tlog_collection) ->
-  let v0 = Value.create_master_value ~lease_start:0. "XXXX" in
+  let v0 = Value.create_master_value c0 0L ~lease_start:0. "XXXX" in
   c0 # log_value 0L v0 >>= fun _wr_result ->
   c0 # close () >>= fun () ->
   factory dn "node_name" >>= fun c1 ->
@@ -245,8 +246,27 @@ let test_validate_corrupt_1 (dn, tlf_dir, factory) =
         OUnit.assert_bool msg false;
         Lwt.return ()
     )
-  >>= fun () ->
-  Lwt.return ()
+
+let test_checksum (dn, tlf_dir, factory) =
+  Logger.info_f_ "test_checksum  %s, %s" dn tlf_dir >>= fun () ->
+  factory dn "node_name" >>= fun (tlc:tlog_collection) ->
+  let value = _make_set_v "XXX" "X" in
+  _log_repeat tlc value 10 >>= fun () ->
+  let value = Value.create_client_value tlc 9L [Update.Set ("XXX", "XX")] false in
+  Lwt.catch
+    (fun () ->
+       tlc # log_value 10L value >>= fun () ->
+       OUnit.assert_bool "the checksum should be wrong" false;
+       Lwt.return ()
+    )
+    (function
+      | Value.ValueCheckSumError _ -> Lwt.return ()
+      | exn ->
+        let () = ignore exn in
+        let msg = Printf.sprintf "it threw the wrong exception %s" "?" in
+        OUnit.assert_bool msg false;
+        Lwt.return ()
+    )
 
 let wrap factory test (name:string) = lwt_bracket (setup factory name) test teardown
 
@@ -256,6 +276,7 @@ let wrap_memory name = wrap create_test_tlc name
 
 let suite_mem = "mem_tlogcollection" >::: [
     "rollover" >:: wrap_memory test_rollover "rollover";
+    "checksum" >:: wrap_memory test_checksum "checksum";
     (* "get_value_bug" >:: wrap_memory test_get_value_bug;
         (* assumption that different tlog_collections with the same name have the same state *)
     *)
