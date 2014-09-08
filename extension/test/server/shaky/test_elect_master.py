@@ -31,6 +31,10 @@ import re
 def test_restart_propose_master():
     """
     test_restart_propose_master : asserts that upon restarting nodes, old master gets re-elected
+
+    Test verifies that upon restarting nodes in the cluster, only the old master node will propose
+    itself as master until the the first lease duration expires. Slave nodes should not propose
+    becoming a master for the first lease period.
     """
     node_names = Common.node_names[:3]
     lease_duration = Common.lease_duration
