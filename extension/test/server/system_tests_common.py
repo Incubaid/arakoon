@@ -143,6 +143,12 @@ def get_node_db_file( node_id ) :
     db_file = fs.joinPaths( node_home_dir, node_id + ".db" )
     return db_file
 
+def get_node_log_file( node_id ) :
+    cluster = _getCluster()
+    node_log_dir = cluster.getNodeConfig(node_id ) ['log_dir']
+    db_file = fs.joinPaths( node_log_dir, node_id + ".log" )
+    return db_file
+
 def dump_store( node_id ):
     cluster = _getCluster()
     stat = cluster.getStatusOne(node_id )
