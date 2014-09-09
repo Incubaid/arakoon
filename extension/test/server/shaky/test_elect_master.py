@@ -92,3 +92,34 @@ def test_restart_propose_master():
         assert_true(expected_pattern_found, ('Could not find the expected pattern %s for node %s('
                                              'master=%s)' % (expected_pattern, node_name,
                                                              is_master_node)))
+
+
+@Common.with_custom_setup(Common.setup_3_nodes, Common.dummy_teardown)
+def test_restart_slaves_only():
+    """
+    test_restart_slaves_only : asserts that upon stopping the cluster and starting only the slave
+    nodes, new master gets re-elected
+
+    Test verifies that upon halting all nodes in the cluster and starting back only the slaves,
+    the nodes will propose themselves as master and one of them will be elected.
+    """
+    node_names = Common.node_names[:3]
+    lease_duration = Common.lease_duration
+    initial_master = Common.get_client().whoMaster()
+    logging.info('initial master is %s' % initial_master)
+
+    logging.info('stop all nodes')
+    Common.stop_all()
+
+    logging.info('starting up slave nodes (initial master is not started)')
+    for node_name in node_names:
+        if node_name != initial_master:
+            Common.startOne(node_name)
+
+    sleep_time = lease_duration * 1.5
+    logging.info('sleeping for 1.5*lease_duration (%d)' % sleep_time)
+    time.sleep(sleep_time)
+
+    master = Common.get_client().whoMaster()
+    logging.info('new master is %s' % master)
+    assert_true(master, 'No master node was elected')
