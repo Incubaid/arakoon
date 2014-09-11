@@ -201,7 +201,7 @@ module Statistics = struct
 
   let log_slowness descr total_time =
     if total_time > 1.0 then
-      Logger.ign_info_f_ "statistics %s :: took %f seconds" descr total_time
+      Logger.ign_warning_f_ "slowness detected: '%s' command to backing store took %f seconds" descr total_time
     else
       ()
 
