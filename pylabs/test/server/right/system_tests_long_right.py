@@ -298,9 +298,9 @@ def test_is_progress_possible():
 
     Common.wipe(Common.node_names[1])
 
-    cli = Common.get_client()
     Common.start_all()
     logging.info( "nodes started" )
+    cli = Common.get_client()
     assert_false( cli.expectProgressPossible() )
 
     counter = 0
