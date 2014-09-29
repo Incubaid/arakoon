@@ -17,6 +17,8 @@ nusery.byte
 debian/tmp/*
 debian/libarakoon-ocaml-dev/*
 debian/arakoon/*
+redhat/RPMS/*
+redhat/SRPMS/*
 *.pyc
 *.orig
 .paths
