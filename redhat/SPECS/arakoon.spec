@@ -1,8 +1,9 @@
 Summary: Arakoon
 Name: arakoon
 Version: 1.7.4
-Release: 1
+Release: 2
 License: Apache 2.0
+Requires: libev >= 4
 
 %description
 Arakoon, a key-value store
