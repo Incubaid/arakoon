@@ -198,6 +198,7 @@ end = struct
 end
 
 external id : 'a -> 'a = "%identity"
+let const v = fun _ -> v
 
 module String = struct
   include String
@@ -211,6 +212,95 @@ module List = struct
   let is_empty = function
     | [] -> true
     | _ -> false
+
+  (** Lookup a key in a (key, value) list, and add, update or delete it
+
+  For every (key, value) pair found in the list for which key equals the given
+  key, the corresponding value is passed to f. When this call returns Some
+  value, a pair of the key and this new value will occur in the result. If it
+  returns None, the pair is removed from the result.
+
+  If the key is not found in the list, the default value (if given) is added as
+  (key, value) to the list.
+
+  Ordering is not preserved.
+
+  @param list Key-value list
+  @param key Key to look-up
+  @param default Optional default value if key isn't found
+  @param f Update function *)
+  let alter ~list ~key ?default f =
+    let rec loop found acc = function
+      | [] -> (found, acc)
+      | ((k, v) as p :: r) ->
+          if k = key
+            then match f v with
+              | None -> loop true acc r
+              | Some v' -> loop true ((k, v') :: acc) r
+            else
+              loop found (p :: acc) r
+    in
+    let (found, l) = loop false [] list in
+    if found
+      then l
+      else match default with
+        | None -> l
+        | Some v -> (key, v) :: l
+
+  module Test = struct
+    open OUnit
+
+    let assert_set_equal ?printer ?msg l1 l2 =
+      let l1' = List.sort compare l1
+      and l2' = List.sort compare l2 in
+      assert_equal ?printer ?msg l1' l2'
+
+    let printer l =
+      List.map (fun (k, v) -> Printf.sprintf "(%S, %d)" k v) l
+      |> String.concat "; "
+      |> Printf.sprintf "[%s]"
+
+    let suite = "List" >::: [
+      "alter" >::: [
+        "empty" >::
+          (fun () -> assert_set_equal ~printer
+            (alter ~list:[] ~key:"k" (const (Some 1)))
+            []);
+        "empty_add_default" >::
+          (fun () -> assert_set_equal ~printer
+            (alter ~list:[] ~key:"k" ~default:1 (const None))
+            [("k", 1)]);
+        "delete" >::
+          (fun () -> assert_set_equal ~printer
+            (alter ~list:[("k", 1)] ~key:"k" (const None))
+            []);
+        "delete_multi" >::
+          (fun () -> assert_set_equal ~printer
+            (alter ~list:[("k", 1); ("k", 2)] ~key:"k" (const None))
+            []);
+        "delete_multi_keep_others" >::
+          (fun () -> assert_set_equal ~printer
+            (alter ~list:[("k", 1); ("l", 2); ("k", 3); ("m", 4)] ~key:"k" (const None))
+            [("l", 2); ("m", 4)]);
+        "update" >::
+          (fun () -> assert_set_equal ~printer
+            (alter ~list:[("k", 1); ("l", 2); ("m", 3)] ~key:"l" (fun v -> Some (v + 1)))
+            [("k", 1); ("l", 3); ("m", 3)]);
+        "update_all" >::
+          (fun () -> assert_set_equal ~printer
+            (alter ~list:[("k", 1); ("l", 2); ("m", 3); ("l", 4)] ~key:"l" (fun v -> Some (v + 1)))
+            [("k", 1); ("l", 3); ("m", 3); ("l", 5)]);
+        "update_no_default" >::
+          (fun () -> assert_set_equal ~printer
+            (alter ~list:[("k", 1); ("l", 2)] ~key:"l" (fun v -> Some (v + 1)))
+            [("k", 1); ("l", 3)]);
+        "remove_no_default" >::
+          (fun () -> assert_set_equal ~printer
+            (alter ~list:[("k", 1); ("l", 2); ("m", 3)] ~key:"l" ~default:4 (const None))
+            [("k", 1); ("m", 3)]);
+      ]
+    ]
+  end
 end
 
 type direction =

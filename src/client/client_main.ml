@@ -193,13 +193,12 @@ let find_master' ~tls cluster_cfg =
     end
     | (cfg :: rest) -> begin
         Logger.debug_f_ "Client_main.find_master': Trying %S" cfg.node_name >>= fun () ->
-        let addrs = List.map (fun ip -> make_address ip cfg.client_port) cfg.ips in
         Lwt.catch
           (fun () ->
-            with_connection' ~tls addrs
-              (fun _ connection ->
-                Arakoon_remote_client.make_remote_client
-                  cluster_cfg.cluster_id connection >>= fun client ->
+            with_client
+              ~tls
+              cfg cluster_cfg.cluster_id
+              (fun client ->
                 client # who_master ()) >>= function
                 | None -> begin
                     Logger.debug_f_
@@ -241,6 +240,33 @@ let find_master' ~tls cluster_cfg =
     end
   in
   loop [] [] (cluster_cfg.cfgs)
+
+
+(** Lookup the master of a cluster in a loop
+
+    This action calls {! find_master' } in a loop, as long as it returns
+    {! MasterLookupResult.No_master } or
+    {! MasterLookupResult.Too_many_nodes_down }. Other return values are passed
+    through to the caller.
+
+    In some circumstances, this action could loop forever, so it's mostly
+    useful in combination with {! Lwt_unix.with_timeout } or something related.
+*)
+let find_master_loop ~tls cluster_cfg =
+  let open MasterLookupResult in
+  let rec loop () =
+    find_master' ~tls cluster_cfg >>= fun r -> match r with
+      | No_master _
+      | Too_many_nodes_down _ -> begin
+          Logger.debug_f_ "Client_main.find_master_loop: %s" (to_string r) >>=
+          loop
+        end
+      | Found _
+      | Unknown_node _
+      | Exception _ -> return r
+  in
+  loop ()
+
 
 let find_master ~tls cluster_cfg =
   let open MasterLookupResult in

@@ -1,12 +1,22 @@
+arakoon (1.7.4) unstable; urgency=low
+  * new upstream version
+
+ -- Jan Doms <domsj@incubaid.com>  Mon, 18 Aug 2014 17:00:00 +0100
+
+arakoon (1.6.14) unstable; urgency=low
+  * new upstream version
+
+ -- Jan Doms <domsj@incubaid.com>  Thu, 14 Aug 2014 17:00:00 +0100
+
 arakoon (1.6.13) unstable; urgency=low
   * new upstream version
 
- -- Romain Slootmaekers  <romain.slootmaekers@cloudfounders.com>  Tue, 01 Jul 2014 18:00:00 +0100
+ -- Romain Slootmaekers <romain.slootmaekers@cloudfounders.com>  Tue, 01 Jul 2014 18:00:00 +0100
 
 arakoon (1.6.12) unstable; urgency=low
   * new upstream version
 
- -- Nicolas Trangez  <nicolas @incubaid.com>  Thu, 26 Jun 2014 09:30:00 +0100
+ -- Nicolas Trangez <nicolas@incubaid.com>  Thu, 26 Jun 2014 09:30:00 +0100
 
 arakoon (1.7.3) unstable; urgency=low
   * new upstream version
@@ -16,32 +26,32 @@ arakoon (1.7.3) unstable; urgency=low
 arakoon (1.6.11) unstable; urgency=low
   * new upstream version
 
- -- Jan Doms  <domsj@incubaid.com>  Tue, 27 May 2014 15:00:00 +0100
+ -- Jan Doms <domsj@incubaid.com>  Tue, 27 May 2014 15:00:00 +0100
 
 arakoon (1.7.2) unstable; urgency=low
   * new upstream version
 
  -- Jan Doms <domsj@incubaid.com>  Fri, 04 Apr 2014 16:00:00 +0100
 
+arakoon (1.6.10) unstable; urgency=low
+  * new upstream version
+
+ -- Jan Doms <domsj@incubaid.com>  Thu, 03 Apr 2014 16:00:00 +0100
+
 arakoon (1.7.1) unstable; urgency=low
   * new upstream version
 
  -- Jan Doms <domsj@incubaid.com>  Tue, 18 Mar 2014 18:00:00 +0100
 
+arakoon (1.6.9) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain@incubaid.com>  Tue, 18 Feb 2014 16:00:00 +0100
+
 arakoon (1.7.0) unstable; urgency=low
   * new upstream version
 
  -- Jan Doms <domsj@incubaid.com>  Fri, 24 Jan 2014 18:00:00 +0100
-
-arakoon (1.6.10) unstable; urgency=low
-  * new upstream version
-
- -- Jan Doms  <domsj@incubaid.com>  Thu, 03 Apr 2014 16:00:00 +0100
-
-arakoon (1.6.9) unstable; urgency=low
-  * new upstream version
-
- -- Romain Slootmaekers  <romain@incubaid.com>  Tue, 18 Feb 2014 16:00:00 +0100
 
 arakoon (1.6.8) unstable; urgency=low
   * new upstream version
