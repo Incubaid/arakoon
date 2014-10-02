@@ -23,8 +23,9 @@ let i2s = string_of_int
 let update_max db po =
   let _k = "max" in
   let v =
-    try let s = db#get _k in s2i s
-    with Not_found -> 0
+    match db # get _k with
+      | None -> 0
+      | Some s -> s2i s
   in
   let v' = match po with
     | None -> 0
@@ -34,7 +35,7 @@ let update_max db po =
   in
   let m = max v v' in
   let ms = i2s m in
-  db#set _k ms;
+  db#put _k (Some ms);
   Some (i2s m)
 
 
