@@ -42,6 +42,10 @@ install_client:
           _build/src/plugins/registry.cmi \
           _build/src/plugins/plugin_helper.mli \
           _build/src/plugins/plugin_helper.cmi \
+          _build/src/node/key.mli \
+          _build/src/node/key.cmi \
+          _build/src/tlog/interval.cmi \
+          _build/src/tlog/update.cmi \
           _build/src/tools/llio.mli \
           _build/src/tools/llio.cmi \
           _build/src/arakoon_client.a
