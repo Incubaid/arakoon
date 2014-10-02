@@ -193,7 +193,7 @@ let test_iterate6 (dn, _tlx_dir, factory) =
 let test_compression_bug (dn, tlx_dir, factory) =
   Logger.info_ "test_compression_bug" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
-  let v = String.create (1024 * 1024) in
+  let v = Bytes.create (1024 * 1024) in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   Logger.info_ "have tls" >>= fun () ->
   let sync = false in
@@ -228,7 +228,7 @@ let test_compression_bug (dn, tlx_dir, factory) =
 let test_compression_previous (dn, tlx_dir, factory) =
   Logger.info_ "test_compression_previous_tlogs" >>= fun () ->
   let () = Tlogcommon.tlogEntriesPerFile := 10 in
-  let v = String.create (1024 * 1024) in
+  let v = Bytes.create (1024 * 1024) in
   factory dn "node_name" >>= fun (tlc:tlog_collection) ->
   Logger.info_ "have tlc" >>= fun () ->
   let sync = false in

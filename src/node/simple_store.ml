@@ -197,12 +197,12 @@ let next_prefix prefix =
       match code with
       | 256 -> Char.chr 0, true
       | code -> Char.chr code, false in
-    let rec inner s pos =
-      let c, carry = next_char s.[pos] in
-      s.[pos] <- c;
+    let rec inner bs pos =
+      let c, carry = next_char (Bytes.get bs pos) in
+      Bytes.set bs pos c;
       match carry, pos with
-      | false, _ -> Some s
+      | false, _ -> Some bs
       | true, 0 -> None
-      | true, pos -> inner s (pos - 1) in
-    let copy = String.copy prefix in
-    inner copy ((String.length copy) - 1)
+      | true, pos -> inner bs (pos - 1) in
+    let copy = Bytes.of_string prefix in
+    inner copy ((Bytes.length copy) - 1)

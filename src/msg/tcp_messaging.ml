@@ -343,7 +343,7 @@ class tcp_messaging
         >>= fun () ->
         let b1 =
           if msg_size > String.length b0
-          then String.create msg_size
+          then Bytes.create msg_size
           else b0
         in
         Lwt_io.read_into_exactly ic b1 0 msg_size >>= fun () ->
@@ -387,7 +387,7 @@ class tcp_messaging
           end
         in
         Lwt.catch
-          (fun () -> loop (String.create 1024))
+          (fun () -> loop (Bytes.create 1024))
           (fun exn ->
              Logger.info_f_ ~exn "going to drop outgoing connection as well" >>= fun () ->
              self # _drop_connection address >>= fun () ->
