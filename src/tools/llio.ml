@@ -62,7 +62,7 @@ let int32_from b =
   result
 
 let int32_to buffer i32 =
-  let s = String.create 4 in
+  let s = Bytes.create 4 in
   set32_prim s 0 i32;
   Buffer.add_string buffer s
 
@@ -77,18 +77,18 @@ let int64_from b =
   r
 
 let int64_to buf i64 =
-  let s = String.create 8 in
+  let s = Bytes.create 8 in
   set64_prim s 0 i64;
   Buffer.add_string buf s
 
 
 let output_int64 oc i64 =
-  let s = String.create 8 in
+  let s = Bytes.create 8 in
   set64_prim s 0 i64;
   Lwt_io.write oc s
 
 let input_int64 ic =
-  let buf = String.create 8 in
+  let buf = Bytes.create 8 in
   Lwt_io.read_into_exactly ic buf 0 8 >>= fun () ->
   let r = get64_prim buf 0 in
   Lwt.return r
@@ -143,7 +143,7 @@ let bool_from b =
 
 
 let output_int32 oc (i:int32) =
-  let s = String.create 4 in
+  let s = Bytes.create 4 in
   set32_prim s 0 i;
   Lwt_io.write oc s
 
@@ -159,7 +159,7 @@ let input_bool ic =
   | x -> lwt_failfmt "can't be a bool '%c'" x
 
 let input_int32 ic =
-  let buf = String.create 4 in
+  let buf = Bytes.create 4 in
   Lwt_io.read_into_exactly ic buf 0 4 >>= fun () ->
   let r = get32_prim buf 0 in
   Lwt.return r
@@ -185,7 +185,7 @@ let input_string ic =
   if size > (4 * 1024 * 1024 * 1024) then
     lwt_failfmt "Unexpectedly large string size requested:%d" size
   else Lwt.return size  >>= fun size2 ->
-    let result = String.create size2 in
+    let result = Bytes.create size2 in
     Lwt_io.read_into_exactly ic result 0 size2 >>= fun () ->
     Lwt.return result
 
@@ -335,7 +335,7 @@ let copy_stream ~length ~ic ~oc =
   Client_log.debug_f "copy_stream ~length:%Li" length >>= fun () ->
   let bs = Lwt_io.default_buffer_size () in
   let bs64 = Int64.of_int bs in
-  let buffer = String.create bs in
+  let buffer = Bytes.create bs in
   let n_bs = Int64.div length bs64 in
   let rest = Int64.to_int (Int64.rem length bs64) in
   let rec loop i =
