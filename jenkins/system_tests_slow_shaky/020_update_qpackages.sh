@@ -1,1 +1,0 @@
-../020_update_qpackages.sh
