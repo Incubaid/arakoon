@@ -1,6 +1,6 @@
 Arakoon
 =======
-![](https://travis-ci.org/Incubaid/arakoon.svg?branch=1.7)
+![](https://travis-ci.org/Incubaid/arakoon.svg?branch=1.8)
 
 Arakoon is a distributed key/value store with preference for consistency. More technically, it's a [Multi-Paxos](http://en.wikipedia.org/wiki/Paxos_%28computer_science%29#Multi-Paxos) implementation (written in [OCaml](http://ocaml.org/)) running on top of [TokyoCabinet](http://fallabs.com/tokyocabinet/).
 
