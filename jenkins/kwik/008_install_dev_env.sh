@@ -11,7 +11,7 @@ opam install -y ssl
 opam install -y conf-libev
 opam install -y camlbz2
 opam install -y snappy
-opam install -y "lwt.2.4.4"
+opam install -y "lwt.2.4.5"
 opam remove camltc
 opam install -y "camltc.999"
 opam install -y bisect
