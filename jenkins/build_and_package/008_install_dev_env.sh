@@ -13,3 +13,4 @@ opam install -y camlbz2
 opam install -y lwt.2.4.5
 opam install -y camltc.0.9.2
 opam install -y bisect
+opam install -y quickcheck

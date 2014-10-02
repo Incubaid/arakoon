@@ -15,3 +15,4 @@ opam install -y "lwt.2.4.5"
 opam remove -y camltc
 opam install -y "camltc.999"
 opam install -y bisect
+opam install -y quickcheck
