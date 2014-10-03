@@ -13,7 +13,7 @@ parser.add_option("-r", "--root", dest="root", default="../ROOT",
                   help="Root directory for the env", metavar="ROOT")
 (options, args) = parser.parse_args()
 
-OCAML='4.01.0'
+OCAML='4.02.0'
 ROOT = os.path.realpath(options.root)
 PREFIX = "%s/%s" % (ROOT,'OCAML')
 OPAM_HOME='%s/OPAM' % ROOT
@@ -76,7 +76,7 @@ def maybe_install_ocaml():
         return
 
     lib = Lib('ocaml-%s' % OCAML,'.tar.bz2',
-              'http://caml.inria.fr/pub/distrib/ocaml-4.01/%s')
+              'http://caml.inria.fr/pub/distrib/ocaml-4.02/%s')
     lib.download()
     lib.extract()
     lib.sh(['./configure', '--prefix',PREFIX])

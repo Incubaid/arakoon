@@ -23,7 +23,7 @@ let section = Lwt_log.Section.main
 
 let echo_protocol (ic,oc,_cid) =
   let size = 1024 in
-  let buffer = String.create size in
+  let buffer = Bytes.create size in
   let rec loop () =
     Lwt_io.read_into ic buffer 0 size >>= fun read ->
     Lwt_io.write_from_exactly oc buffer 0 read >>= loop
