@@ -44,6 +44,7 @@ install_client:
           _build/src/plugins/plugin_helper.cmi \
           _build/src/node/key.mli \
           _build/src/node/key.cmi \
+          _build/src/node/simple_store.cmi \
           _build/src/tlog/interval.cmi \
           _build/src/tlog/update.cmi \
           _build/src/tools/llio.mli \
