@@ -46,6 +46,14 @@ let buffer_pos b = b.pos
 
 let buffer_set_pos b pos = b.pos <- pos
 
+type 'a serializer = Buffer.t -> 'a -> unit
+type 'a deserializer = buffer -> 'a
+
+type 'a lwt_serializer = lwtoc -> 'a -> unit Lwt.t
+type 'a lwt_deserializer = lwtic -> 'a Lwt.t
+
+type 'a lwt_pickler = 'a lwt_serializer * 'a lwt_deserializer
+
 external get32_prim : string -> int -> int32 = "%caml_string_get32"
 external set32_prim : string -> int -> int32 -> unit = "%caml_string_set32"
 external get64_prim : string -> int -> int64 = "%caml_string_get64"
@@ -152,6 +160,10 @@ let output_bool oc (b:bool) =
   let c = if b then '\x01' else '\x00' in
   Lwt_io.write_char oc c
 
+let output_pair output_fst output_snd oc (a, b) =
+  output_fst oc a >>= fun () ->
+  output_snd oc b
+
 let input_bool ic =
   Lwt_io.read_char ic >>= function
   | '\x00' -> Lwt.return false
@@ -179,6 +191,14 @@ let output_string oc (s:string) =
 let output_key oc (k:Key.t) =
   output_int32 oc (Int32.of_int (Key.length k)) >>= fun () ->
   Key.to_oc k oc
+
+let output_option output_f oc = function
+  | None -> output_bool oc false
+  | Some a ->
+    output_bool oc true >>= fun () ->
+    output_f oc a
+
+let output_string_option = output_option output_string
 
 let input_string ic =
   input_int ic >>= fun size ->
@@ -268,13 +288,13 @@ let output_array_reversed output_element oc es =
 let output_string_array_reversed oc strings =
   output_array_reversed output_string oc strings
 
-let list_to buf e_to list =
+let list_to e_to buf list =
   int_to buf (List.length list);
   List.iter (e_to buf) (List.rev list)
 
-let string_list_to buf sl = list_to buf string_to sl
+let string_list_to = list_to string_to
 
-let list_from b e_from  =
+let list_from e_from b =
   let size = int_from b in
   let rec loop acc = function
     | 0 -> acc
@@ -282,13 +302,7 @@ let list_from b e_from  =
       loop (e::acc) (i-1)
   in loop [] size
 
-let string_list_from buf = list_from buf string_from
-
-let output_string_option oc = function
-  | None -> output_bool oc false
-  | Some s ->
-    output_bool oc true >>= fun () ->
-    output_string oc s
+let string_list_from = list_from string_from
 
 let option_to (f:Buffer.t -> 'a -> unit) buff =  function
   | None -> bool_to buff false
@@ -307,19 +321,27 @@ let string_option_to buff so =  option_to string_to buff so
 
 let string_option_from buffer = option_from string_from buffer
 
-
-
-let input_string_option ic =
+let input_option input_f ic =
   input_bool ic >>= function
   | false -> Lwt.return None
-  | true -> (input_string ic >>= fun s -> Lwt.return (Some s))
+  | true -> input_f ic >>= fun a -> Lwt.return (Some a)
 
-let hashtbl_to buf e2 h =
+let input_string_option = input_option input_string
+
+let pair_to fst_to snd_to buf (a, b) =
+  fst_to buf a;
+  snd_to buf b
+
+let hashtbl_to ser_k ser_v buf h =
   let len = Hashtbl.length h in
   int_to buf len;
-  Hashtbl.iter (fun k v -> e2 buf k v) h
+  Hashtbl.iter
+    (fun k v ->
+       ser_k buf k;
+       ser_v buf v)
+    h
 
-let hashtbl_from buf ef =
+let hashtbl_from ef buf =
   let len = int_from buf in
   let r = Hashtbl.create len in
   let rec loop = function

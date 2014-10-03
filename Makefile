@@ -49,6 +49,7 @@ install_client:
           _build/src/tlog/update.cmi \
           _build/src/tools/llio.mli \
           _build/src/tools/llio.cmi \
+          _build/src/tools/logger.cmi \
           _build/src/arakoon_client.a
 
 uninstall_client:

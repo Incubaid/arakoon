@@ -672,6 +672,12 @@ struct
       method get k =
         _get_option store k
 
+      method get_exn k =
+        _get store k
+
+      method exists k =
+        exists store k
+
       method with_cursor f =
         S.with_cursor
           store.s
