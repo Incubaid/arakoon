@@ -19,6 +19,19 @@ open Lwt
 let section = Logger.Section.main
 
 let load home pnames =
+  (*
+    (* if you really want to turn on the screws,
+       and limit what they are allowed to do you can do
+       something like this: *)
+    let () = Dynlink.allow_only [
+               "Pervasives";
+               "Registry";
+               "Llio";
+               "Int32";
+             ]
+  in
+  *)
+
   let rec _inner = function
     | [] -> Lwt.return ()
     | p :: ps ->
@@ -27,7 +40,16 @@ let load home pnames =
       let full = Filename.concat home pwe in
       let qual = Dynlink.adapt_filename full in
       Logger.info_f_ "qualified as: %s" qual >>= fun () ->
-      Dynlink.loadfile_private qual;
-      _inner ps
+      let msg =
+        try
+          let () = Dynlink.loadfile_private qual in
+          None
+        with Dynlink.Error e ->
+          let em = Dynlink.error_message e in
+          Some em
+      in
+      match msg with
+      | None -> _inner ps
+      | Some em -> failwith (Printf.sprintf "%s: Dynlink.Error %S" p em)
   in
   _inner pnames

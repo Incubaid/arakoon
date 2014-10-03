@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
+open Std
 open Mp_msg
 open Lwt
 open MPMessage
@@ -68,19 +69,12 @@ let network_of_messaging (m:messaging) =
   send, run, register, is_alive
 
 
-let update_votes (nones,somes) = function
-  | None -> (nones+1, somes)
-  | Some x ->
-    let rec build_new acc = function
-      | [] -> (x,1)::acc
-      | (a,fa) :: afs ->
-        if a = x
-        then ((a,fa+1) :: afs) @ acc
-        else let acc' = (a,fa) :: acc  in build_new acc' afs
-    in
-    let tmp = build_new [] somes in
-    let somes' = List.sort (fun (_a,fa) (_b,fb) -> fb - fa) tmp in
-    (nones, somes')
+let update_votes (nones, somes) = function
+  | None -> (nones + 1, somes)
+  | Some key ->
+      List.alter ~list:somes ~key ~default:1 (fun v -> Some (v + 1))
+      |> List.sort (fun (_, fa) (_, fb) -> fb - fa)
+      |> fun s -> (nones, s)
 
 type paxos_event =
   | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
@@ -122,7 +116,6 @@ type 'a constants =
    is_alive: id -> bool;
    cluster_id : string;
    is_learner: bool;
-   quiesced : bool;
    stop : bool ref;
    catchup_tls_ctx : [ `Client | `Server ] Typed_ssl.t option;
    mutable election_timeout : (Sn.t * Sn.t * float) option;
@@ -144,7 +137,7 @@ let make (type s) ~catchup_tls_ctx me is_learner others send get_value
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
       other_cfgs lease_expiration inject_event is_alive ~cluster_id
-      quiesced stop =
+      stop =
   {
     me=me;
     is_learner;
@@ -165,7 +158,6 @@ let make (type s) ~catchup_tls_ctx me is_learner others send get_value
     inject_event;
     is_alive;
     cluster_id;
-    quiesced;
     stop;
     catchup_tls_ctx;
     election_timeout = None;

@@ -702,7 +702,9 @@ let _main_2 (type s)
                        (fun u -> Lwt_buffer.add u client_buffer)
                        fc),
                   "client_buffer"
-                | Multi_paxos.FromNode _
+                | Multi_paxos.FromNode (m,source)  ->
+                  (fun () -> Lwt_buffer.add (Mp_msg.MPMessage.generic_of m, source) node_buffer),
+                  "node_buffer"
                 | Multi_paxos.LeaseExpired _
                 | Multi_paxos.Quiesce  _
                 | Multi_paxos.Unquiesce
@@ -748,7 +750,6 @@ let _main_2 (type s)
               inject_event
               is_alive
               ~cluster_id
-              false
               stop
           in
           let reporting_period = me.reporting in
