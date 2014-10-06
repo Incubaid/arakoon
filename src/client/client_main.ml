@@ -358,6 +358,18 @@ let rev_range_entries ~tls cfg_name left linc right rinc max_results =
   in
   run t
 
+let user_function ~tls cfg_name name arg =
+  let t () =
+    with_master_client ~tls
+      cfg_name
+      (fun client ->
+       client # user_function name (Some arg) >>= fun res ->
+       Lwt_io.printlf "res = %s" (Log_extra.string_option2s res) >>= fun () ->
+       Lwt.return ()
+      )
+  in
+  run t
+
 let benchmark
       ~tls
       cfg_name key_size value_size tx_size max_n n_clients
