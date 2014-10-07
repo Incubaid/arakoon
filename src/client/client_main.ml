@@ -363,7 +363,7 @@ let user_function ~tls cfg_name name arg =
     with_master_client ~tls
       cfg_name
       (fun client ->
-       client # user_function name (Some arg) >>= fun res ->
+       client # user_function name arg >>= fun res ->
        Lwt_io.printlf "res = %s" (Log_extra.string_option2s res) >>= fun () ->
        Lwt.return ()
       )
