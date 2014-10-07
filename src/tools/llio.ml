@@ -288,21 +288,33 @@ let output_array_reversed output_element oc es =
 let output_string_array_reversed oc strings =
   output_array_reversed output_string oc strings
 
+let counted_list_to e_to buf list =
+  int_to buf (fst list);
+  List.iter (e_to buf) (List.rev (snd list))
+
 let list_to e_to buf list =
   int_to buf (List.length list);
   List.iter (e_to buf) (List.rev list)
 
 let string_list_to = list_to string_to
 
-let list_from e_from b =
+let counted_list_from e_from b =
   let size = int_from b in
   let rec loop acc = function
     | 0 -> acc
     | i -> let e  = e_from b in
       loop (e::acc) (i-1)
-  in loop [] size
+  in
+  size, (loop [] size)
+
+let list_from e_from b = snd (counted_list_from e_from b)
 
 let string_list_from = list_from string_from
+
+let pair_from a_from b_from buf =
+  let a = a_from buf in
+  let b = b_from buf in
+  (a, b)
 
 let option_to (f:Buffer.t -> 'a -> unit) buff =  function
   | None -> bool_to buff false

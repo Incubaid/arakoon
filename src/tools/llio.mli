@@ -54,6 +54,7 @@ val option_to: 'a serializer -> 'a option serializer
 val string_option_to: string option serializer
 val named_field_to: namedValue serializer
 val list_to  : 'a serializer -> 'a list serializer
+val counted_list_to : 'a serializer -> 'a counted_list serializer
 val string_list_to : string list serializer
 val pair_to : 'a serializer -> 'b serializer -> ('a * 'b) serializer
 val hashtbl_to: 'a serializer -> 'b serializer -> ('a, 'b) Hashtbl.t serializer
@@ -69,7 +70,9 @@ val string_from: string deserializer
 val option_from: 'a deserializer -> 'a option deserializer
 val string_option_from: string option deserializer
 val list_from: 'a deserializer -> 'a list deserializer
+val counted_list_from : 'a deserializer -> 'a counted_list deserializer
 val string_list_from: string list deserializer
+val pair_from : 'a deserializer -> 'b deserializer -> ('a * 'b) deserializer
 val named_field_from: namedValue deserializer
 
 val hashtbl_from: ('a * 'b) deserializer -> ('a, 'b) Hashtbl.t deserializer
