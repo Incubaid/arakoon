@@ -110,7 +110,7 @@ val input_pair: 'a lwt_deserializer -> 'b lwt_deserializer -> ('a * 'b) lwt_dese
 val input_string_option: string option lwt_deserializer
 val input_string_pair: (string * string) lwt_deserializer
 val input_list  :'a lwt_deserializer -> 'a list lwt_deserializer
-val input_listl : 'a lwt_deserializer -> 'a counted_list lwt_deserializer
+val input_counted_list : 'a lwt_deserializer -> 'a counted_list lwt_deserializer
 val input_string_list: string list lwt_deserializer
 val input_kv_list: (string * string) list lwt_deserializer
 val input_hashtbl: 'a lwt_deserializer -> 'b lwt_deserializer -> ('a,'b) Hashtbl.t lwt_deserializer

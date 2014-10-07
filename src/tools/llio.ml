@@ -222,7 +222,7 @@ let input_pair input_a input_b ic =
 
 let input_string_pair = input_pair input_string input_string
 
-let input_listl input_element ic =
+let input_counted_list input_element ic =
   input_int ic >>= fun size ->
   let rec loop acc = function
     | 0 -> Lwt.return (size, acc)
@@ -231,7 +231,7 @@ let input_listl input_element ic =
   loop [] size
 
 let input_list input_element ic =
-  input_listl input_element ic >>= fun (size,list) ->
+  input_counted_list input_element ic >>= fun (size,list) ->
   Client_log.debug_f "Received a list of %d elements" size >>= fun () ->
   Lwt.return list
 

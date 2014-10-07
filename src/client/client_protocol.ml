@@ -421,7 +421,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
   | MULTI_GET ->
     begin
       Common.input_consistency ic >>= fun consistency ->
-      Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
+      Llio.input_counted_list Llio.input_string ic >>= fun (length, keys) ->
       Logger.debug_f_ "connection=%s MULTI_GET: consistency=%s length=%i keys=%S" id (consistency2s consistency) length
         (String.concat ";" keys) >>= fun () ->
       wrap_exception
@@ -435,7 +435,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
   | MULTI_GET_OPTION ->
     begin
       Common.input_consistency ic >>= fun consistency ->
-      Llio.input_listl Llio.input_string ic >>= fun (length, keys) ->
+      Llio.input_counted_list Llio.input_string ic >>= fun (length, keys) ->
       Logger.debug_f_ "connection=%s MULTI_GET_OPTION: consistency=%s length=%i keys=%S"
         id (consistency2s consistency) length (String.concat ";" keys) >>= fun () ->
       wrap_exception
