@@ -25,11 +25,7 @@ module NCFG = struct
 
   let ncfg_to buf (r,cs) =
     Routing.routing_to buf r;
-    let e2 buf k v =
-      Llio.string_to buf k;
-      ClientCfg.cfg_to buf v
-    in
-    Llio.hashtbl_to buf e2 cs
+    Llio.hashtbl_to Llio.string_to ClientCfg.cfg_to buf cs
 
   let ncfg_from buf =
     let r = Routing.routing_from buf in
@@ -38,7 +34,7 @@ module NCFG = struct
       let v = ClientCfg.cfg_from buf in
       (k,v)
     in
-    let cfgs = Llio.hashtbl_from buf ef in
+    let cfgs = Llio.hashtbl_from ef buf in
     {r;cfgs}
 
 
