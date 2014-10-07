@@ -29,7 +29,7 @@ true: package(snappy)
 "src/plugins": include
 "examples/ocaml": include
 "src/main" : include
-<**/arakoon.*{byte,native}>: is_main
+<**/arakoon.*{byte,native}>: is_main, linkall
 <**/nursery.*{byte,native}>: is_main
 <**/profile.*{byte,native}>: is_main, package(ocamlviz)
 <**/bs_bench.*{byte,native}>: is_main

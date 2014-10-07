@@ -21,3 +21,7 @@ Inifiles
 Parseini
 Inilexer
 Client_log
+Simple_store
+Logger
+Crash_logger
+Ring_buffer

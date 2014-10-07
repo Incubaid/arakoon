@@ -46,6 +46,7 @@ type local_action =
   | EXPECT_PROGRESS_POSSIBLE
   | STATISTICS
   | PREFIX
+  | USER_FUNCTION
   | Collapse_remote
   | Backup_db
   | Optimize_db
@@ -175,6 +176,7 @@ let main () =
   and node_id = ref ""
   and key = ref ""
   and value = ref ""
+  and value_option = ref None
   and ip = ref "127.0.0.1"
   and port = ref 4000
   and cluster_id = ref "<none>"
@@ -292,6 +294,9 @@ let main () =
     ("--prefix", Arg.Tuple[set_laction PREFIX;
                            Arg.Set_string key;
                           ], "<prefix>: all starting with <prefix>");
+    ("--user-function", Arg.Tuple[set_laction USER_FUNCTION;
+                                  Arg.Set_string key;], "<name>: invoke user function 'name'");
+    ("-value", Arg.String (fun s -> value_option := Some s), "specify a value to pass to the user-function");
     ("--benchmark", set_laction BENCHMARK, "run a benchmark on an existing Arakoon cluster");
     ("--load", Arg.Tuple [set_laction LOAD;Arg.Set_int n_clients],
      "<n> clients that generate load on a cluster");
@@ -436,6 +441,7 @@ let main () =
     | LOAD -> Load_client.main ~tls !config_file
                 !n_clients
     | DELETE -> Client_main.delete ~tls !config_file !key
+    | USER_FUNCTION -> Client_main.user_function ~tls !config_file !key !value_option
     | WHO_MASTER -> Client_main.who_master ~tls !config_file ()
     | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible ~tls !config_file
     | STATISTICS -> Client_main.statistics ~tls !config_file
