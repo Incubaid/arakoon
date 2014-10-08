@@ -401,13 +401,11 @@ def test_consistency():
     logging.debug("m = %s", m)
     assert_equals(str(m).find("AtLeast"),0)
     time.sleep(5)
-    client.setConsistency(m)
-    v = client.get('x')
+    v = client.get('x', consistency=m)
     assert_equals(v,'X')
     m2 = AtLeast(1000)
-    client.setConsistency(m2)
     try:
-        v2 = client.get('z')
+        v2 = client.get('z', consistency=m2)
         raise Exception()
     except X.arakoon_client.ArakoonException as e:
         logging.debug(e._msg)
