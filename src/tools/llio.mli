@@ -43,6 +43,8 @@ type 'a deserializer = buffer -> 'a
 type 'a lwt_serializer = lwtoc -> 'a -> unit Lwt.t
 type 'a lwt_deserializer = lwtic -> 'a Lwt.t
 
+
+val unit_to  : unit   serializer
 val bool_to  : bool   serializer
 val char_to  : char   serializer
 val int_to   : int    serializer
@@ -59,7 +61,7 @@ val string_list_to : string list serializer
 val pair_to : 'a serializer -> 'b serializer -> ('a * 'b) serializer
 val hashtbl_to: 'a serializer -> 'b serializer -> ('a, 'b) Hashtbl.t serializer
 
-
+val unit_from : unit  deserializer
 val bool_from : bool  deserializer
 val char_from : char  deserializer
 val int_from  : int   deserializer

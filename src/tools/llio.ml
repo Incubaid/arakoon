@@ -132,6 +132,9 @@ let char_from buffer =
   c
 
 
+let unit_to _ () = ()
+let unit_from = ignore
+
 let bool_to buffer b =
   let c = if b then '\x01' else '\x00' in
   Buffer.add_char buffer c
