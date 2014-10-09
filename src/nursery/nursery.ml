@@ -76,7 +76,7 @@ module NC = struct
           let ip = List.hd ips in
           try_connect (ip,port) >>= function
           | Some conn ->
-            Common.prologue cn conn >>= fun () ->
+            Protocol_common.prologue cn conn >>= fun () ->
             let () = Hashtbl.add t.connections nn (Connection conn) in
             Lwt.return conn
           | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
@@ -99,7 +99,7 @@ module NC = struct
       begin
         match acc with
           | None ->
-            Common.who_master conn
+            Protocol_common.who_master conn
           | x -> Lwt.return x
       end
     in
@@ -127,18 +127,18 @@ module NC = struct
   let set t key value =
     let cn = NCFG.find_cluster t.rc key in
     Logger.debug_f_ "set %S => %s" key cn >>= fun () ->
-    let todo conn = Common.set conn key value in
+    let todo conn = Protocol_common.set conn key value in
     _with_master_connection t cn todo
 
   let get t key =
     let cn = NCFG.find_cluster t.rc key in
-    let todo conn = Common.get conn ~consistency:Consistent key in
+    let todo conn = Protocol_common.get conn ~consistency:Consistent key in
     _with_master_connection t cn todo
 
   let force_interval t cn i =
     Logger.debug_f_ "force_interval %s: %s" cn (Interval.to_string i) >>= fun () ->
     _with_master_connection t cn
-      (fun conn -> Common.set_interval conn i)
+      (fun conn -> Protocol_common.set_interval conn i)
 
 
   let close _t = Llio.lwt_failfmt "close not implemented"
@@ -150,24 +150,24 @@ module NC = struct
     let pull () =
       Logger.debug_ "pull">>= fun () ->
       _with_master_connection t from_cn
-        (fun conn -> Common.get_fringe conn sep direction )
+        (fun conn -> Protocol_common.get_fringe conn sep direction )
     in
     let push fringe i =
       let seq = List.map (fun (k,v) -> Arakoon_client.Set(k,v)) fringe in
       Logger.debug_ "push" >>= fun () ->
       _with_master_connection t to_cn
-        (fun conn -> Common.migrate_range conn i seq)
+        (fun conn -> Protocol_common.migrate_range conn i seq)
     in
     let delete fringe =
       let seq = List.map (fun (k,_v) -> Arakoon_client.Delete k) fringe in
       Logger.debug_ "delete" >>= fun () ->
       _with_master_connection t from_cn
-        (fun conn -> Common.sequence conn seq)
+        (fun conn -> Protocol_common.sequence conn seq)
     in
     let get_next_key k =
       k ^ (String.make 1 (Char.chr 1))
     in
-    let get_interval cn = _with_master_connection t cn Common.get_interval in
+    let get_interval cn = _with_master_connection t cn Protocol_common.get_interval in
     let set_interval cn i = force_interval t cn i in
     let i2s i = Interval.to_string i in
     Logger.debug_f_ "Getting initial interval from %s" from_cn >>= fun () ->
@@ -262,7 +262,7 @@ module NC = struct
             let () = NCFG.set_routing t.rc new_route in
             Logger.debug_f_ "new route:%S" (Routing.to_s new_route) >>= fun () ->
             _with_master_connection t t.keeper_cn
-              (fun conn -> Common.set_routing_delta conn left sep right)
+              (fun conn -> Protocol_common.set_routing_delta conn left sep right)
           | None -> failwith "Cannot end up with an empty separator during regular migration"
       end
     in
@@ -319,13 +319,13 @@ module NC = struct
             let () = NCFG.set_routing t.rc new_route in
             Logger.debug_f_ "new route:%S" (Routing.to_s new_route) >>= fun () ->
             _with_master_connection t t.keeper_cn
-              (fun conn -> Common.set_routing_delta conn left sep right)
+              (fun conn -> Protocol_common.set_routing_delta conn left sep right)
           | None ->
             let new_route = Routing.remove route cluster_id in
             let () = NCFG.set_routing t.rc new_route in
             Logger.debug_f_ "new route:%S" (Routing.to_s new_route) >>= fun () ->
             _with_master_connection t t.keeper_cn
-              (fun conn -> Common.set_routing conn new_route)
+              (fun conn -> Protocol_common.set_routing conn new_route)
       end
     in
     let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in

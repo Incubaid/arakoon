@@ -38,7 +38,7 @@ install_client:
 	  _build/src/client/arakoon_client.cmi \
 	  _build/src/client/arakoon_remote_client.mli \
 	  _build/src/client/arakoon_remote_client.cmi \
-          _build/src/client/common.cmi \
+          _build/src/client/protocol_common.cmi \
           _build/src/lib/std.cmi \
           _build/src/plugins/registry.mli \
           _build/src/plugins/registry.cmi \

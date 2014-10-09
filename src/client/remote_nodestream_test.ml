@@ -67,11 +67,11 @@ let __wrap__ port conversation =
 let set_interval port () =
   let conversation conn =
     Logger.debug_ "starting set_interval ..." >>= fun () ->
-    Common.prologue cluster_id conn >>= fun () ->
+    Protocol_common.prologue cluster_id conn >>= fun () ->
     let i0 = Interval.make (Some "a") None None None in
     Logger.debug_f_ "i0=%S" (Interval.to_string i0) >>= fun () ->
-    Common.set_interval conn i0 >>= fun () ->
-    Common.get_interval conn >>= fun i1 ->
+    Protocol_common.set_interval conn i0 >>= fun () ->
+    Protocol_common.get_interval conn >>= fun i1 ->
     OUnit.assert_equal ~printer:Interval.to_string i0 i1;
     Lwt_unix.sleep 4.0
   in

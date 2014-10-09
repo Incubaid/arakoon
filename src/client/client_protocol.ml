@@ -15,7 +15,7 @@ limitations under the License.
 *)
 
 open Std
-open Common
+open Protocol_common
 open Lwt
 open Log_extra
 open Update
@@ -186,7 +186,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
      end
   | EXISTS ->
     begin
-      Common.input_consistency ic  >>= fun consistency ->
+      Protocol_common.input_consistency ic  >>= fun consistency ->
       Llio.input_string ic >>= fun key ->
       Logger.debug_f_ "connection=%s EXISTS: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
       wrap_exception
@@ -195,7 +195,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
     end
   | GET ->
     begin
-      Common.input_consistency   ic >>= fun consistency ->
+      Protocol_common.input_consistency   ic >>= fun consistency ->
       Llio.input_string ic >>= fun  key ->
       Logger.debug_f_ "connection=%s GET: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
       wrap_exception
@@ -204,7 +204,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
     end
   | ASSERT ->
     begin
-      Common.input_consistency ic >>= fun consistency ->
+      Protocol_common.input_consistency ic >>= fun consistency ->
       Llio.input_string ic        >>= fun key ->
       Llio.input_string_option ic >>= fun vo ->
       Logger.debug_f_ "connection=%s ASSERT: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
@@ -214,7 +214,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
     end
   | ASSERTEXISTS ->
     begin
-      Common.input_consistency ic >>= fun consistency ->
+      Protocol_common.input_consistency ic >>= fun consistency ->
       Llio.input_string ic        >>= fun key ->
       Logger.debug_f_ "connection=%s ASSERTEXISTS: consistency=%s key=%S" id (consistency2s consistency) key >>= fun () ->
       wrap_exception
@@ -244,7 +244,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
        Logger.debug_f_ "connection=%s GET_TXID" id >>= fun () ->
        let txid = backend # get_txid () in
        response_ok oc >>= fun () ->
-       Common.output_consistency oc txid >>= fun () ->
+       Protocol_common.output_consistency oc txid >>= fun () ->
        Lwt.return false
      end
   | DELETE ->
@@ -258,7 +258,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
     end
   | RANGE ->
     begin
-      Common.input_consistency ic >>= fun consistency ->
+      Protocol_common.input_consistency ic >>= fun consistency ->
       Llio.input_string_option ic >>= fun (first:string option) ->
       Llio.input_bool          ic >>= fun finc  ->
       Llio.input_string_option ic >>= fun (last:string option)  ->
@@ -276,7 +276,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
     end
   | RANGE_ENTRIES ->
     begin
-      Common.input_consistency ic >>= fun consistency ->
+      Protocol_common.input_consistency ic >>= fun consistency ->
       Llio.input_string_option ic >>= fun first ->
       Llio.input_bool          ic >>= fun finc  ->
       Llio.input_string_option ic >>= fun last  ->
@@ -294,7 +294,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
     end
   | REV_RANGE_ENTRIES ->
     begin
-      Common.input_consistency ic >>= fun consistency ->
+      Protocol_common.input_consistency ic >>= fun consistency ->
       Llio.input_string_option ic >>= fun first ->
       Llio.input_bool          ic >>= fun finc  ->
       Llio.input_string_option ic >>= fun last  ->
@@ -383,7 +383,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
     end
   | USER_HOOK ->
      begin
-       Common.input_consistency ic >>= fun consistency ->
+       Protocol_common.input_consistency ic >>= fun consistency ->
        Llio.input_string ic >>= fun name ->
        Logger.debug_f_ "connection=%s USER_HOOK: consistency=%s name=%S" id (consistency2s consistency) name >>= fun () ->
        Lwt.catch
@@ -406,7 +406,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
      end
   | PREFIX_KEYS ->
     begin
-      Common.input_consistency ic >>= fun consistency ->
+      Protocol_common.input_consistency ic >>= fun consistency ->
       Llio.input_string ic >>= fun key ->
       Llio.input_int    ic >>= fun max ->
       Logger.debug_f_ "connection=%s PREFIX_KEYS: consistency=%s key=%S max=%i" id (consistency2s consistency) key max
@@ -420,7 +420,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
     end
   | MULTI_GET ->
     begin
-      Common.input_consistency ic >>= fun consistency ->
+      Protocol_common.input_consistency ic >>= fun consistency ->
       Llio.input_counted_list Llio.input_string ic >>= fun (length, keys) ->
       Logger.debug_f_ "connection=%s MULTI_GET: consistency=%s length=%i keys=%S" id (consistency2s consistency) length
         (String.concat ";" keys) >>= fun () ->
@@ -434,7 +434,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
     end
   | MULTI_GET_OPTION ->
     begin
-      Common.input_consistency ic >>= fun consistency ->
+      Protocol_common.input_consistency ic >>= fun consistency ->
       Llio.input_counted_list Llio.input_string ic >>= fun (length, keys) ->
       Logger.debug_f_ "connection=%s MULTI_GET_OPTION: consistency=%s length=%i keys=%S"
         id (consistency2s consistency) length (String.concat ";" keys) >>= fun () ->

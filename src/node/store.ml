@@ -210,7 +210,7 @@ struct
               let v = _get store key in
               v::acc
             with Not_found ->
-              let exn = Common.XException(Arakoon_exc.E_NOT_FOUND, key) in
+              let exn = Protocol_common.XException(Arakoon_exc.E_NOT_FOUND, key) in
               raise exn)
             [] keys
         in
@@ -405,7 +405,7 @@ struct
     then
       S.copy_store store.s true oc
     else
-      let ex = Common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
+      let ex = Protocol_common.XException(Arakoon_exc.E_UNKNOWN_FAILURE, "Can only copy a quiesced store" ) in
       raise ex
 
   let copy_store2 old_location new_location ~overwrite ~throttling =
@@ -449,7 +449,7 @@ struct
   let with_transaction store f =
     if store.closed
     then
-      raise (Common.XException (Arakoon_exc.E_GOING_DOWN, "opening a transaction while database is closed"))
+      raise (Protocol_common.XException (Arakoon_exc.E_GOING_DOWN, "opening a transaction while database is closed"))
     else
       let current_i = store.store_i in
       Lwt.catch
@@ -710,7 +710,7 @@ struct
          (match exn with
           | Not_found ->
              Update_fail (Arakoon_exc.E_NOT_FOUND, "Not_found")
-          | Common.XException(rc, msg) ->
+          | Protocol_common.XException(rc, msg) ->
              Update_fail (rc, msg)
           | exn ->
              Update_fail (Arakoon_exc.E_USERFUNCTION_FAILURE, Printexc.to_string exn)))

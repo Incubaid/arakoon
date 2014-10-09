@@ -26,7 +26,7 @@ struct
   open Log_extra
   open Update
   open Interval
-  open Common
+  open Protocol_common
   open Master_type
   open Arakoon_client
 

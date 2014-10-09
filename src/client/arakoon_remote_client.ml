@@ -15,7 +15,7 @@ limitations under the License.
 *)
 
 open Lwt
-open Common
+open Protocol_common
 open Statistics
 open Arakoon_client
 
@@ -26,9 +26,9 @@ class remote_client ((ic,oc) as conn) =
       request  oc (fun buf -> exists_to ~consistency buf key) >>= fun () ->
       response ic Llio.input_bool
 
-    method get ?(consistency=Consistent) key = Common.get conn ~consistency key
+    method get ?(consistency=Consistent) key = Protocol_common.get conn ~consistency key
 
-    method set key value = Common.set conn key value
+    method set key value = Protocol_common.set conn key value
 
     method confirm key value =
       request  oc (fun buf -> confirm_to buf key value) >>= fun () ->
@@ -46,7 +46,7 @@ class remote_client ((ic,oc) as conn) =
       request  oc (fun buf -> delete_to buf key) >>= fun () ->
       response ic nothing
 
-    method delete_prefix prefix = Common.delete_prefix conn prefix
+    method delete_prefix prefix = Protocol_common.delete_prefix conn prefix
 
     method range ?(consistency=Consistent) first finc last linc max =
       request oc (fun buf -> range_to buf ~consistency first finc last linc max)
@@ -93,11 +93,11 @@ class remote_client ((ic,oc) as conn) =
       request oc (fun buf -> multiget_option_to buf ~consistency keys) >>= fun () ->
       response ic (Llio.input_list Llio.input_string_option)
 
-    method sequence changes = Common.sequence conn changes
+    method sequence changes = Protocol_common.sequence conn changes
 
-    method synced_sequence changes = Common.synced_sequence conn changes
+    method synced_sequence changes = Protocol_common.synced_sequence conn changes
 
-    method who_master () = Common.who_master conn
+    method who_master () = Protocol_common.who_master conn
 
     method expect_progress_possible () =
       request  oc (fun buf -> expect_progress_possible_to buf) >>= fun () ->
@@ -120,19 +120,19 @@ class remote_client ((ic,oc) as conn) =
       response ic Llio.input_int64
 
     method get_cluster_cfgs () =
-      Common.get_nursery_cfg conn
+      Protocol_common.get_nursery_cfg conn
 
     method version () =
-      Common.version conn
+      Protocol_common.version conn
 
-    method current_state () = Common.current_state conn
-    method nop () = Common.nop conn
-    method get_txid () = Common.get_txid conn
+    method current_state () = Protocol_common.current_state conn
+    method nop () = Protocol_common.nop conn
+    method get_txid () = Protocol_common.get_txid conn
 
 end: Arakoon_client.client )
 
 let make_remote_client cluster connection =
-  Common.prologue cluster connection >>= fun () ->
+  Protocol_common.prologue cluster connection >>= fun () ->
   let client = new remote_client connection in
   let ac = (client :> Arakoon_client.client) in
   Lwt.return ac
