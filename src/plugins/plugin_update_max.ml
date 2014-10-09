@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-open Lwt
+
 open Registry
 
 let s2i = int_of_string
