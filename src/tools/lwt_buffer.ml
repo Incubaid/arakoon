@@ -23,95 +23,112 @@ If not, see <http://www.gnu.org/licenses/>.
 open Lwt
 
 module Lwt_buffer = struct
+  (* Notes:
+
+   - Any action (push/pop/...) on `queue` should be guarded using `lock`
+   - Conditions are only broadcasted to, don't rely on `signal`
+   - Make sure to broadcast the appropriate condition whenever suitable
+   - Always pass the lock when waiting for some condition
+   - Don't try to be too clever
+  *)
+
   type 'a t = {
-    empty_m: Lwt_mutex.t;
-    full_m: Lwt_mutex.t;
-    empty: unit Lwt_condition.t;
-    full : unit Lwt_condition.t;
-    q: 'a Queue.t;
     capacity : int option;
-    leaky: bool;
+    leaky : bool;
+
+    queue : 'a Queue.t;
+    lock : Lwt_mutex.t;
+
+    element_removed : unit Lwt_condition.t;
+    element_added : unit Lwt_condition.t;
   }
 
-  let create ?(capacity=None) ?(leaky=false)() = {
-    empty_m = Lwt_mutex.create();
-    full_m = Lwt_mutex.create();
-    empty = Lwt_condition.create();
-    full  = Lwt_condition.create();
-    q = Queue.create();
-    capacity = capacity;
-    leaky = leaky;
+  let create ?(capacity=None) ?(leaky=false) () = {
+    capacity;
+    leaky;
+
+    queue = Queue.create ();
+    lock = Lwt_mutex.create ();
+
+    element_removed = Lwt_condition.create ();
+    element_added = Lwt_condition.create ();
   }
 
   let create_fixed_capacity i =
-    let capacity = Some i in
-    create ~capacity ()
-
-  let _is_full t =
-    match t.capacity with
-      | None -> false
-      | Some c -> Queue.length t.q = c
-
-  let add e t =
-    Lwt_mutex.with_lock t.full_m
-      (fun () ->
-        let _add e =
-	      let () = Queue.add e t.q in
-	      let () = Lwt_condition.signal t.empty () in
-	      Lwt.return ()
-        in
-        if _is_full t
-        then
-	      if t.leaky
-	      then Lwt.return () (* Logger.debug "leaky buffer reached capacity: dropping" *)
-	      else
-	        begin
-	          Lwt_condition.wait (* ~mutex:t.full_m *) t.full >>= fun () ->
-	          _add e
-	        end
-        else
-	      _add e
-      )
-
-  let take t =
-    Lwt_mutex.with_lock t.empty_m
-      (fun () ->
-        if Queue.is_empty t.q
-        then Lwt_condition.wait (* ~mutex:t.empty_m *) t.empty
-        else Lwt.return ()
-      ) >>= fun () ->
-    let e = Queue.take t.q in
-    let () = Lwt_condition.signal t.full () in
-    Lwt.return e
-
-  let harvest t =
-    Lwt_mutex.with_lock t.empty_m
-      (fun () -> if Queue.is_empty t.q
-        then Lwt_condition.wait (* ~mutex:t.empty_m *) t.empty
-        else Lwt.return ()
-      ) >>= fun () ->
-    let size = Queue.length t.q in
-    let rec loop es = function
-      | 0 -> List.rev es
-      | i ->
-          let es' = Queue.take t.q :: es
-          and i' = i - 1 in
-          loop es' i'
-    in
-    let es = loop [] size in
-    let () = Lwt_condition.signal t.full() in
-    Lwt.return es
+    create ~capacity:(Some i) ()
 
   let wait_for_item t =
-    Lwt_mutex.with_lock t.empty_m
-      (fun () ->
-        if Queue.is_empty t.q then
-	      Lwt_condition.wait t.empty
-        else Lwt.return ()
-      )
+    Lwt_mutex.with_lock t.lock (fun () ->
+      if not (Queue.is_empty t.queue)
+        then Lwt.return ()
+        else Lwt_condition.wait ~mutex:t.lock t.element_added)
 
   let wait_until_empty t =
-    if Queue.is_empty t.q
-    then Lwt.return ()
-    else Lwt_condition.wait (*~mutex:t.full_m *) t.full
+    let rec loop () =
+      if Queue.is_empty t.queue
+        then Lwt.return ()
+        else
+          Lwt_condition.wait ~mutex:t.lock t.element_removed >>= loop
+    in
+    Lwt_mutex.with_lock t.lock loop
+
+  let take t =
+    let rec loop () =
+      if not (Queue.is_empty t.queue)
+        then begin
+          let v = Queue.take t.queue in
+          Lwt_condition.broadcast t.element_removed ();
+          Lwt.return v
+        end
+        else
+          Lwt_condition.wait ~mutex:t.lock t.element_added >>= loop
+    in
+    Lwt_mutex.with_lock t.lock loop
+
+  let harvest t =
+    let harvest' q =
+      let l = Queue.fold (fun l v -> v :: l) [] q in
+      Queue.clear q;
+      List.rev l
+    in
+
+    let rec loop () =
+      if not (Queue.is_empty t.queue)
+        then begin
+          let l = harvest' t.queue in
+          Lwt_condition.broadcast t.element_removed ();
+          Lwt.return l
+        end
+        else
+          Lwt_condition.wait ~mutex:t.lock t.element_added >>= loop
+    in
+    Lwt_mutex.with_lock t.lock loop
+
+  let add e t =
+    let add' () =
+      Queue.add e t.queue;
+      Lwt_condition.broadcast t.element_added ()
+    in
+
+    let go () = match t.capacity with
+      | None -> Lwt.return (add' ())
+      | Some capacity' -> begin
+          let rec loop () =
+            if Queue.length t.queue < capacity'
+              then Lwt.return (add' ())
+              else begin
+                if t.leaky
+                  then Lwt.return ()
+                  else
+                    (* Note: Can't simply add when this wait returns, because the
+                     * condition is broadcasted, so some other thread could have
+                     * added some item already.
+                     *)
+                    Lwt_condition.wait ~mutex:t.lock t.element_removed >>= loop
+              end
+          in
+          loop ()
+      end
+    in
+    Lwt_mutex.with_lock t.lock go
 end
