@@ -29,6 +29,7 @@ module Key = struct
   let compare k1 k2 =
     (* both keys should have the same first character... *)
     String.compare k1 k2
+  let get_with_prefix t = t
 end
 
 include Key

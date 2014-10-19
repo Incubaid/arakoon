@@ -30,11 +30,6 @@ type t = { db : Camltc.Hotc.t;
            ncnum : int;
          }
 
-let range ls first finc last linc max =
-  let bdb = Camltc.Hotc.get_bdb ls.db in
-  B.range bdb (Some first) finc last linc max
-
-
 let copy_store2 old_location new_location
                 ~overwrite ~throttling =
   File_system.exists old_location >>= fun src_exists ->
@@ -145,10 +140,6 @@ let put ls tx key = function
      end
   | Some v ->
      set ls tx key v
-
-let delete_prefix ls tx prefix =
-  _with_tx ls tx
-    (fun db -> B.delete_prefix db prefix)
 
 let flush _ls =
   Lwt.return ()

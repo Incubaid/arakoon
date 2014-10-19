@@ -175,7 +175,7 @@ struct
         self # _read_allowed consistency;
         self # _check_interval_range first last;
         let r = S.range store first finc last linc max in
-        Statistics.new_range _stats start (Array.length r);
+        Statistics.new_range _stats start (fst r);
         r
 
       method private with_blocked_collapser start_i f =

@@ -270,7 +270,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
         (fun () ->
          let keys = backend # range ~consistency first finc last linc max in
          response_ok oc >>= fun () ->
-         Llio.output_array_reversed Llio.output_key oc keys >>= fun () ->
+         Llio.output_counted_list Llio.output_key oc keys >>= fun () ->
          Lwt.return false
         )
     end

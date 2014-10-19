@@ -27,14 +27,16 @@ module Rocks_key_value_store = struct
     RocksDb.close t.db;
     Lwt.return ()
 
-  let get t key =
+  let get' t key =
     let ro = ReadOptions.create () in
     RocksDb.get t.db ro key
   let get_exn t key =
-    match get t key with
+    match get' t key with
       | Some v -> v
       | None -> raise Not_found
-  let exists t key = get t key <> None
+  let get = get_exn
+
+  let exists t key = get' t key <> None
 
   type cursor = Iterator.t
 
@@ -97,4 +99,26 @@ module Rocks_key_value_store = struct
 
   let set t tx key value =
     put t tx key (Some value)
+
+  let copy_store2 s1 s2 ~overwrite ~throttling =
+    ignore (s1, s2, overwrite, throttling);
+    failwith "not implemented"
+
+  let copy_store t b oc =
+    ignore (t, b, oc);
+    failwith "not implemented"
+
+  let defrag t =
+    ignore t;
+    failwith "not implemented"
+
+  let optimize t ~quiesced ~stop =
+    ignore (t, quiesced, stop);
+    failwith "not implemented"
+
+  let get_key_count _t = failwith "not supported"
+
+  let relocate _t _s = failwith "not supported"
+
+  let flush _t = Lwt.return ()
 end

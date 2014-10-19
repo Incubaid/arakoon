@@ -40,7 +40,7 @@ class type backend = object
   method range:
     consistency:consistency ->
     string option -> bool ->
-    string option -> bool -> int -> (Key.t array)
+    string option -> bool -> int -> (Key.t counted_list)
   method range_entries:
     consistency:consistency ->
     string option -> bool ->

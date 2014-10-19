@@ -136,6 +136,9 @@ let _ = dispatch & function
 
       flag ["ocaml";"byte";"link"] (S[A"-custom";]);
 
+      flag ["ocaml";"native";"link"]
+        (S[A"-cclib"; A"/usr/local/lib/librocksdb.so"]);
+
       flag ["ocaml";"compile";"warn_error"]
         (S[A"-w"; A warnings; A"-warn-error"; A errors]);
 

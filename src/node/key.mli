@@ -22,5 +22,6 @@ val length : t -> int
 val sub : t -> int -> int -> string
 val to_oc : t -> Lwt_io.output_channel -> unit Lwt.t
 val get : t -> string
+val get_with_prefix : t -> string
 
 include Comparable with type t := t

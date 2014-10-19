@@ -93,35 +93,6 @@ let put ms tx key vo =
   | Some v ->
      set ms tx key v
 
-module CS = Extended_cursor_store(Cursor)
-
-let delete_prefix ms tx prefix =
-  _verify_tx ms tx;
-  let count, () =
-    with_cursor
-      ms
-      (fun cur ->
-       CS.fold_range cur prefix true (next_prefix prefix) false
-                     (-1)
-                     (fun _ k _ () ->
-                      put ms tx k None)
-                     ()) in
-  count
-
-
-let range ms first finc last linc max =
-  let _count, keys =
-    with_cursor
-      ms
-      (fun cur ->
-       CS.fold_range cur
-                     first finc last linc
-                     max
-                     (fun _ k _ acc ->
-                      k :: acc)
-                     []) in
-  Array.of_list keys
-
 let optimize _ms ~quiesced ~stop =
     let () = ignore quiesced in
     let () = ignore stop in

@@ -75,7 +75,7 @@ sig
   val exists : t -> string -> bool
   val range :  t ->
     string option -> bool ->
-    string option -> bool -> int -> Key.t array
+    string option -> bool -> int -> Key.t counted_list
   val range_entries :  t -> ?_pf:string ->
     string option -> bool ->
     string option -> bool -> int -> (Key.t * string) counted_list
@@ -519,17 +519,16 @@ struct
   let range store first finc last linc max =
     _wrap_exception
       store
-      "RANGE"
+      "RANGE_ENTRIES"
       CorruptStore
       (fun () ->
-       let first' = _f __prefix first in
-       let last' = _l __prefix last in
-       let (r : string array) = S.range store.s
-                       first' finc last' linc
-                       max
-       in
-       let (r' : Key.t array) = (Obj.magic r) in
-       r')
+       let r = fold_range store __prefix
+               first finc last linc
+               max
+               (fun _cur k _ acc ->
+                Key.make k :: acc)
+               [] in
+       r)
 
   let _range_entries store first finc last linc max =
     let _, r =
@@ -759,7 +758,13 @@ struct
           wrap (fun () -> _delete store tx key)
         | Update.DeletePrefix prefix ->
           Logger.debug_f_ "store :: delete_prefix %S" prefix >>= fun () ->
-          let n_deleted = S.delete_prefix store.s tx (__prefix ^ prefix) in
+          let n_deleted, keys = prefix_keys store prefix (-1) in
+          List.iter
+            (fun k ->
+               S.put
+                 store.s tx
+                 (Key.get_with_prefix k) None)
+            keys;
           let sb = Buffer.create 8 in
           let () = Llio.int_to sb n_deleted in
           let ser = Buffer.contents sb in
