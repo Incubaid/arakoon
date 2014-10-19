@@ -6,6 +6,7 @@ let dependencies = [ "lwt"
                    ; "ssl"
                    ; "bz2"
                    ; "quickcheck"
+                   ; "rocks"
                    ]
 
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)

@@ -12,7 +12,7 @@ clean:
 	ocamlbuild -clean
 
 build:
-	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
+	ocamlbuild -j 4 -use-ocamlfind arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
 
 bench:
 	ocamlbuild -use-ocamlfind bs_bench.native

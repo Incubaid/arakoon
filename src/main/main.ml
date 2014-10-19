@@ -17,6 +17,14 @@ limitations under the License.
 open OUnit_XML
 open OUnit
 open Node_cfg
+open Rocks_store
+
+let () =
+  let open Lwt in
+  Lwt.ignore_result begin
+    Rocks_key_value_store.make_store ~lcnum:1 ~ncnum:1 12 "fdafsd" >>= fun db ->
+    Rocks_key_value_store.close ~flush:1 ~sync:1 db
+  end
 
 type local_action =
   | ShowUsage
