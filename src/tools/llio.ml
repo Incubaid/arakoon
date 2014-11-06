@@ -118,6 +118,10 @@ let string_from buffer =
   let () = buffer.pos <- pos + size in
   s
 
+let substring_to buffer (s, offset, length) =
+  int_to buffer length;
+  Buffer.add_substring buffer s offset length
+
 let string_to buffer s =
   let size = String.length s in
   int_to buffer size;

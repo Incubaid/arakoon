@@ -31,7 +31,7 @@ type namedValue =
 
 val lwt_failfmt :  ('a, unit, string, 'b Lwt.t) format4 -> 'a
 
-type buffer
+type buffer = { buf : string; mutable pos : int }
 val make_buffer : string -> int -> buffer
 val buffer_pos : buffer -> int
 val buffer_done : buffer -> bool
@@ -52,6 +52,7 @@ val int32_to : int32  serializer
 val int64_to : int64  serializer
 val float_to : float  serializer
 val string_to: string serializer
+val substring_to: (string * int * int) serializer
 val option_to: 'a serializer -> 'a option serializer
 val string_option_to: string option serializer
 val named_field_to: namedValue serializer
