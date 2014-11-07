@@ -63,7 +63,7 @@ let value_to buf v=
     | Vc (us,synced)     ->
       Llio.char_to buf 'c';
       Llio.bool_to buf synced;
-      Llio.list_to buf Update.to_buffer us
+      Llio.list_to Update.to_buffer buf us
     | Vm (m,l) ->
       begin
         Llio.char_to buf 'm';
@@ -80,7 +80,7 @@ let value_from b =
     match c with
       | 'c' ->
         let synced = Llio.bool_from b  in
-        let us     = Llio.list_from b Update.from_buffer in
+        let us     = Llio.list_from Update.from_buffer b in
         let r = Vc(us,synced) in
         r
       | 'm' -> let m = Llio.string_from b in

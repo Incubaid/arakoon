@@ -22,12 +22,7 @@ module ClientCfg = struct
   type t = (string, node_address) Hashtbl.t
 
   let cfg_to buf (t:t) =
-    let entry2 buf k (ips,p) =
-      Llio.string_to buf k;
-      Llio.string_list_to buf ips;
-      Llio.int_to buf p
-    in
-    Llio.hashtbl_to buf entry2 t
+    Llio.hashtbl_to Llio.string_to (Llio.pair_to Llio.string_list_to Llio.int_to) buf t
 
   let cfg_from buf  =
     let entry_from buf =
@@ -37,7 +32,7 @@ module ClientCfg = struct
       let (na:node_address) = ips,p in
       (k,na)
     in
-    Llio.hashtbl_from buf entry_from
+    Llio.hashtbl_from entry_from buf
 
   let to_string t =
     let buffer = Buffer.create 127 in

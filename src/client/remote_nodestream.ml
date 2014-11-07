@@ -16,7 +16,7 @@ limitations under the License.
 
 open Interval
 open Routing
-open Common
+open Protocol_common
 open Lwt
 open Client_cfg
 open Ncfg
@@ -145,18 +145,18 @@ class remote_nodestream ((ic,oc) as conn) =
     response ic incoming
 
 
-  method set_interval iv = Common.set_interval conn iv
-  method get_interval () = Common.get_interval conn
+  method set_interval iv = Protocol_common.set_interval conn iv
+  method get_interval () = Protocol_common.get_interval conn
 
-  method get_routing () = Common.get_routing conn
+  method get_routing () = Protocol_common.get_routing conn
 
-  method set_routing r = Common.set_routing conn r
+  method set_routing r = Protocol_common.set_routing conn r
 
-  method set_routing_delta left sep right = Common.set_routing_delta conn left sep right
+  method set_routing_delta left sep right = Protocol_common.set_routing_delta conn left sep right
 
-  method optimize_db () = Common.optimize_db conn
+  method optimize_db () = Protocol_common.optimize_db conn
 
-  method defrag_db () = Common.defrag_db conn
+  method defrag_db () = Protocol_common.defrag_db conn
   method get_db db_location =
 
     let outgoing buf =
@@ -169,16 +169,16 @@ class remote_nodestream ((ic,oc) as conn) =
     request  oc outgoing >>= fun () ->
     response ic incoming
 
-  method get_fringe (boundary:string option) direction= Common.get_fringe conn boundary direction
+  method get_fringe (boundary:string option) direction= Protocol_common.get_fringe conn boundary direction
 
   method store_cluster_cfg cluster_id cfg =
-    Common.set_nursery_cfg (ic,oc) cluster_id cfg
+    Protocol_common.set_nursery_cfg (ic,oc) cluster_id cfg
 
   method get_nursery_cfg () =
-    Common.get_nursery_cfg (ic,oc)
+    Protocol_common.get_nursery_cfg (ic,oc)
 
   method drop_master () =
-    Common.drop_master conn
+    Protocol_common.drop_master conn
 end :nodestream)
 
 

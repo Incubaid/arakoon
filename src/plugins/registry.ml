@@ -14,6 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
+(* open and user plugin_helper so that it's available for plugins! *)
+open Plugin_helper
+let () = ignore (make_input "" 0)
+
 exception UserFunctionNotFound of string
 
 class type cursor_db =
@@ -73,7 +77,9 @@ end
 
 class type read_user_db =
   object
+    method exists : string -> bool
     method get : string -> string option
+    method get_exn : string -> string
     method with_cursor : (cursor_db -> 'a) -> 'a
 
     method get_interval : unit -> Interval.Interval.t
