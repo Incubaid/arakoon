@@ -3,7 +3,7 @@ PREFIX ?=/usr
 OCAML_VERSION ?= 4.00.1
 
 START = $(DESTDIR)$(PREFIX)
-OCAML_LIBDIR ?= $(START)/lib/ocaml/
+OCAML_LIBDIR ?= `ocamlfind printconf destdir`
 OCAML_FIND ?= ocamlfind
 
 all: build
@@ -47,6 +47,7 @@ install_client:
           _build/src/node/key.mli \
           _build/src/node/key.cmi \
           _build/src/node/simple_store.cmi \
+          _build/src/nursery/routing.cmi \
           _build/src/tlog/interval.cmi \
           _build/src/tlog/update.cmi \
           _build/src/tools/llio.mli \
