@@ -73,6 +73,25 @@ let int32_of_rc rc = Hashtbl.find hmap rc
 let rc_of_int32 i32 =
   try Hashtbl.find rmap i32 with Not_found -> E_UNKNOWN_FAILURE
 
+let string_of_rc = function
+  | E_OK -> "E_OK"
+  | E_NO_MAGIC -> "E_NO_MAGIC"
+  | E_NO_HELLO -> "E_NO_HELLO"
+  | E_NOT_MASTER -> "E_NOT_MASTER"
+  | E_NOT_FOUND -> "E_NOT_FOUND"
+  | E_WRONG_CLUSTER -> "E_WRONG_CLUSTER"
+  | E_ASSERTION_FAILED -> "E_ASSERTION_FAILED"
+  | E_READ_ONLY -> "E_READ_ONLY"
+  | E_OUTSIDE_INTERVAL -> "E_OUTSIDE_INTERVAL"
+  | E_GOING_DOWN -> "E_GOING_DOWN"
+  | E_USERFUNCTION_FAILURE -> "E_USERFUNCTION_FAILURE"
+  | E_MAX_CONNECTIONS -> "E_MAX_CONNECTIONS"
+  | E_NOT_SUPPORTED -> "E_NOT_SUPPORTED"
+  | E_NO_LONGER_MASTER -> "E_NO_LONGER_MASTER"
+  | E_BAD_INPUT -> "E_BAD_INPUT"
+  | E_INCONSISTENT_READ -> "E_INCONSISTENT_READ"
+  | E_UNKNOWN_FAILURE -> "E_UNKNOWN_FAILURE"
+
 exception Exception of rc * string
 
 open Lwt
