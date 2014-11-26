@@ -1,7 +1,6 @@
 true: debug
 true: annot
 true: thread
-true: warn_error
 true: package(lwt)
 true: package(lwt.preemptive)
 true: package(lwt.unix)

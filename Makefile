@@ -34,11 +34,13 @@ install_client:
 	  _build/src/arakoon_client.cmxs \
 	  _build/src/client/arakoon_exc.mli \
 	  _build/src/client/arakoon_exc.cmi \
+          _build/src/client/arakoon_client_config.cmi \
 	  _build/src/client/arakoon_client.mli \
 	  _build/src/client/arakoon_client.cmi \
 	  _build/src/client/arakoon_remote_client.mli \
 	  _build/src/client/arakoon_remote_client.cmi \
           _build/src/client/protocol_common.cmi \
+          _build/src/client/client_helper.cmi \
           _build/src/inifiles/inifiles.mli \
           _build/src/inifiles/inifiles.cmi \
           _build/src/lib/std.cmi \
@@ -55,6 +57,10 @@ install_client:
           _build/src/tools/ini.cmi \
           _build/src/tools/llio.mli \
           _build/src/tools/llio.cmi \
+          _build/src/tools/network.cmi \
+          _build/src/tools/lwt_extra.cmi \
+          _build/src/tools/typed_ssl.mli \
+          _build/src/tools/typed_ssl.cmi \
           _build/src/arakoon_client.a
 
 uninstall_client:
