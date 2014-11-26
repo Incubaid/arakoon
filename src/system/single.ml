@@ -523,11 +523,11 @@ let find_master ~tls cluster_cfg =
   let lp = cluster_cfg._lease_period in
   let timeout = 3 * lp in
   let go () =
-    let open Client_main.MasterLookupResult in
-    Client_main.find_master_loop ~tls cluster_cfg >>= function
-      | Found m -> return m.node_name
-      | No_master _ -> Lwt.fail (Failure "No Master")
-      | Too_many_nodes_down _ -> Lwt.fail (Failure "too many nodes down")
+    let open Client_helper.MasterLookupResult in
+    Client_helper.find_master_loop ~tls (Node_cfg.Node_cfg.to_client_cfg cluster_cfg) >>= function
+      | Found (name, cfg) -> return name
+      | No_master -> Lwt.fail (Failure "No Master")
+      | Too_many_nodes_down -> Lwt.fail (Failure "too many nodes down")
       | Unknown_node (n, _) -> return n
       | Exception exn -> Lwt.fail exn
   in

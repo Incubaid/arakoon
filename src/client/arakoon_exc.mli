@@ -39,6 +39,8 @@ val int32_of_rc : rc -> int32
 
 val rc_of_int32: int32 -> rc
 
+val string_of_rc : rc -> string
+
 exception Exception of rc * string
 
 val output_exception : Lwt_io.output_channel -> rc -> string -> unit Lwt.t

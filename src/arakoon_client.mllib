@@ -26,3 +26,8 @@ Logger
 Crash_logger
 Ring_buffer
 Plugin_helper
+Client_helper
+Arakoon_client_config
+Lwt_extra
+Network
+Typed_ssl

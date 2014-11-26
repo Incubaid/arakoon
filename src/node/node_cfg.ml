@@ -233,6 +233,20 @@ module Node_cfg = struct
       tls : TLSConfig.Cluster.t option;
 }
 
+  let node_cfg_to_node_client_cfg (cfg : t) =
+    { Arakoon_client_config.ips = cfg.ips;
+      Arakoon_client_config.port = cfg.client_port;
+    }
+
+  let to_client_cfg (t : cluster_cfg) =
+    { Arakoon_client_config.cluster_id = t.cluster_id;
+      Arakoon_client_config.node_cfgs =
+        List.map
+          (fun (cfg : t) -> cfg.node_name, node_cfg_to_node_client_cfg cfg)
+          t.cfgs;
+      Arakoon_client_config.ssl_cfg = None;
+    }
+
   let string_of_cluster_cfg c =
     let open To_string in
     record [ "cfgs", list string_of c.cfgs
@@ -666,6 +680,7 @@ module Node_cfg = struct
     in
     cluster_cfg
 
+  let read_client_config fn = to_client_cfg (read_config fn)
 
   let node_name t = t.node_name
   let home t = t.home
