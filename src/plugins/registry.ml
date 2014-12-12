@@ -93,6 +93,7 @@ class type user_db =
 
 class type backend =
   object
+    method read_allowed : Arakoon_client.consistency -> unit
     method push_update : Update.Update.t -> string option Lwt.t
   end
 
