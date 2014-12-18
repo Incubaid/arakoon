@@ -60,6 +60,15 @@ val list_to  : 'a serializer -> 'a list serializer
 val counted_list_to : 'a serializer -> 'a counted_list serializer
 val string_list_to : string list serializer
 val pair_to : 'a serializer -> 'b serializer -> ('a * 'b) serializer
+val tuple3_to :
+  'a serializer -> 'b serializer -> 'c serializer ->
+  ('a * 'b * 'c) serializer
+val tuple4_to :
+  'a serializer -> 'b serializer -> 'c serializer -> 'd serializer ->
+  ('a * 'b * 'c * 'd) serializer
+val tuple5_to :
+  'a serializer -> 'b serializer -> 'c serializer -> 'd serializer -> 'e serializer ->
+  ('a * 'b * 'c * 'd * 'e) serializer
 val hashtbl_to: 'a serializer -> 'b serializer -> ('a, 'b) Hashtbl.t serializer
 
 val unit_from : unit  deserializer
@@ -76,6 +85,15 @@ val list_from: 'a deserializer -> 'a list deserializer
 val counted_list_from : 'a deserializer -> 'a counted_list deserializer
 val string_list_from: string list deserializer
 val pair_from : 'a deserializer -> 'b deserializer -> ('a * 'b) deserializer
+val tuple3_from :
+  'a deserializer -> 'b deserializer -> 'c deserializer ->
+  ('a * 'b * 'c) deserializer
+val tuple4_from :
+  'a deserializer -> 'b deserializer -> 'c deserializer -> 'd deserializer ->
+  ('a * 'b * 'c * 'd) deserializer
+val tuple5_from :
+  'a deserializer -> 'b deserializer -> 'c deserializer -> 'd deserializer -> 'e deserializer ->
+  ('a * 'b * 'c * 'd * 'e) deserializer
 val named_field_from: namedValue deserializer
 
 val hashtbl_from: ('a * 'b) deserializer -> ('a, 'b) Hashtbl.t deserializer

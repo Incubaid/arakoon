@@ -323,6 +323,27 @@ let pair_from a_from b_from buf =
   let b = b_from buf in
   (a, b)
 
+let tuple3_from a_from b_from c_from buf =
+  let a = a_from buf in
+  let b = b_from buf in
+  let c = c_from buf in
+  (a, b, c)
+
+let tuple4_from a_from b_from c_from d_from buf =
+  let a = a_from buf in
+  let b = b_from buf in
+  let c = c_from buf in
+  let d = d_from buf in
+  (a, b, c, d)
+
+let tuple5_from a_from b_from c_from d_from e_from buf =
+  let a = a_from buf in
+  let b = b_from buf in
+  let c = c_from buf in
+  let d = d_from buf in
+  let e = e_from buf in
+  (a, b, c, d, e)
+
 let option_to (f:Buffer.t -> 'a -> unit) buff =  function
   | None -> bool_to buff false
   | Some (v:'a) ->
@@ -350,6 +371,24 @@ let input_string_option = input_option input_string
 let pair_to fst_to snd_to buf (a, b) =
   fst_to buf a;
   snd_to buf b
+
+let tuple3_to a_to b_to c_to buf (a, b, c) =
+  a_to buf a;
+  b_to buf b;
+  c_to buf c
+
+let tuple4_to a_to b_to c_to d_to buf (a, b, c, d) =
+  a_to buf a;
+  b_to buf b;
+  c_to buf c;
+  d_to buf d
+
+let tuple5_to a_to b_to c_to d_to e_to buf (a, b, c, d, e) =
+  a_to buf a;
+  b_to buf b;
+  c_to buf c;
+  d_to buf d;
+  e_to buf e
 
 let hashtbl_to ser_k ser_v buf h =
   let len = Hashtbl.length h in
