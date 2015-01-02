@@ -49,7 +49,9 @@ val bool_to  : bool   serializer
 val char_to  : char   serializer
 val int_to   : int    serializer
 val int32_to : int32  serializer
+val int32_be_to : int32 serializer
 val int64_to : int64  serializer
+val int64_be_to : int64 serializer
 val float_to : float  serializer
 val string_to: string serializer
 val substring_to: (string * int * int) serializer
@@ -76,7 +78,9 @@ val bool_from : bool  deserializer
 val char_from : char  deserializer
 val int_from  : int   deserializer
 val int32_from: int32 deserializer
+val int32_be_from: int32 deserializer
 val int64_from: int64 deserializer
+val int64_be_from: int64 deserializer
 val float_from: float deserializer
 val string_from: string deserializer
 val option_from: 'a deserializer -> 'a option deserializer
@@ -101,7 +105,9 @@ val hashtbl_from: ('a * 'b) deserializer -> ('a, 'b) Hashtbl.t deserializer
 val output_bool:   bool  lwt_serializer
 val output_int:    int   lwt_serializer
 val output_int32:  int32 lwt_serializer
+val output_int32_be:  int32 lwt_serializer
 val output_int64:  int64 lwt_serializer
+val output_int64_be:  int64 lwt_serializer
 val output_string_option: string option lwt_serializer
 val output_string:        string lwt_serializer
 val output_option:        'a lwt_serializer -> 'a option lwt_serializer
@@ -127,7 +133,9 @@ val output_string_array_reversed: lwtoc -> string array -> unit Lwt.t
 val input_bool: bool lwt_deserializer
 val input_int:  int lwt_deserializer
 val input_int32: int32 lwt_deserializer
+val input_int32_be: int32 lwt_deserializer
 val input_int64: int64 lwt_deserializer
+val input_int64_be: int64 lwt_deserializer
 val input_string: string lwt_deserializer
 val input_option: 'a lwt_deserializer -> 'a option lwt_deserializer
 val input_pair: 'a lwt_deserializer -> 'b lwt_deserializer -> ('a * 'b) lwt_deserializer
