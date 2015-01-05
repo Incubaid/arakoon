@@ -67,9 +67,19 @@ let int32_from b =
   let () = b.pos <- b.pos + 4 in
   result
 
+let int32_be_from b =
+  let result = EndianBytes.BigEndian.get_int32 b.buf b.pos in
+  let () = b.pos <- b.pos + 4 in
+  result
+
 let int32_to buffer i32 =
   let s = Bytes.create 4 in
   set32_prim s 0 i32;
+  Buffer.add_string buffer s
+
+let int32_be_to buffer i32 =
+  let s = Bytes.create 4 in
+  EndianBytes.BigEndian.set_int32 s 0 i32;
   Buffer.add_string buffer s
 
 let int_to buffer i = int32_to buffer (Int32.of_int i)
@@ -82,9 +92,22 @@ let int64_from b =
   let () = b.pos <- pos + 8 in
   r
 
+let int64_be_from b =
+  let pos = b.pos
+  and buf = b.buf
+  in
+  let r = EndianBytes.BigEndian.get_int64 buf pos in
+  let () = b.pos <- pos + 8 in
+  r
+
 let int64_to buf i64 =
   let s = Bytes.create 8 in
   set64_prim s 0 i64;
+  Buffer.add_string buf s
+
+let int64_be_to buf i64 =
+  let s = Bytes.create 8 in
+  EndianBytes.BigEndian.set_int64 s 0 i64;
   Buffer.add_string buf s
 
 
@@ -93,10 +116,21 @@ let output_int64 oc i64 =
   set64_prim s 0 i64;
   Lwt_io.write oc s
 
+let output_int64_be oc i64 =
+  let s = Bytes.create 8 in
+  EndianBytes.BigEndian.set_int64 s 0 i64;
+  Lwt_io.write oc s
+
 let input_int64 ic =
   let buf = Bytes.create 8 in
   Lwt_io.read_into_exactly ic buf 0 8 >>= fun () ->
   let r = get64_prim buf 0 in
+  Lwt.return r
+
+let input_int64_be ic =
+  let buf = Bytes.create 8 in
+  Lwt_io.read_into_exactly ic buf 0 8 >>= fun () ->
+  let r = EndianBytes.BigEndian.get_int64 buf 0 in
   Lwt.return r
 
 
@@ -160,6 +194,11 @@ let output_int32 oc (i:int32) =
   set32_prim s 0 i;
   Lwt_io.write oc s
 
+let output_int32_be oc (i:int32) =
+  let s = Bytes.create 4 in
+  EndianBytes.BigEndian.set_int32 s 0 i;
+  Lwt_io.write oc s
+
 
 let output_bool oc (b:bool) =
   let c = if b then '\x01' else '\x00' in
@@ -179,6 +218,12 @@ let input_int32 ic =
   let buf = Bytes.create 4 in
   Lwt_io.read_into_exactly ic buf 0 4 >>= fun () ->
   let r = get32_prim buf 0 in
+  Lwt.return r
+
+let input_int32_be ic =
+  let buf = Bytes.create 4 in
+  Lwt_io.read_into_exactly ic buf 0 4 >>= fun () ->
+  let r = EndianBytes.BigEndian.get_int32 buf 0 in
   Lwt.return r
 
 
