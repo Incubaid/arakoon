@@ -14,6 +14,7 @@ true: package(quickcheck)
 true: pp(camlp4of)
 true: package(snappy)
 true: package(ocplib-endian)
+true: package(uuidm)
 "src":include
 "src/lib":include
 "src/tools":include
