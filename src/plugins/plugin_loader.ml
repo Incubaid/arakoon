@@ -50,6 +50,9 @@ let load home pnames =
       in
       match msg with
       | None -> _inner ps
-      | Some em -> failwith (Printf.sprintf "%s: Dynlink.Error %S" p em)
+      | Some em ->
+         let s = Printf.sprintf "%s: Dynlink.Error %S" p em in
+         Lwt_log.ign_fatal  s;
+         failwith s
   in
   _inner pnames
