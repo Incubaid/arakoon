@@ -11,7 +11,7 @@ ocamlbuild -clean
 ocamlbuild -use-ocamlfind arakoon.native arakoon.byte
 
 #./arakoon.d.byte --run-all-tests-xml foobar.xml
-./arakoon.native --run-all-tests-xml foobar.xml || true
+./arakoon.native --run-all-tests-xml testresults.xml || true
 
 #make coverage
 #./arakoon.d.byte --run-all-tests
