@@ -8,6 +8,8 @@ ocamlfind list | grep lwt
 ocamlfind list | grep camltc
 
 ocamlbuild -clean
+rm -f arakoon.byte
+rm -f arakoon.native
 ocamlbuild -use-ocamlfind arakoon.native arakoon.byte
 
 #./arakoon.d.byte --run-all-tests-xml foobar.xml
