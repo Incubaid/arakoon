@@ -2,4 +2,4 @@
 
 echo $PWD
 
-python test_it.py --with-xunit --xunit-file=${PWD}/B.xml ./server/left
+python test_it.py --with-xunit --xunit-file=${PWD}/testresults.xml ./server/left
