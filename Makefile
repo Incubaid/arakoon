@@ -54,6 +54,8 @@ install_client:
           _build/src/nursery/routing.cmi \
           _build/src/tlog/interval.cmi \
           _build/src/tlog/update.cmi \
+		  _build/src/tools/crc32c.mli \
+		  _build/src/tools/crc32c.cmi \
           _build/src/tools/ini.cmi \
           _build/src/tools/llio.mli \
           _build/src/tools/llio.cmi \
