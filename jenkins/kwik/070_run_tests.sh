@@ -3,4 +3,4 @@
 echo $PWD
 #source ./_virtualenv/bin/activate
 
-python test_it.py --with-xunit --xunit-file=$PWD/kwik.xml ./server/quick
+python test_it.py --with-xunit --xunit-file=$PWD/testresults.xml ./server/quick
