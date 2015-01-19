@@ -17,6 +17,21 @@ limitations under the License.
 open Interval
 open Routing
 
+module Range_assertion = struct
+  type t = Empty
+
+  let to_string = function
+    | Empty -> "Empty"
+
+  let to_buffer buf = function
+    | Empty -> Llio.int_to buf 1
+
+  let from_buffer buf =
+    match Llio.int_from buf with
+      | 1 -> Empty
+      | k -> failwith (Printf.sprintf "%i: invalid range assertion" k)
+end
+
 module Update = struct
   type t =
     | Set of string * string
@@ -30,6 +45,7 @@ module Update = struct
     | Nop
     | Assert of string * string option
     | Assert_exists of string
+    | Assert_range of string * Range_assertion.t
     | UserFunction of string * string option
     | AdminSet of string * string option
     | SyncedSequence of t list
@@ -77,6 +93,11 @@ module Update = struct
       | Nop -> "NOP"
       | Assert (key,vo)        -> Printf.sprintf "Assert          ;%S;%i" key (_size_of vo)
       | Assert_exists (key)    -> Printf.sprintf "Assert_exists   ;%S"    key
+      | Assert_range(prefix,assertion) ->
+        Printf.sprintf
+          "Assert_range(%S, %s)"
+          prefix
+          (Range_assertion.to_string assertion)
       | UserFunction (name,param) ->
         let ps = _size_of param in
         Printf.sprintf "UserFunction;%s;%i" name ps
@@ -152,6 +173,10 @@ module Update = struct
          Llio.int_to b 16;
          Llio.string_to b k;
          Llio.string_option_to b vo
+      | Assert_range (prefix, assertion) ->
+        Llio.int_to b 17;
+        Llio.string_to b prefix;
+        Range_assertion.to_buffer b assertion
 
   let rec from_buffer b =
     let kind = Llio.int_from b in
@@ -223,6 +248,10 @@ module Update = struct
          let k = Llio.string_from b in
          let vo = Llio.string_option_from b in
          Replace(k,vo)
+      | 17 ->
+        let prefix = Llio.string_from b in
+        let assertion = Range_assertion.from_buffer b in
+        Assert_range (prefix, assertion)
       | _ -> failwith (Printf.sprintf "%i:not an update" kind)
 
   let is_synced = function
@@ -241,6 +270,7 @@ module Update = struct
     | UserFunction _
     | AdminSet _
     | DeletePrefix _
-    | Replace _ -> false
+    | Replace _
+    | Assert_range _ -> false
 
 end
