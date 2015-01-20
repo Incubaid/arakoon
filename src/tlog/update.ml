@@ -18,18 +18,23 @@ open Interval
 open Routing
 
 module Range_assertion = struct
-  type t = Empty
+  type t =
+    | ContainsExactly of string list
 
   let to_string = function
-    | Empty -> "Empty"
+    | ContainsExactly _ -> "ContainsExactly ..."
 
   let to_buffer buf = function
-    | Empty -> Llio.int_to buf 1
+    | ContainsExactly ss ->
+      Llio.int_to buf 1;
+      Llio.list_to Llio.string_to buf ss
 
   let from_buffer buf =
     match Llio.int_from buf with
-      | 1 -> Empty
-      | k -> failwith (Printf.sprintf "%i: invalid range assertion" k)
+      | 1 ->
+        let ss = Llio.list_from Llio.string_from buf in
+        ContainsExactly ss
+      | k -> failwith (Printf.sprintf "%i: invalid Range_assertion" k)
 end
 
 module Update = struct

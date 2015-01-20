@@ -358,25 +358,29 @@ let _assert_exists3 (client:client) =
 
 let _assert_range (client:client) =
   let prefix = "_assert_range" in
-  let assert_range () =
+  let assert_range items =
     client # sequence
-      [ Arakoon_client.Assert_range(prefix, Update.Range_assertion.Empty) ]
+      [ Arakoon_client.Assert_range(prefix, Update.Range_assertion.ContainsExactly items) ]
   in
-  let assert_range_should_fail () =
+  let assert_range_should_fail items =
     should_fail
-      assert_range
+      (fun () -> assert_range items)
       Arakoon_exc.E_ASSERTION_FAILED
       "assert on non empty range should fail"
       "assert on non empty range should fail"
   in
-  assert_range () >>= fun () ->
+  assert_range [] >>= fun () ->
   client # set prefix "" >>= fun () ->
-  assert_range_should_fail () >>= fun () ->
+  assert_range [prefix] >>= fun () ->
+  assert_range_should_fail [] >>= fun () ->
+  assert_range_should_fail [prefix ^ "dsisisi"] >>= fun () ->
   client # delete prefix >>= fun () ->
-  assert_range () >>= fun () ->
+  assert_range [] >>= fun () ->
+  assert_range_should_fail [prefix] >>= fun () ->
+  assert_range_should_fail [prefix; prefix ^ "fsda"] >>= fun () ->
   client # set (prefix ^ "bla") "" >>= fun () ->
-  assert_range_should_fail () >>= fun () ->
-  Lwt.return ()
+  assert_range_should_fail [] >>= fun () ->
+  assert_range [prefix ^ "bla"]
 
 let _range_1 (client: client) =
   let rec fill i =

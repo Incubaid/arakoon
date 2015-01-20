@@ -809,12 +809,13 @@ struct
               | true -> Lwt.return (Ok None)
               | false -> Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,k))
           end
-        | Update.Assert_range (prefix, assertion) -> begin
-            match assertion with
-              | Range_assertion.Empty ->
-                if 0 = fst (prefix_keys store prefix 1)
-                then Lwt.return (Ok None)
-                else Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED, prefix))
+        | Update.Assert_range (prefix, assertion) ->
+          begin match assertion with
+            | Range_assertion.ContainsExactly keys ->
+              let _, keys' = prefix_keys store prefix (-1) in
+              if keys = (List.map Key.get keys')
+              then Lwt.return (Ok None)
+              else Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED, prefix))
           end
         | Update.AdminSet(k,vo) ->
           let () =
