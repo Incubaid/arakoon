@@ -416,6 +416,7 @@ let rec change_to_update c =
   | Sequence cs -> Update.Sequence (List.map change_to_update cs)
   | Assert(k,vo) -> Update.Assert(k,vo)
   | Assert_exists(k) -> Update.Assert_exists(k)
+  | Assert_range(p,a) -> Update.Assert_range(p,a)
   | UserFunction(name,vo) -> Update.UserFunction(name, vo)
 
 let _build_sequence_request buf changes =

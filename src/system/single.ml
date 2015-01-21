@@ -356,6 +356,32 @@ let _assert_exists3 (client:client) =
   OUnit.assert_equal v3 "YES WAY";
   Lwt.return ()
 
+let _assert_range (client:client) =
+  let prefix = "_assert_range" in
+  let assert_range items =
+    client # sequence
+      [ Arakoon_client.Assert_range(prefix, Update.Range_assertion.ContainsExactly items) ]
+  in
+  let assert_range_should_fail items =
+    should_fail
+      (fun () -> assert_range items)
+      Arakoon_exc.E_ASSERTION_FAILED
+      "assert on non empty range should fail"
+      "assert on non empty range should fail"
+  in
+  assert_range [] >>= fun () ->
+  client # set prefix "" >>= fun () ->
+  assert_range [prefix] >>= fun () ->
+  assert_range_should_fail [] >>= fun () ->
+  assert_range_should_fail [prefix ^ "dsisisi"] >>= fun () ->
+  client # delete prefix >>= fun () ->
+  assert_range [] >>= fun () ->
+  assert_range_should_fail [prefix] >>= fun () ->
+  assert_range_should_fail [prefix; prefix ^ "fsda"] >>= fun () ->
+  client # set (prefix ^ "bla") "" >>= fun () ->
+  assert_range_should_fail [] >>= fun () ->
+  assert_range [prefix ^ "bla"]
+
 let _range_1 (client: client) =
   let rec fill i =
     if i = 100
@@ -601,6 +627,9 @@ let assert_exists3 tpl =
   _start "assert_exists3" >>= fun () ->
   _with_master tpl _assert_exists3
 
+let assert_range tpl =
+  _with_master tpl _assert_range
+
 let _node_name tn n = Printf.sprintf "%s_%i" tn n
 
 let stop = ref (ref false)
@@ -647,7 +676,8 @@ let make_suite base name w =
       make_el "assert_exists2"   (base + 1200) assert_exists2;
       make_el "assert_exists3"   (base + 1300) assert_exists3;
       make_el "trivial_master6"  (base + 1400) trivial_master6;
-      make_el "replace"          (base + 1500) replace
+      make_el "replace"          (base + 1500) replace;
+      make_el "assert_range"    (base + 1600) assert_range;
     ]
 
 let force_master =
