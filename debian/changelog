@@ -1,3 +1,8 @@
+arakoon (1.8.0) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain.slootmaekers@cloudfounders.com>  Mon, 01 Feb 2017 22:00:00 +0100
+
 arakoon (1.7.4) unstable; urgency=low
   * new upstream version
 
