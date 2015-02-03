@@ -10,6 +10,5 @@ ocamlfind list | grep lwt
 ocamlfind list | grep camltc
 ocamlfind list | grep snappy
 
-ocamlbuild -clean
-ocamlbuild -use-ocamlfind arakoon.native
-
+make clean
+make

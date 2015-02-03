@@ -1,9 +1,10 @@
 # This makefile wrapper makes DEBIAN packaging easier.
 PREFIX ?=/usr
-OCAML_VERSION ?= 4.00.1
 
 START = $(DESTDIR)$(PREFIX)
-OCAML_LIBDIR ?= `ocamlfind printconf destdir`
+
+OCAML_LIBDIR ?= $(START)/lib/ocaml/
+#OCAML_LIBDIR ?= `ocamlfind printconf destdir`
 OCAML_FIND ?= ocamlfind
 
 all: build
