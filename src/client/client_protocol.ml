@@ -135,6 +135,7 @@ let decode_sequence ic =
       | Update.Nop
       | Update.Assert _
       | Update.Assert_exists _
+      | Update.Assert_range _
       | Update.UserFunction _
       | Update.AdminSet _
       | Update.DeletePrefix _
