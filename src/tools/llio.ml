@@ -82,6 +82,25 @@ let int32_be_to buffer i32 =
   EndianBytes.BigEndian.set_int32 s 0 i32;
   Buffer.add_string buffer s
 
+let char_to buffer c = Buffer.add_char buffer c
+
+let char_from buffer =
+  let pos = buffer.pos in
+  let c = buffer.buf.[pos] in
+  let () = buffer.pos <- pos + 1 in
+  c
+
+
+let int8_to buffer i =
+  let c = Char.chr i in
+  char_to buffer c
+
+let int8_from b =
+  let c = char_from b in
+  let i = Char.code c in
+  i
+
+
 let int_to buffer i = int32_to buffer (Int32.of_int i)
 
 let int64_from b =
@@ -161,13 +180,6 @@ let string_to buffer s =
   int_to buffer size;
   Buffer.add_string buffer s
 
-let char_to buffer c = Buffer.add_char buffer c
-
-let char_from buffer =
-  let pos = buffer.pos in
-  let c = buffer.buf.[pos] in
-  let () = buffer.pos <- pos + 1 in
-  c
 
 
 let unit_to _ () = ()
