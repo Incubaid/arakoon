@@ -48,6 +48,7 @@ val unit_to  : unit   serializer
 val bool_to  : bool   serializer
 val char_to  : char   serializer
 val int_to   : int    serializer
+val int8_to  : int    serializer
 val int32_to : int32  serializer
 val int32_be_to : int32 serializer
 val int64_to : int64  serializer
@@ -77,6 +78,7 @@ val unit_from : unit  deserializer
 val bool_from : bool  deserializer
 val char_from : char  deserializer
 val int_from  : int   deserializer
+val int8_from : int   deserializer
 val int32_from: int32 deserializer
 val int32_be_from: int32 deserializer
 val int64_from: int64 deserializer
