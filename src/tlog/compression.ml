@@ -65,7 +65,9 @@ let _compress_tlog
     | Snappy -> compress_snappy
     | No -> failwith "compressor is 'No'"
   in
-  Lwt_io.with_file ~mode:Lwt_io.input tlog_name
+  Lwt_io.with_file
+    ~buffer_size:131072
+    ~mode:Lwt_io.input tlog_name
     (fun ic ->
        let tmp_file = archive_name ^ ".part" in
        Logger.info_f Logger.Section.main
@@ -77,20 +79,26 @@ let _compress_tlog
           write_format oc compressor >>= fun () ->
           let rec fill_buffer (buffer:Buffer.t) (last_i:Sn.t) (counter:int) =
             Lwt.catch
-              (fun () ->
-               Tlogcommon.read_entry ic >>= fun (entry:Entry.t) ->
-               let i = Entry.i_of entry
-               and v = Entry.v_of entry
-               in
-               Tlogcommon.entry_to buffer i v;
-               let (last_i':Sn.t) = if i > last_i then i else last_i in
-               if Buffer.length buffer < limit || counter = 0
-               then fill_buffer (buffer:Buffer.t) last_i' (counter+1)
-                else Lwt.return (last_i',counter))
+              (fun () -> Tlogcommon.read_entry ic >>= fun entry ->
+                         Lwt.return (Some entry)
+              )
               (function
-                | End_of_file -> Lwt.return (last_i,counter)
+                | End_of_file -> Lwt.return None
                 | exn -> Lwt.fail exn
               )
+            >>= function
+            | None -> Lwt.return (last_i,counter)
+            | Some entry ->
+               begin
+                 let i = Entry.i_of entry
+                 and v = Entry.v_of entry
+                 in
+                 Tlogcommon.entry_to buffer i v;
+                 let (last_i':Sn.t) = if i > last_i then i else last_i in
+                 if Buffer.length buffer < limit || counter = 0
+                 then fill_buffer (buffer:Buffer.t) last_i' (counter+1)
+                 else Lwt.return (last_i',counter)
+               end
           in
           let compress_and_write last_i buffer =
             let contents = Buffer.contents buffer in

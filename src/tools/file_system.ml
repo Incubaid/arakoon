@@ -74,7 +74,7 @@ let unlink name =
      Lwt_unix.unlink name)
     (function
       | Unix.Unix_error(Unix.ENOENT, _, _) ->
-         Logger.info_f_ "Unlink of %S failed with ENOENT" name
+         Logger.debug_f_ "Unlink of %S failed with ENOENT" name
       | e ->
          Lwt.fail e)
 
