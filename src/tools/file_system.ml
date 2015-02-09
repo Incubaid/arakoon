@@ -67,14 +67,16 @@ let rename source target =
 
 let mkdir name = Lwt_unix.mkdir name
 
-let unlink name =
+let unlink ?(verbose = true) name =
   Lwt.catch
     (fun () ->
      Logger.info_f_ "Unlinking %S" name >>= fun () ->
      Lwt_unix.unlink name)
     (function
       | Unix.Unix_error(Unix.ENOENT, _, _) ->
-         Logger.info_f_ "Unlink of %S failed with ENOENT" name
+         if verbose
+         then Logger.info_f_ "Unlink of %S failed with ENOENT" name
+         else Lwt.return_unit
       | e ->
          Lwt.fail e)
 
