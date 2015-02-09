@@ -73,7 +73,7 @@ let _compress_tlog
        Logger.info_f Logger.Section.main
                      "Compressing %S to %S via %S"
                      tlog_name archive_name tmp_file >>= fun () ->
-       File_system.unlink tmp_file >>= fun () ->
+       File_system.unlink ~verbose:false tmp_file >>= fun () ->
        File_system.with_tmp_file tmp_file archive_name
          (fun oc ->
           write_format oc compressor >>= fun () ->
