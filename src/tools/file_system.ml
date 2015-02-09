@@ -26,16 +26,19 @@ let lwt_directory_list dn =
       Lwt_unix.opendir dn >>= fun h ->
       let rec loop acc  =
         Lwt.catch
-          (fun () ->
-            Lwt_unix.readdir h >>= fun x ->
+          (fun () -> Lwt_unix.readdir h >>= fun x -> Lwt.return (Some x))
+          (function
+            | End_of_file -> Lwt.return None
+            | exn -> Lwt.fail exn
+          )
+        >>= function
+        | None -> Lwt.return (List.rev acc)
+        | Some x ->
+           begin
             match x with
               | "." | ".." -> loop acc
               | s' -> loop (s' :: acc)
-          )
-          (function
-            | End_of_file -> Lwt.return (List.rev acc)
-            | exn -> Lwt.fail exn
-          )
+           end
       in
       Lwt.finalize
         (fun () -> loop [])
