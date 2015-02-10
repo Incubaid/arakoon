@@ -640,13 +640,11 @@ def test_missing_tlog():
 
     t0 = time.time()
     wait = True
-    r = False
     while wait:
         time.sleep(10)
         r = is_running()
-        if r:
-            wait = False
-        else:
+        wait = r
+        if wait:
             t1 = time.time()
             d = t1 - t0
             logging.info("after d=%fs, the node's still running", d)
