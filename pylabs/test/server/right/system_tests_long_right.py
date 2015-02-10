@@ -24,6 +24,7 @@ import time
 import subprocess
 from nose.tools import *
 import os
+import sys
 import random
 from threading import Thread, Condition
 from Compat import X
@@ -604,7 +605,12 @@ def test_db_optimize():
 
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_missing_tlog():
-    Common.iterate_n_times(550000,Common.simple_set)
+    t0 = time.time()
+    n_sets = 450000
+    Common.iterate_n_times(n_sets,Common.simple_set)
+    t1 = time.time()
+    d0 = t1 - t0
+    logging.info("%i sets took:%d", n_sets, d0)
     nn = Common.node_names[0]
     Common.stopOne(nn)
     fn = Common.get_node_db_file(nn)
@@ -616,36 +622,37 @@ def test_missing_tlog():
     tlx_full_path = '/'.join ([node_tlf_dir, "002.tlf"])
     logging.info("removing %s", tlx_full_path)
     os.remove(tlx_full_path)
-
+    logging.info("cfg keys:%s", cfg.keys())
+    port = cfg['client_port']
 
     Common.startOne(nn)
     # it should die some time later.
-    def n_running () :
-        ns = Common.check_output(['pgrep', '-c', Common.daemon_name])
-        n = int(ns)
-        return n
+    def is_running () :
+        running = False
+        try:
+            x = X.subprocess.check_output(['fuser', '-n','tcp', port])
+            logging.info("x=%s", x)
+            running = len(x) > 10
+            return running
+        except Exception as e:
+            logging.info("e=%s", e)
+            return False
 
     t0 = time.time()
     wait = True
-    n = 0
     while wait:
         time.sleep(10)
-        try:
-            n = n_running()
-        except:
-            n = 0
-
-        if n == 0:
-            wait = False
-
-        t1 = time.time()
-        d = t1 - t0
-        logging.info("after d=%fs, the node's still running", d)
-        if d > 120.0:
-            wait = False
+        r = is_running()
+        wait = r
+        if wait:
+            t1 = time.time()
+            d = t1 - t0
+            logging.info("after d=%fs, the node's still running", d)
+            if d > 120.0:
+                wait = False
 
 
-    ok_(n == 0,"node still running")
+    ok_(not r, "node still running")
     #now check logging.
     log_dir = cfg['log_dir']
     log_file = '/'.join([log_dir, "%s.log" % nn])
