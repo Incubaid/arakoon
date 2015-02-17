@@ -18,7 +18,6 @@ limitations under the License.
 
 open Compression
 open Lwt
-open Extra
 open OUnit
 open Tlogwriter
 open Update
@@ -58,7 +57,7 @@ let test_compress_file which () =
   OUnit.assert_equal md5 md5';
   Lwt.return()
 
-let w= lwt_test_wrap
+let w case () = Lwt_main.run (case ())
 
 let snappy =
   let archive_name x = x ^ ".tlx"

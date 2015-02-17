@@ -652,11 +652,11 @@ let make_suite base name w =
 
 let force_master =
   let make_master tn n = Forced (_node_name tn  n) in
-  let w tn base f = Extra.lwt_bracket (setup make_master tn base) f teardown in
+  let w tn base body = Lwt_extra.OUnit.bracket ~setup:(setup make_master tn base) ~body ~teardown in
   make_suite 4000 "force_master" w
 
 
 let elect_master =
   let make_master _tn _ = Elected in
-  let w tn base f = Extra.lwt_bracket (setup make_master tn base) f teardown in
+  let w tn base body = Lwt_extra.OUnit.bracket ~setup:(setup make_master tn base) ~body ~teardown in
   make_suite 6000 "elect_master" w

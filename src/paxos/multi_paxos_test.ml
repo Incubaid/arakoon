@@ -21,7 +21,6 @@ open Lwt
 open MPMessage
 open Messaging
 open Multi_paxos
-open Extra
 open Update
 open Lwt_buffer
 open Master_type
@@ -507,7 +506,7 @@ let c2_fails = [ (fun (_msg,s,_t) -> s <> "c2")]
 
 
 open OUnit
-let w = lwt_test_wrap
+let w case () = Lwt_main.run (case ())
 let suite = "basic" >::: [
     "singleton_perfect" >:: w (test_generic build_perfect 1);
     "pair_perfect"  >:: w (test_generic build_perfect 2);

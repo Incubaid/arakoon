@@ -126,7 +126,7 @@ let teardown (dn, tlf_dir, head_dir) =
 
 
 let suite =
-  let wrapTest f = Extra.lwt_bracket setup f teardown
+  let wrapTest body = Lwt_extra.OUnit.bracket ~setup ~body ~teardown
   in
   "collapser_test" >:::[
     "collapse_until" >:: wrapTest test_collapse_until;

@@ -18,7 +18,6 @@ limitations under the License.
 
 open OUnit
 open Lwt
-open Extra
 open Update
 
 let section = Logger.Section.main
@@ -191,7 +190,7 @@ let test_large_tlog_catchup () =
   _tic _fill 60_000 "tcs"
     (fun _store _new_i -> Lwt.return ())
 let suite =
-  let w f = lwt_bracket setup f teardown in
+  let w body = Lwt_extra.OUnit.bracket ~setup ~body ~teardown in
   "catchup" >:::[
     "common" >:: w test_common;
     "with_doubles" >:: w test_with_doubles;

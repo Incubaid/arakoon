@@ -17,7 +17,6 @@ limitations under the License.
 
 
 open OUnit
-open Extra
 open Lwt
 open Update
 open Tlogcollection
@@ -248,7 +247,7 @@ let test_validate_corrupt_1 (dn, tlf_dir, factory) =
   >>= fun () ->
   Lwt.return ()
 
-let wrap factory test (name:string) = lwt_bracket (setup factory name) test teardown
+let wrap factory body (name:string) = Lwt_extra.OUnit.bracket ~setup:(setup factory name) ~body ~teardown
 
 let create_test_tlc dn = Mem_tlogcollection.make_mem_tlog_collection dn None None ~fsync:false ~fsync_tlog_dir:false
 

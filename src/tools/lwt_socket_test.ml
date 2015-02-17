@@ -59,11 +59,11 @@ let test_leak () =
       end
     ]
 
-let wrap t =
-  Extra.lwt_bracket
-    (fun () -> Lwt.return ())
-    t
-    (fun () -> Lwt.return ())
+let wrap body =
+  Lwt_extra.OUnit.bracket
+    ~setup:(fun () -> Lwt.return ())
+    ~body
+    ~teardown:(fun () -> Lwt.return ())
 let suite = "server_socket" >:::[
     "leak" >:: wrap test_leak
   ]

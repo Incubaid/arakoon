@@ -18,7 +18,6 @@ limitations under the License.
 
 open OUnit
 open Lwt
-open Extra
 open Update
 open Simple_store
 open Store
@@ -136,7 +135,7 @@ let test_safe_insert_value_with_partial_value_update () =
 
 
 let suite =
-  let w f = lwt_bracket setup f teardown in
+  let w body = Lwt_extra.OUnit.bracket ~setup ~body ~teardown in
   "store" >:::[
     "safe_insert_value" >:: w test_safe_insert_value;
     "safe_insert_value_with_partial_value_update" >:: w test_safe_insert_value_with_partial_value_update;
