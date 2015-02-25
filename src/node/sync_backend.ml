@@ -406,7 +406,7 @@ struct
               match Node_cfg.get_master cfg with
                 | Elected | Preferred _ | Forced _ ->
                   begin
-                    let now = Unix.gettimeofday () in
+                    let now = Mp_clock.get_timestamp () in
                     let diff = now -. ls in
                     if diff < float lease_expiration then
                       (Some m,"inside lease")

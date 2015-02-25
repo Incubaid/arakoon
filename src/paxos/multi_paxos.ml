@@ -21,6 +21,7 @@ open MPMessage
 open Messaging
 open Master_type
 
+let get_timestamp = Mp_clock.get_timestamp
 
 let section =
   let s = Logger.Section.make "paxos" in
@@ -46,7 +47,7 @@ let can_promise (type s) (module S : Store.STORE with type t = s) store lease_ex
   match S.who_master store with
     | Some (m, ml) ->
       if (
-        ( (ml +. float lease_expiration) > (Unix.gettimeofday ()) )
+        ( (ml +. float lease_expiration) > (get_timestamp ()) )
         &&
         (String.compare requester m) <> 0
       )
@@ -223,12 +224,12 @@ let start_lease_expiration_thread (type s) ?(immediate_lease_expiration=false) c
       begin
         Logger.debug_f_ "%s: waiting %2.1f seconds for lease to expire"
           constants.me sleep_sec >>= fun () ->
-        let t0 = Unix.gettimeofday () in
+        let t0 = get_timestamp () in
         Lwt_unix.sleep sleep_sec >>= fun () ->
         if id = constants.lease_expiration_id
         then
           begin
-            let t1 = Unix.gettimeofday () in
+            let t1 = get_timestamp () in
             Logger.debug_f_ "%s: lease expired (%2.1f passed, %2.1f intended)=> injecting LeaseExpired event for %f"
               constants.me (t1 -. t0) sleep_sec lease_start >>= fun () ->
             constants.inject_event (LeaseExpired (lease_start)) >>= fun () ->
@@ -260,9 +261,9 @@ let start_election_timeout ?(from_master=false) constants n i =
       begin
         let rec t sleep_sec =
           Logger.debug_f_ "%s: waiting %2.1f seconds for timeout" constants.me sleep_sec >>= fun () ->
-          let t0 = Unix.gettimeofday () in
+          let t0 = get_timestamp () in
           Lwt_unix.sleep sleep_sec >>= fun () ->
-          let t1 = Unix.gettimeofday () in
+          let t1 = get_timestamp () in
           Logger.debug_f_ "%s: timeout (n=%s) should have finished by now (%2.1f passed, intended %2.1f)." constants.me (Sn.string_of n) (t1 -. t0) sleep_sec >>= fun () ->
           match constants.election_timeout with
             | None -> Logger.warning_f_ "%s: scheduled election timeout thread but no timeout configured!" constants.me
@@ -279,7 +280,7 @@ let start_election_timeout ?(from_master=false) constants n i =
         Lwt.ignore_result (t sleep_sec)
       end
     | Some _ -> () in
-  constants.election_timeout <- Some (n, i, Unix.gettimeofday () +. sleep_sec);
+  constants.election_timeout <- Some (n, i, get_timestamp () +. sleep_sec);
   Lwt.return ()
 
 type prepare_repsonse =
@@ -341,7 +342,7 @@ let handle_prepare (type s) constants dest n n' i' =
             begin
               (* Ok, we can make a Promise to the other node, if we want to *)
               let make_promise () =
-                constants.respect_run_master <- Some (dest, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
+                constants.respect_run_master <- Some (dest, get_timestamp () +. (float constants.lease_expiration) /. 4.0);
                 let lv = constants.get_value nak_max in
                 let reply = Promise(n',nak_max,lv) in
                 Logger.info_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
@@ -357,7 +358,7 @@ let handle_prepare (type s) constants dest n n' i' =
                 | None ->
                   make_promise ()
                 | Some (other, until) ->
-                  let now = Unix.gettimeofday () in
+                  let now = get_timestamp () in
                   if until < now || dest = other
                   then
                     begin

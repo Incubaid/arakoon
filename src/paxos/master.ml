@@ -55,7 +55,7 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
               | None ->
                 inject_lease_expired 0.0
               | Some (m, ls) when m = me ->
-                let diff = (Unix.gettimeofday ()) -. ls in
+                let diff = (Multi_paxos.get_timestamp ()) -. ls in
                 if diff >= float constants.lease_expiration
                 then
                   (* if we get here because a LeaseExpired message is
@@ -68,7 +68,7 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
                   inject_lease_expired ls
               | Some (_m, ls) (* when m <> me *) ->
                 (* always insert a lease expired after picking up master role
-                   from another node. do not compare gettimeofday with when the
+                   from another node. do not compare timestamp with when the
                    lease started, as we might have acted earlier than necessary
                    with the lease expiration timeout from the other node *)
                 inject_lease_expired ls in
@@ -97,7 +97,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
           if not (is_empty lease_expire_waiters)
           then
             begin
-              if (Unix.gettimeofday () -. ls) > 2.2 *. (float constants.lease_expiration)
+              if (Multi_paxos.get_timestamp () -. ls) > 2.2 *. (float constants.lease_expiration)
               then
                 begin
                   (* nobody is taking over, go to elections *)

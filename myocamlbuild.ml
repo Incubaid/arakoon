@@ -132,6 +132,7 @@ let _ = dispatch & function
 
       flag ["ocaml";"link";"is_main"](
         S[A"-linkpkg"; A"src/libcutil.a";
+          A"-cclib"; A"-lrt";
          ]);
 
       flag ["ocaml";"byte";"link"] (S[A"-custom";]);

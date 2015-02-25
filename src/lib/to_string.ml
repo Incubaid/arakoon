@@ -17,6 +17,7 @@
 external id : 'a -> 'a = "%identity"
 
 let int i = string_of_int i
+let int64 i = Printf.sprintf "%LdL" i
 let string s = Printf.sprintf "%S" s
 let bool = function
   | true -> "true"

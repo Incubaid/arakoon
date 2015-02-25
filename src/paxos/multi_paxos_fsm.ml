@@ -627,7 +627,7 @@ let paxos_produce buffers constants product_wanted =
   Lwt.catch
     (fun () ->
        Logger.debug_f_ "%s: T:waiting for event (%s)" me wmsg >>= fun () ->
-       let t0 = Unix.gettimeofday () in
+       let t0 = Multi_paxos.get_timestamp () in
 
        let wait_for_buffer = function
          | Client -> Lwt_buffer.wait_for_item buffers.client_buffer
@@ -639,7 +639,7 @@ let paxos_produce buffers constants product_wanted =
                        product_wanted in
        Lwt.pick waiters >>= fun () ->
 
-       let t1 = Unix.gettimeofday () in
+       let t1 = Multi_paxos.get_timestamp () in
        let d = t1 -. t0 in
        Logger.debug_f_ "%s: T:waiting for event took:%f" me d >>= fun () ->
 
@@ -782,7 +782,7 @@ let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i 
   let other_master = match S.who_master constants.store with
     | None -> false
     | Some (_, ls) ->
-      let diff = (Unix.gettimeofday ()) -. ls in
+      let diff = (Multi_paxos.get_timestamp ()) -. ls in
       diff < float constants.lease_expiration in
   let run start_state =
     Lwt.catch
