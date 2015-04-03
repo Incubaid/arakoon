@@ -133,6 +133,10 @@ let _ = dispatch & function
         S[A"-linkpkg"; A"src/libcutil.a";
          ]);
 
+      flag ["ocaml";"link";"is_main"](
+        S[A"-package"; A"nocrypto";]
+      );
+
       flag ["ocaml";"byte";"link"] (S[A"-custom";]);
 
       flag ["ocaml";"compile";"warn_error"]
