@@ -1,8 +1,8 @@
 #!/bin/bash -xue
 
-APT_DEPENDS="libev-dev libssl-dev libsnappy-dev"
+APT_DEPENDS="libev-dev libssl-dev libsnappy-dev libgmp3-dev"
 APT_OCAML_DEPENDS="ocaml ocaml-native-compilers camlp4-extra opam"
-OPAM_DEPENDS="ssl conf-libev lwt camlbz2 camltc.999 snappy quickcheck ocplib-endian uuidm"
+OPAM_DEPENDS="ssl conf-libev lwt camlbz2 camltc.999 snappy quickcheck ocplib-endian uuidm nocrypto"
 
 export OPAMYES=1
 export OPAMVERBOSE=1
