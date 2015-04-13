@@ -33,6 +33,7 @@ install_client:
 	  _build/src/arakoon_client.cma \
 	  _build/src/arakoon_client.cmxa \
 	  _build/src/arakoon_client.cmxs \
+	  _build/src/client/stamp.cmi \
 	  _build/src/client/arakoon_exc.mli \
 	  _build/src/client/arakoon_exc.cmi \
           _build/src/client/arakoon_client_config.cmi \
