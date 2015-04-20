@@ -383,28 +383,26 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
         )
     end
   | USER_HOOK ->
-     begin
-       Protocol_common.input_consistency ic >>= fun consistency ->
-       Llio.input_string ic >>= fun name ->
-       Logger.debug_f_ "connection=%s USER_HOOK: consistency=%s name=%S" id (consistency2s consistency) name >>= fun () ->
-       Lwt.catch
-         (fun () ->
-          backend # read_allowed consistency;
-          Lwt.return None)
-         (fun exn ->
-          handle_exception oc exn >>= fun r ->
-          Lwt.return (Some r)) >>= function
-         | None ->
-            begin
-              (* read allowed is ok *)
-              let open Registry in
-              let h = HookRegistry.lookup name in
-              h conn (backend # get_read_user_db ()) (backend :> backend) >>= fun () ->
-              Lwt.return false
-            end
-         | Some r ->
-            Lwt.return r
-     end
+    begin
+      Protocol_common.input_consistency ic >>= fun consistency ->
+      Llio.input_string ic >>= fun name ->
+      Logger.debug_f_
+        "connection=%s USER_HOOK: consistency=%s name=%S"
+        id (consistency2s consistency) name >>= fun () ->
+      wrap_exception
+        (fun () ->
+           backend # read_allowed consistency;
+
+           let open Registry in
+           (match HookRegistry.lookup name with
+             | h ->
+               h conn (backend # get_read_user_db ()) (backend :> backend)
+             | exception Not_found ->
+               Lwt.fail (XException(Arakoon_exc.E_USERHOOK_NOT_FOUND, name)))
+           >>= fun () ->
+           Lwt.return false
+        )
+    end
   | PREFIX_KEYS ->
     begin
       Protocol_common.input_consistency ic >>= fun consistency ->
