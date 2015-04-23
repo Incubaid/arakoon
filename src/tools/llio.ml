@@ -163,13 +163,30 @@ let float_from buffer =
   f
 
 
+let raw_slice_from length buffer =
+  let pos = buffer.pos in
+  let () = buffer.pos <- pos + length in
+  (buffer.buf, pos, length)
+
+let slice_from buffer =
+  let size = int_from buffer in
+  raw_slice_from size buffer
+
+let raw_string_from length buffer =
+  let pos = buffer.pos in
+  let s = String.sub buffer.buf pos length in
+  let () = buffer.pos <- pos + length in
+  s
 
 let string_from buffer =
   let size = int_from buffer in
-  let pos = buffer.pos in
-  let s = String.sub buffer.buf pos size in
-  let () = buffer.pos <- pos + size in
-  s
+  raw_string_from size buffer
+
+let raw_substring_to buffer (s, offset, length) =
+  Buffer.add_substring buffer s offset length
+
+let raw_string_to buffer s =
+  Buffer.add_string buffer s
 
 let substring_to buffer (s, offset, length) =
   int_to buffer length;

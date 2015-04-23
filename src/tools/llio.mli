@@ -56,6 +56,8 @@ val int64_be_to : int64 serializer
 val float_to : float  serializer
 val string_to: string serializer
 val substring_to: (string * int * int) serializer
+val raw_string_to : string serializer
+val raw_substring_to : (string * int * int) serializer
 val option_to: 'a serializer -> 'a option serializer
 val string_option_to: string option serializer
 val named_field_to: namedValue serializer
@@ -85,6 +87,9 @@ val int64_from: int64 deserializer
 val int64_be_from: int64 deserializer
 val float_from: float deserializer
 val string_from: string deserializer
+val raw_string_from : int -> string deserializer
+val slice_from : (string * int * int) deserializer
+val raw_slice_from : int -> (string * int * int) deserializer
 val option_from: 'a deserializer -> 'a option deserializer
 val string_option_from: string option deserializer
 val list_from: 'a deserializer -> 'a list deserializer
