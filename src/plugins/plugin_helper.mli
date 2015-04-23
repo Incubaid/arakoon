@@ -29,3 +29,5 @@ val deserialize_hashtbl: (input -> 'a * 'b) -> input -> ('a, 'b) Hashtbl.t
 val deserialize_string_list: input -> string list
 
 val debug_f: ('a, unit, string, unit) format4 -> 'a
+val info_f: ('a, unit, string, unit) format4 -> 'a
+val warning_f: ('a, unit, string, unit) format4 -> 'a
