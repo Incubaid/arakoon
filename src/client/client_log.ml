@@ -24,3 +24,9 @@ let debug x =
 
 let debug_f x =
   if !lwt_log_enabled then Lwt_log.debug_f x else Printf.ksprintf (fun _s -> Lwt.return ()) x
+
+let info x =
+  if !lwt_log_enabled then Lwt_log.info x else Lwt.return ()
+
+let warning x =
+  if !lwt_log_enabled then Lwt_log.warning x else Lwt.return ()

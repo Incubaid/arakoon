@@ -30,3 +30,5 @@ let generic_f f x =
   Printf.kprintf k x
 
 let debug_f x = generic_f Client_log.debug x
+let info_f x = generic_f Client_log.info x
+let warning_f x = generic_f Client_log.warning x
