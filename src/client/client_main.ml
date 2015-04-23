@@ -105,6 +105,15 @@ let delete_prefix ~tls cfg_name prefix =
   in
   run t
 
+let nop ~tls cfg_name =
+  let t () =
+    with_master_client
+      ~tls cfg_name
+      (fun client -> client # nop ())
+  in
+  run t
+
+
 let prefix ~tls cfg_name prefix prefix_size =
   let t () = with_master_client ~tls cfg_name
                (fun client ->
