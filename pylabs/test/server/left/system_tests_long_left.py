@@ -186,8 +186,9 @@ def test_mixed_tlog_formats():
 
     tls = filter(lambda x:x.endswith(".tlx"), files)
     tlf = filter(lambda x:x.endswith(".tlf"), files)
-    assert_true(len(tls) > 0, "we should have .tlx files" )
-    assert_true(len(tlf) > 0, "we should have .tlf files" )
+    assert_true(len(tls) > 5, "we should have .tlx files" )
+    assert_true(len(tlf) > 5, "we should have .tlf files" )
+
     # does catchup still work?
 
     C.wipe(n0)
@@ -205,3 +206,13 @@ def test_mixed_tlog_formats():
 
 
     C.compare_stores(n0,n1)
+
+    C.start_all()
+    rc = C.collapse(name=n1,n = 2)
+    logging.info("collapse had rc=%i", rc)
+    assert_true(rc == 0, "this should not have failed")
+    head_dir = C.build_node_dir_names(n1)[3]
+
+    db_file = head_dir + "/head.db"
+    time.sleep(1.0) # give it time to move
+    assert_true(X.fileExists(db_file), "%s should exist" % db_file)
