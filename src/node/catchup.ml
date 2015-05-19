@@ -450,15 +450,22 @@ let last_entries2
 
           (* maybe stream a bit *)
           begin
-            let (-:) = Sn.sub
-            and (+:) = Sn.add
-            and (%:) = Sn.rem
+            let (-:)  = Sn.sub
+            and (+:)  = Sn.add
+            and (%:)  = Sn.rem
+            and (/:)  = Sn.div
+            and ( *:) = Sn.mul
             in
-            let next_rotation = start_i2 +: (step -: (start_i2 %: step)) in
+            let next_rotation =
+              ((start_i2 +: (step -: 1L)) /: step) *: step
+            in
             Logger.debug_f_ "next_rotation = %Li" next_rotation >>= fun () ->
-            (if next_rotation < too_far_i
+            (if start_i2 < next_rotation && next_rotation < too_far_i
              then
                begin
+                 Lwt_log.debug_f
+                   "streaming_entries ~start_i2:%Li ~next_rotation:%Li"
+                   start_i2 next_rotation >>= fun () ->
                  stream_entries start_i2 next_rotation >>= fun () ->
                  Lwt.return next_rotation
                end
