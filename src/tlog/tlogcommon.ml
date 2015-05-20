@@ -118,7 +118,7 @@ let read_into ic buf =
 
 let entry_to buf i value =
   Sn.sn_to buf i;
-  let b = Buffer.create 64 in
+  let b = Buffer.create 256 in
   let () = Value.value_to b value in
   let cmd = Buffer.contents b in
   let crc = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
@@ -127,7 +127,7 @@ let entry_to buf i value =
 
 let write_entry oc i value =
   Sn.output_sn oc i >>= fun () ->
-  let b = Buffer.create 64 in
+  let b = Buffer.create 256 in
   let () = Value.value_to b value in
   let cmd = Buffer.contents b in
   let chksum = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
