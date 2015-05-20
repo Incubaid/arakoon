@@ -198,7 +198,8 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~nam
        let compressor = me.compressor in
        make_tlog_coll ~compressor
                       me.tlog_dir me.tlx_dir me.head_dir
-                      ~fsync:false name ~fsync_tlog_dir:false >>= fun tlc ->
+                      ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir
+       >>= fun tlc ->
        Catchup.catchup ~tls_ctx ~stop:(ref false)
                        me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
@@ -333,7 +334,7 @@ module X = struct
     >>= fun () ->
     let sync = Value.is_synced v in
     let marker = (None:string option) in
-    tlog_coll # log_value_explicit i v ~sync ~flush:true marker >>= fun () ->
+    tlog_coll # log_value_explicit i v ~sync marker >>= fun () ->
     begin
       match v with
         | Value.Vc (us,_)     ->

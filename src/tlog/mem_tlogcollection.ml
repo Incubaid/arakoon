@@ -70,14 +70,14 @@ class mem_tlog_collection _name =
 
     method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
-    method log_value_explicit i (v:Value.t) ~sync ~flush marker =
+    method log_value_explicit i (v:Value.t) ~sync marker =
       let entry = Entry.make i v 0L marker in
       let () = data <- entry::data in
       let () = last_entry <- (Some entry) in
       Lwt.return ()
 
     method log_value i v = self #log_value_explicit i v
-                                ~sync:false ~flush:false None
+                                ~sync:false None
 
     method dump_head _oc = Llio.lwt_failfmt "dump_head not implemented"
 
