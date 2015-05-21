@@ -513,10 +513,11 @@ class tlc2
              let p = F.file_pos file in
              let oc = F.oc_of file in
              Tlogcommon.write_entry oc i value >>= fun () ->
+             (* we need to flush here as iteration uses another file *)
+             Lwt_io.flush oc >>= fun () ->
              begin
                if sync && fsync
                then
-                 Lwt_io.flush oc >>= fun () ->
                  F.fsync file
                else Lwt.return ()
              end
