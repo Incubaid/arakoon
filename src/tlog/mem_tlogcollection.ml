@@ -70,14 +70,15 @@ class mem_tlog_collection _name =
 
     method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
-    method log_value_explicit i (v:Value.t) _sync marker =
+    method log_value_explicit i (v:Value.t) ~sync marker =
       let entry = Entry.make i v 0L marker in
       let () = data <- entry::data in
       let () = last_entry <- (Some entry) in
       Lwt.return ()
 
-    method log_value i v = self #log_value_explicit i v false None
+    method log_value i v = self #log_value_explicit i v ~sync:false None
 
+    method accept i v = self # log_value i v
     method dump_head _oc = Llio.lwt_failfmt "dump_head not implemented"
 
     method save_head _ic = Llio.lwt_failfmt "save_head not implemented"
@@ -86,8 +87,8 @@ class mem_tlog_collection _name =
 
     method get_tlog_from_i _ = Sn.start
 
-    method close ?(wait_for_compression = false) () = 
-        let () = ignore wait_for_compression in 
+    method close ?(wait_for_compression = false) () =
+        let () = ignore wait_for_compression in
         Lwt.return ()
 
     method remove_oldest_tlogs _count = Lwt.return ()
@@ -96,8 +97,8 @@ class mem_tlog_collection _name =
   end
 
 let make_mem_tlog_collection _tlog_dir _tlf_dir _head_dir ~fsync name ~fsync_tlog_dir =
-  let () = ignore fsync in 
-  let () = ignore fsync_tlog_dir in 
+  let () = ignore fsync in
+  let () = ignore fsync_tlog_dir in
   let x = new mem_tlog_collection name in
   let x2 = (x :> tlog_collection) in
   Lwt.return x2

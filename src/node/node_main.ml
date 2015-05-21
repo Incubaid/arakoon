@@ -198,7 +198,8 @@ let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~nam
        let compressor = me.compressor in
        make_tlog_coll ~compressor
                       me.tlog_dir me.tlx_dir me.head_dir
-                      ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir >>= fun tlc ->
+                      ~fsync:false name ~fsync_tlog_dir:false
+       >>= fun tlc ->
        Catchup.catchup ~tls_ctx ~stop:(ref false)
                        me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
@@ -331,9 +332,7 @@ module X = struct
     let t0 = Unix.gettimeofday () in
     Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i)
     >>= fun () ->
-    let sync = Value.is_synced v in
-    let marker = (None:string option) in
-    tlog_coll # log_value_explicit i v sync marker >>= fun () ->
+    tlog_coll # accept i v >>= fun () ->
     begin
       match v with
         | Value.Vc (us,_)     ->

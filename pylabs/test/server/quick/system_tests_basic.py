@@ -642,7 +642,7 @@ def test_close_on_sigterm():
     log_file = "/".join([cfg['log_dir'], n0 + ".log"])
     with open(log_file,'r') as f:
         lines = f.readlines()
-        tail = lines[-20:]
+        tail = lines[-40:]
         found = False
         for l in tail:
             print l

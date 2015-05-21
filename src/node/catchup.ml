@@ -129,7 +129,7 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((mo
   let copy_tlog connection =
     make_remote_nodestream cluster_id connection >>= fun (client:nodestream) ->
     let f (i,value) =
-      tlog_coll # log_value_explicit i value false None >>= fun _ ->
+      tlog_coll # log_value_explicit i value ~sync:false None >>= fun _ ->
       stop_fuse stop
     in
 
@@ -452,11 +452,13 @@ let last_entries2
           begin
             let (-:) = Sn.sub
             and (+:) = Sn.add
-            and (%:) = Sn.rem
+            and (/:) = Sn.rem and ( *: ) = Sn.mul
             in
-            let next_rotation = start_i2 +: (step -: (start_i2 %: step)) in
+            let next_rotation =
+              ((start_i2 +: (step -: 1L)) /: step) *: step
+            in
             Logger.debug_f_ "next_rotation = %Li" next_rotation >>= fun () ->
-            (if next_rotation < too_far_i
+            (if start_i2 < next_rotation && next_rotation < too_far_i
              then
                begin
                  stream_entries start_i2 next_rotation >>= fun () ->
