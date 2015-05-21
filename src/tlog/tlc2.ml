@@ -505,7 +505,7 @@ class tlc2
       Lwt.ignore_result t
 
 
-    method log_value_explicit i value sync marker =
+    method log_value_explicit i value ~sync marker =
       Lwt_mutex.with_lock _write_lock
         (fun () ->
            begin
@@ -513,10 +513,12 @@ class tlc2
              let p = F.file_pos file in
              let oc = F.oc_of file in
              Tlogcommon.write_entry oc i value >>= fun () ->
+             (* we need to flush here as iteration uses another file *)
              Lwt_io.flush oc >>= fun () ->
              begin
-               if sync || fsync
-               then F.fsync file
+               if sync && fsync
+               then
+                 F.fsync file
                else Lwt.return ()
              end
              >>= fun () ->
@@ -532,7 +534,7 @@ class tlc2
            end)
 
     method log_value i value =
-      self # log_value_explicit i value fsync None
+      self # log_value_explicit i value ~sync:fsync None
 
     method private _prelude i =
       let ( *: ) = Sn.mul in

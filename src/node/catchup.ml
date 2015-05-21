@@ -129,7 +129,8 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((mo
   let copy_tlog connection =
     make_remote_nodestream cluster_id connection >>= fun (client:nodestream) ->
     let f (i,value) =
-      tlog_coll # log_value_explicit i value false None >>= fun _ ->
+      tlog_coll # log_value_explicit i value ~sync:false None
+      >>= fun _ ->
       stop_fuse stop
     in
 
@@ -428,6 +429,14 @@ let last_entries2
           else
             Lwt.return start_i2
         in
+        let lwt_timed f msg =
+          let t0 = Unix.gettimeofday() in
+          f () >>= fun r ->
+          let t1 = Unix.gettimeofday() in
+          let d = t1 -. t0 in
+          Lwt_log.debug_f msg d >>= fun ()->
+          Lwt.return r
+        in
         let maybe_dump_head () =
           tlog_collection # get_infimum_i () >>= fun inf_i ->
           Logger.debug_f_
@@ -450,16 +459,25 @@ let last_entries2
 
           (* maybe stream a bit *)
           begin
-            let (-:) = Sn.sub
-            and (+:) = Sn.add
-            and (%:) = Sn.rem
+            let (-:)  = Sn.sub
+            and (+:)  = Sn.add
+            and (/:)  = Sn.div
+            and ( *:) = Sn.mul
             in
-            let next_rotation = start_i2 +: (step -: (start_i2 %: step)) in
+            let next_rotation =
+              ((start_i2 +: (step -: 1L)) /: step) *: step
+            in
             Logger.debug_f_ "next_rotation = %Li" next_rotation >>= fun () ->
-            (if next_rotation < too_far_i
+            (if start_i2 < next_rotation && next_rotation < too_far_i
              then
                begin
-                 stream_entries start_i2 next_rotation >>= fun () ->
+                 Lwt_log.debug_f
+                   "streaming_entries ~start_i2:%Li ~next_rotation:%Li"
+                   start_i2 next_rotation >>= fun () ->
+                 lwt_timed
+                   (fun () -> stream_entries start_i2 next_rotation)
+                   "stream_entries took:%f"
+                 >>= fun () ->
                  Lwt.return next_rotation
                end
              else Lwt.return start_i2
@@ -467,10 +485,10 @@ let last_entries2
           end
           >>= fun start_i3 ->
           (* push out files *)
-          loop_files start_i3
+          lwt_timed (fun () ->loop_files start_i3) "loop_files took %f"
           >>= fun start_i4 ->
           (* epilogue: *)
-          stream_entries start_i4 too_far_i
+          lwt_timed (fun () ->stream_entries start_i4 too_far_i) "stream2 took %f"
         end
   end
   >>= fun () ->
