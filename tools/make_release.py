@@ -35,6 +35,32 @@ def update_debian_changelog(version):
     with open(fn,'w') as f:
         f.write(data)
 
+def update_redhat_spec(version):
+    data = None
+    fn = './redhat/SPECS/arakoon.spec'
+    with open(fn,'r') as f:
+        data = f.read()
+    lines = data.split('\n')
+    lines2 = []
+    n = datetime.datetime.now()
+    d = n.strftime("%a %b %d %Y")
+    email = get_email()
+    user = get_user()
+    for line in lines:
+        line_r = None
+        if line.startswith('Version: '):
+            line_r = "Version: %s" % version
+        else:
+            line_r = line
+        lines2.append(line_r)
+        if line_r == '%changelog':
+            lines2.append("* %s %s <%s> - %s" % (d,user,email, version ))
+            lines2.append("- Create arakoon %s RPM package" % version)
+
+    data2 = "\n".join(lines2)
+    with open(fn,'w') as f:
+        f.write(data2)
+
 def update_meta(version):
     fn = './META'
     with open(fn,'r') as f :
@@ -70,6 +96,7 @@ def add_commit(version):
 def make_release(version):
     make_branch(version)
     update_debian_changelog(version)
+    update_redhat_spec(version)
     update_meta(version)
     add_commit(version)
     push(version)
