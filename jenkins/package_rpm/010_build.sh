@@ -2,7 +2,7 @@
 
 eval `opam config env`
 
-ln -s '../../' ./redhat/SOURCES/arakoon-$VERSION
+ln -s '../../' ./redhat/SOURCES/arakoon-$VERSION | true
 ARAKOON_HOME=`pwd`
 cd ~/
 rm rpmbuild | true

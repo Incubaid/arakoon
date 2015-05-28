@@ -1,9 +1,1 @@
-#!/bin/bash -xue
-
-sudo aptitude update || true
-
-for PKG in libssl-dev \
- texlive texlive-latex-extra \
- git help2man python-epydoc graphviz libsnappy-dev; do
- sudo aptitude install -yVDq $PKG
-done
+../package_deb/005_install_ubuntu_dependencies.sh
