@@ -1,11 +1,12 @@
 (* Findlib dependencies *)
-let dependencies = [ "lwt"
-                   ; "oUnit"
-                   ; "camltc"
-                   ; "snappy"
-                   ; "ssl"
-                   ; "bz2"
-                   ; "quickcheck"
+let dependencies = [ "lwt";
+                     "oUnit";
+                     "camltc";
+                     "snappy";
+                     "ssl";
+                     "bz2";
+                     "quickcheck";
+                     "nocrypto";
                    ]
 
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)

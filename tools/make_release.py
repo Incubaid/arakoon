@@ -90,7 +90,7 @@ def make_branch(version):
     sh(['git','checkout', '-b', version])
 
 def add_commit(version):
-    sh(['git', 'add', './META', './debian/changelog'])
+    sh(['git', 'add', './META', './debian/changelog', './redhat/SPECS/arakoon.spec'])
     sh(['git', 'commit', '-m', 'make_release: %s' % version])
 
 def make_release(version):
