@@ -9,5 +9,5 @@ eval `opam config env`
 
 opam install -y \
     conf-libev.4-11 camlbz2.0.6.0 lwt.2.4.8 camltc.0.9.2 \
-    ssl.0.5.1 bisect.1.3 quickcheck.1.0.2 \
+    ssl.0.5.0 bisect.1.3 quickcheck.1.0.2 \
     ounit.2.0.0
