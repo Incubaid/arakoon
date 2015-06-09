@@ -7,6 +7,11 @@ let dependencies = [ "lwt";
                      "bz2";
                      "quickcheck";
                      "nocrypto";
+                     "zarith";
+                     "cstruct";
+                     "ctypes";
+                     "ocplib-endian";
+                     "uuidm";
                    ]
 
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)
