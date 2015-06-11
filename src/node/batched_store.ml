@@ -39,8 +39,6 @@ struct
     s : S.t;
     mutable _tx_cache : (string, string option) Hashtbl.t;
 
-    mutable _with_complex_query : bool;
-
     _tx_lock : Lwt_mutex.t;
     mutable _tx : transaction option;
 
@@ -61,7 +59,6 @@ struct
       s;
       _tx_cache = make_cache ();
 
-      _with_complex_query = false;
       _tx_lock = Lwt_mutex.create ();
       _tx = None;
 
@@ -85,11 +82,7 @@ struct
         ls_tx
 
   let _track_or_apply_vo s k vo =
-    if s._with_complex_query
-    then
-      _apply_vo_to_local_store s (_get_ls_tx s) k vo
-    else
-      Hashtbl.replace s._tx_cache k vo
+    Hashtbl.replace s._tx_cache k vo
 
   let _apply_cache_to_local_store s =
     if Hashtbl.length s._tx_cache > 0
@@ -111,20 +104,19 @@ struct
         s._entries <- 0;
         s._size <- 0
 
-  let _with_complex_query ~allow_in_transaction s =
-    if s._tx <> None || not allow_in_transaction
-    then
-      begin
-        _commit_ls_tx_if_any s;
-        s._with_complex_query <- true;
-        _apply_cache_to_local_store s
-      end
+  let _abort_ls_tx_if_any s =
+    match s._ls_tx with
+      | None -> ()
+      | Some _ ->
+        S._tranabort s.s;
+        s._ls_tx <- None;
+        s._entries <- 0;
+        s._size <- 0
 
   let with_transaction s f =
     Lwt_mutex.with_lock s._tx_lock (fun () ->
         let tx = new transaction in
         s._tx <- Some tx;
-        s._with_complex_query <- false;
         Lwt.finalize
           (fun () ->
              f tx >>= fun r ->
@@ -188,11 +180,9 @@ struct
 
   let delete_prefix s tx prefix =
     _verify_tx s tx;
-    _with_complex_query ~allow_in_transaction:false s;
     S.delete_prefix s.s (_get_ls_tx s)  prefix
 
   let range s first finc last linc max =
-    _with_complex_query ~allow_in_transaction:true s;
     S.range s.s first finc last linc max
 
   let flush s =
@@ -202,16 +192,8 @@ struct
   let close s ~flush ~sync =
     begin
       if flush
-      then
-        _commit_ls_tx_if_any s
-      else
-        begin
-          match s._ls_tx with
-            | None -> ()
-            | Some _ ->
-              S._tranabort s.s;
-              s._ls_tx <- None
-        end
+      then _commit_ls_tx_if_any s
+      else _abort_ls_tx_if_any s
     end;
     S.close s.s ~flush ~sync
 
@@ -227,7 +209,6 @@ struct
     S.relocate s.s
 
   let get_key_count s =
-    _with_complex_query ~allow_in_transaction:false s;
     S.get_key_count s.s
 
   let optimize s =
@@ -248,7 +229,6 @@ struct
   type cursor = S.cursor
 
   let with_cursor s f =
-    _with_complex_query ~allow_in_transaction:true s;
     S.with_cursor s.s (fun cur -> f cur)
 
   let cur_last =
