@@ -380,7 +380,10 @@ let _assert_range (client:client) =
   assert_range_should_fail [prefix; prefix ^ "fsda"] >>= fun () ->
   client # set (prefix ^ "bla") "" >>= fun () ->
   assert_range_should_fail [] >>= fun () ->
-  assert_range [prefix ^ "bla"]
+  assert_range [prefix ^ "bla"] >>= fun () ->
+  client # set (prefix ^ "bla2") "" >>= fun () ->
+  assert_range [prefix ^ "bla"; prefix ^ "bla2"]
+
 
 let _range_1 (client: client) =
   let rec fill i =
