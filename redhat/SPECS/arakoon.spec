@@ -1,10 +1,12 @@
+%global __os_install_post %{nil}
+
 Summary: Arakoon
 Name: arakoon
 Version: 1.8.5
 Release: 3%{?dist}
 License: Apache 2.0
 Requires: libev >= 4
-Source: https://github.com/Incubaid/arakoon-%{version}
+Source: https://github.com/Incubaid/arakoon
 URL: http://www.arakoon.org
 ExclusiveArch: x86_64
 
@@ -12,15 +14,15 @@ ExclusiveArch: x86_64
 Arakoon, a key-value store
 
 %prep
-cd ../SOURCES/arakoon-%{version}
+cd ../SOURCES/arakoon
 make clean
 
 %build
-cd ../SOURCES/arakoon-%{version}
+cd ../SOURCES/arakoon
 make
 
 %install
-cd ../SOURCES/arakoon-%{version}
+cd ../SOURCES/arakoon
 mkdir -p %{buildroot}%{_bindir}
 cp LICENSE %{_builddir}
 cp README.md %{_builddir}/README
