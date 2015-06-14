@@ -22,7 +22,8 @@ module Range_assertion = struct
     | ContainsExactly of string list
 
   let to_string = function
-    | ContainsExactly _ -> "ContainsExactly ..."
+    | ContainsExactly keys ->
+      Printf.sprintf "ContainsExactly [ %S ]" (String.concat "; " keys)
 
   let to_buffer buf = function
     | ContainsExactly ss ->

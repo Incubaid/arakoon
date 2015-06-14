@@ -813,9 +813,12 @@ struct
           begin match assertion with
             | Range_assertion.ContainsExactly keys ->
               let _, keys' = prefix_keys store prefix (-1) in
-              if keys = (List.map Key.get keys')
+              let actual = List.rev_map Key.get keys' in
+              if keys = actual
               then Lwt.return (Ok None)
-              else Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED, prefix))
+              else Lwt.return (Update_fail(Arakoon_exc.E_ASSERTION_FAILED,
+                                           Range_assertion.to_string assertion ^
+                                           " actual: " ^ (String.concat "," actual)))
           end
         | Update.AdminSet(k,vo) ->
           let () =
