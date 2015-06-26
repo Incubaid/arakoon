@@ -2,7 +2,7 @@
 
 Summary: Arakoon
 Name: arakoon
-Version: 1.8.5
+Version: 1.8.6
 Release: 3%{?dist}
 License: Apache 2.0
 Requires: libev >= 4
@@ -33,6 +33,8 @@ cp arakoon.native %{buildroot}%{_bindir}/arakoon
 %{_bindir}/arakoon
 
 %changelog
+* Fri Jun 26 2015 Jan Doms <jan.doms@gmail.com> - 1.8.6
+- Create arakoon 1.8.6 RPM package
 * Fri Jun 12 2015 Jan Doms <jan.doms@gmail.com> - 1.8.5
 - Create arakoon 1.8.5 RPM package
 * Tue Jun 09 2015 Jan Doms <jan.doms@gmail.com> - 1.8.4
