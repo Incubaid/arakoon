@@ -393,6 +393,9 @@ let _main_2 (type s)
     | Some i ->  Tlogcommon.tlogEntriesPerFile := i
   in
 
+  log_prelude cluster_cfg >>= fun () ->
+  Plugin_loader.load me.home cluster_cfg.plugins >>= fun () ->
+
   if catchup_only
   then
     begin
@@ -430,8 +433,6 @@ let _main_2 (type s)
       let _ = Lwt_unix.on_signal 10
                 (fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
       in
-      log_prelude cluster_cfg >>= fun () ->
-      Plugin_loader.load me.home cluster_cfg.plugins >>= fun () ->
       let my_name = me.node_name in
       let cookie = cluster_id in
       let rec upload_cfg_to_keeper () =
