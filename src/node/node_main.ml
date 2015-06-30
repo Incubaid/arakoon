@@ -430,7 +430,7 @@ let _main_2 (type s)
         then me.targets
         else List.filter ((<>) name) in_cluster_names
       in
-      let _ = Lwt_unix.on_signal 10
+      let _ = Lwt_unix.on_signal Sys.sigusr1
                 (fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
       in
       let my_name = me.node_name in
