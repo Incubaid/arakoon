@@ -379,9 +379,9 @@ let iterate_tlog_dir tlog_dir tlf_dir ~index start_i too_far_i f =
           (Sn.string_of test0) >>= fun () ->
         let first = test0 in
         Logger.info_f_ "Replaying tlog file: %s (%d/%d)" fn cnt num_tlogs  >>= fun () ->
-        let t1 = Sys.time () in
+        let t1 = Unix.gettimeofday () in
         fold_read tlog_dir tlf_dir fn ~index low (Some too_far_i) ~first low acc_entry >>= fun x ->
-        Logger.info_f_ "Completed replay of %s, took %f seconds, %i to go" fn (Sys.time () -. t1) (num_tlogs - cnt) >>= fun () ->
+        Logger.info_f_ "Completed replay of %s, took %f seconds, %i to go" fn (Unix.gettimeofday () -. t1) (num_tlogs - cnt) >>= fun () ->
         Lwt.return (cnt+1,x)
       end
     else Lwt.return (cnt+1,low)
