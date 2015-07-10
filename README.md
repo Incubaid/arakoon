@@ -53,6 +53,7 @@ Of course you want to use Arakoon from within a program. We provide OCaml, C and
 
 Releases
 --------
+
 Arakoon releases are available from the [releases](https://github.com/openvstorage/arakoon/releases) page. Any `1.X` branch corresponds to the development of releases in the `1.X` series.
 
 Have fun,
