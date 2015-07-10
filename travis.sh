@@ -32,7 +32,7 @@ install () {
     echo "Running 'install' phase"
 
     opam init
-    eval `opam config -env`
+    eval `opam config env`
 
     opam remote add incubaid-devel -k git git://github.com/Incubaid/opam-repository-devel.git
     opam update
@@ -42,7 +42,7 @@ install () {
 
 script () {
     echo "Running 'script' phase"
-    eval `opam config -env`
+    eval `opam config env`
 
     echo "Building 'arakoon.native'"
     ocamlbuild -use-ocamlfind -classic-display arakoon.native
