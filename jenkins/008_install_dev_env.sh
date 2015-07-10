@@ -15,4 +15,5 @@ opam install -y "ssl.0.4.7" \
   "lwt.2.4.8" \
   "camltc.999" \
   bisect \
-  quickcheck
+  quickcheck \
+  nocrypto.0.4.0
