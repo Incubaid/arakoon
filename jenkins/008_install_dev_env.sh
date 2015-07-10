@@ -7,12 +7,13 @@ opam update -y
 opam switch 4.02.1
 eval `opam config env`
 
-opam install -y "ssl.0.4.7"
-opam install -y conf-libev
-opam install -y camlbz2
-opam install -y snappy
-opam install -y "lwt.2.4.7"
-opam remove -y camltc
-opam install -y "camltc.999"
-opam install -y bisect
-opam install -y quickcheck
+# do this in 1 step, otherwise, you might not get what you want
+opam install -y "ssl.0.4.7" \
+  conf-libev \
+  camlbz2 \
+  snappy \
+  "lwt.2.4.8" \
+  "camltc.999" \
+  bisect \
+  quickcheck \
+  nocrypto.0.4.0

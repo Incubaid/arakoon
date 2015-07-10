@@ -1,6 +1,6 @@
 Arakoon
 =======
-![](https://travis-ci.org/Incubaid/arakoon.svg?branch=1.8)
+![](https://travis-ci.org/openvstorage/arakoon.svg?branch=1.8)
 
 Arakoon is a distributed key/value store with preference for consistency. More technically, it's a [Multi-Paxos](http://en.wikipedia.org/wiki/Paxos_%28computer_science%29#Multi-Paxos) implementation (written in [OCaml](http://ocaml.org/)) running on top of [TokyoCabinet](http://fallabs.com/tokyocabinet/).
 
@@ -53,4 +53,9 @@ Of course you want to use Arakoon from within a program. We provide OCaml, C and
 
 Releases
 --------
-Arakoon releases are available from the [releases](https://github.com/openvstorage/arakoon/releases) page. 
+
+Arakoon releases are available from the [releases](https://github.com/openvstorage/arakoon/releases) page. Any `1.X` branch corresponds to the development of releases in the `1.X` series.
+
+Have fun,
+
+The Arakoon team

@@ -2,7 +2,7 @@
 
 APT_DEPENDS="libev-dev libssl-dev libsnappy-dev libgmp3-dev"
 APT_OCAML_DEPENDS="ocaml ocaml-native-compilers camlp4-extra opam"
-OPAM_DEPENDS="ssl conf-libev lwt camlbz2 camltc.999 snappy quickcheck ocplib-endian uuidm nocrypto"
+OPAM_DEPENDS="ssl.0.4.7 conf-libev lwt.2.4.8 camlbz2 camltc.999 snappy quickcheck ocplib-endian uuidm nocrypto.0.4.0"
 
 export OPAMYES=1
 export OPAMVERBOSE=1
@@ -32,7 +32,7 @@ install () {
     echo "Running 'install' phase"
 
     opam init
-    eval `opam config -env`
+    eval `opam config env`
 
     opam remote add incubaid-devel -k git git://github.com/Incubaid/opam-repository-devel.git
     opam update
@@ -42,7 +42,7 @@ install () {
 
 script () {
     echo "Running 'script' phase"
-    eval `opam config -env`
+    eval `opam config env`
 
     echo "Building 'arakoon.native'"
     ocamlbuild -use-ocamlfind -classic-display arakoon.native
