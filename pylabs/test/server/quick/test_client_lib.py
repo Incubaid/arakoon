@@ -37,7 +37,6 @@ def test_client_lib():
         if cwd == None:
             cwd = '../..'
         print cmd
-        print env
         r = X.subprocess.check_output(cmd,
                                       cwd = cwd,
                                       env = env)
