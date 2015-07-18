@@ -153,6 +153,21 @@ let run_some_tests repeat_count filter =
 
     | None -> failwith (Printf.sprintf "no test matches '%s'" filter);;
 
+let check_root () =
+  let allow_root =
+    try
+      let _ = Unix.getenv "ARAKOON_RUN_AS_ROOT" in
+      true
+    with Not_found -> false
+  in
+  if allow_root
+    then ()
+    else begin
+      let root_uid = 0 in
+      let euid = Unix.geteuid () in
+      if euid = root_uid
+        then failwith "Running as root is not supported"
+    end
 
 let main () =
   Ssl_threads.init ();
@@ -478,6 +493,7 @@ let main () =
     match node with
       | Node ->
         begin
+          check_root ();
           let canonical =
             if !config_file.[0] = '/'
             then !config_file
