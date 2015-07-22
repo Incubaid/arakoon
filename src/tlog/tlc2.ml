@@ -897,7 +897,7 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_d
 let truncate_tlog filename =
   let skipper () _entry = Lwt.return ()
   in
-  let t =
+  let t () =
     begin
       let folder,extension,index = folder_for filename None in
       if extension <> ".tlog"
@@ -923,4 +923,13 @@ let truncate_tlog filename =
           Lwt_io.with_file ~mode:Lwt_io.input filename do_it
         end
     end
-  in Lwt_main.run t
+  in
+  let t' =
+    Lwt.catch
+      t
+      (fun ex ->
+       Lwt_io.printlf "problem:%s%!" (Printexc.to_string ex) >>= fun () ->
+       Lwt.return 1
+      )
+  in
+  Lwt_main.run t'
