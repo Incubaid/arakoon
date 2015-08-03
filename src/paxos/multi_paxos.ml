@@ -72,9 +72,18 @@ let network_of_messaging (m:messaging) =
 let update_votes (nones, somes) = function
   | None -> (nones + 1, somes)
   | Some key ->
-      List.alter ~list:somes ~key ~default:1 (fun v -> Some (v + 1))
-      |> List.sort (fun (_, fa) (_, fb) -> fb - fa)
-      |> fun s -> (nones, s)
+    List.alter
+      ~equals:(fun v1 v2 ->
+               v1 = v2
+               || (match v1, v2 with
+                   (* ignore the timestamp when comparing a masterset,
+                      otherwise in some situations electing the master
+                      might get stuck in a loop *)
+                   | Value.Vm(m1, _), Value.Vm(m2, _) -> m1 = m2
+                   | _ -> false))
+      ~list:somes ~key ~default:1 (fun v -> Some (v + 1))
+    |> List.sort (fun (_, fa) (_, fb) -> fb - fa)
+    |> fun s -> (nones, s)
 
 type paxos_event =
   | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
