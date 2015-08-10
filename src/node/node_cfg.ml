@@ -748,7 +748,7 @@ module Node_cfg = struct
             let go () =
               Logger.debug_f_ "Touching %S" fn >>= fun () ->
               Lwt_unix.openfile fn
-                [Lwt_unix.O_RDWR; Lwt_unix.O_CLOEXEC; Lwt_unix.O_CREAT; Lwt_unix.O_EXCL]
+                [Lwt_unix.O_RDWR; Lwt_unix.O_CREAT; Lwt_unix.O_EXCL]
                 0o600 >>= fun fd ->
 
               Lwt.finalize
