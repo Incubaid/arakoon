@@ -181,11 +181,15 @@ let find_master' ~tls cluster_cfg =
         Logger.debug_f_ "Client_main.find_master': Trying %S" node_name >>= fun () ->
         Lwt.catch
           (fun () ->
-            with_client'
-              ~tls
-              cfg cluster_cfg.cluster_id
-              (fun client ->
-                client # who_master ()) >>= function
+           Lwt.choose
+             [ (Lwt_unix.sleep 1. >>= fun () ->
+                Lwt.return None);
+               with_client'
+                 ~tls
+                 cfg cluster_cfg.cluster_id
+                 (fun client ->
+                  client # who_master ()); ]
+           >>= function
                 | None -> begin
                     Logger.debug_f_
                       "Client_main.find_master': %S doesn't know" node_name >>= fun () ->
