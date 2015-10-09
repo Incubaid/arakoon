@@ -34,8 +34,7 @@ let close = function
 let deny_max (_ic,oc,_cid) =
   Logger.warning_ "max connections reached, denying this one" >>= fun () ->
   Llio.output_int32 oc (Arakoon_exc.int32_of_rc Arakoon_exc.E_MAX_CONNECTIONS) >>= fun () ->
-  Llio.output_string oc "too many clients" >>= fun () ->
-  Lwt_io.flush oc
+  Llio.output_string oc "too many clients"
 
 let deny_closing (_ic,oc,_cid) =
   Logger.warning_ "closing socket, denying this one" >>= fun () ->
@@ -54,7 +53,12 @@ let session_thread (sid:string) cid protocol fd =
              let ic = Lwt_ssl.in_channel_of_descr fd'
              and oc = Lwt_ssl.out_channel_of_descr fd' in
              (ic, oc)
-       in protocol (ic,oc,cid)
+       in
+       Lwt.finalize
+         (fun () -> protocol (ic,oc,cid))
+         (fun () ->
+          Lwt_io.close oc >>= fun () ->
+          Lwt_io.close ic)
     )
     (function
       | FOOBAR as foobar->
