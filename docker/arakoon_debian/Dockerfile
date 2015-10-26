@@ -36,7 +36,7 @@ RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 
 RUN useradd jenkins -u 1001 -g root
 
-RUN pip install fabric junit-xml
+RUN pip install fabric junit-xml nose
 
 RUN wget https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh
 RUN sh ./opam_installer.sh /usr/local/bin 4.02.3
