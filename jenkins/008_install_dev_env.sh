@@ -2,7 +2,7 @@
 
 which opam > /dev/null || { echo 'opam not found!'; exit 1; }
 
-opam switch 4.02.1
+opam switch 4.02.3
 eval `opam config env`
 
 # do this in 1 step, otherwise, you might not get what you want
@@ -19,6 +19,6 @@ opam install -y ssl.0.5.0 \
      ocplib-endian.0.8 \
      quickcheck.1.0.2 \
      nocrypto.0.5.1 \
-     sexplib.112.35.00 \
+     sexplib.113.00.00 \
      uuidm.0.9.5 \
      zarith.1.3

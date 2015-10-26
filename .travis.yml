@@ -1,7 +1,7 @@
 language: c
 sudo: required
 env:
-  - PPA=ppa:avsm/ocaml42+opam12
+  - PPA=avsm/ocaml42+opam12
 
 before_install: ./travis.sh before_install
 install: ./travis.sh install
