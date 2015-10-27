@@ -32,7 +32,7 @@ RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         sudo \
         libtool \
         libboost-all-dev \
-        fuse
+        iptables
 
 RUN useradd jenkins -u 1001 -g root
 
