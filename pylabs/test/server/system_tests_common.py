@@ -165,11 +165,17 @@ def dump_store( node_id ):
     try:
         dump_fd = open( dump_file, 'w' )
         logging.info( "Dumping store of %s to %s" % (node_id, dump_file) )
-        stdout= X.subprocess.check_output( cmd , captureOutput=True, stdout=dump_fd )
+        stdout= X.subprocess.check_output(cmd)
+        dump_fd.write(stdout)
         dump_fd.close()
-    except:
+    except OSError as ose:
+        if ose.errno == 2:
+            logging.info("store :%s is empty" % db_file)
+        else:
+            raise ose
+    except Exception as ex:
         logging.info("Unexpected error: %s" % sys.exc_info()[0])
-
+        raise ex
     return dump_file
 
 def flush_store(node_name):
@@ -193,8 +199,14 @@ def get_i(node_id, head=False):
         db_file = head_dir + "/head.db"
     else:
         db_file = get_node_db_file(node_id)
+
+    logging.debug("%s exists: %s" % (db_file, os.path.exists(db_file)))
+
     cmd = [get_arakoon_binary(), "--dump-store", db_file]
+    logging.debug("get_i:cmd = %s" % str(cmd))
     stdout=  X.subprocess.check_output(cmd)
+    print "\nstdout=\n"
+    print stdout
     i_line = stdout.split("\n") [0]
     logging.info("i_line='%s'", i_line)
 
@@ -1062,10 +1074,18 @@ def assert_last_i_in_sync ( node_1, node_2 ):
         pass
 
 
-def assert_running_nodes ( n ):
+def assert_running_nodes(n):
     try:
-        count = int(X.subprocess.check_output(['pgrep', '-c', daemon_name]))
-    except subprocess.CalledProcessError:
+        output = X.subprocess.check_output(['pgrep',
+                                            '-a',
+                                            '-f', "%s --node" % (daemon_name)],
+                                           stderr = X.subprocess.STDOUT
+        )
+        lines = output.strip().split('\n')
+        logging.info(lines)
+        count = len(lines)
+    except subprocess.CalledProcessError,ex:
+        logging.info("ex:%s => count = 0" % ex)
         count = 0
 
     assert_equals(

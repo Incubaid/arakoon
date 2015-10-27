@@ -680,7 +680,7 @@ def test_download_db():
 
     C.flush_store(n0)
     C.stop_all()
-    C.compare_stores(n0,n1)
+    C.compare_stores(n0, n1)
 
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_delete_prefix():
