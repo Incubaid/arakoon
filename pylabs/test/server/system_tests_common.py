@@ -1068,7 +1068,10 @@ def assert_running_nodes ( n ):
     except subprocess.CalledProcessError:
         count = 0
 
-    assert_equals(count, n, "Number of expected running nodes mismatch")
+    assert_equals(
+        count, n,
+        "Number of expected running nodes mismatch: expected=%s, actual=%s" % (n,count)
+    )
 
 def assert_value_list ( start_suffix, list_size, list ) :
     assert_list( value_format_str, start_suffix, list_size, list )
