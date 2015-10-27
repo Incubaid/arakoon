@@ -1,12 +1,15 @@
 #!/bin/bash -xue
 
-eval `opam config env`
-
-ln -s '../../' ./redhat/SOURCES/arakoon | true
-ARAKOON_HOME=`pwd`
-cd ~/
-rm rpmbuild | true
-ln -s $ARAKOON_HOME/redhat rpmbuild
-cd rpmbuild
-rpmbuild -ba SPECS/arakoon.spec
-
+eval `${opam_env}`
+export START=${PWD}
+echo START=${START}
+rm -rf ${START}/rpmbuild/
+make clean
+mkdir -p ${START}/rpmbuild/SOURCES
+cd ${START}/rpmbuild/SOURCES/
+ln -f -s ${START} ./arakoon
+cd ${START}
+ls -lR .
+#chown root:root ./redhat/SPECS/arakoon.spec
+#make
+rpmbuild --define "_topdir ${START}/rpmbuild" -bb ./redhat/SPECS/arakoon.spec
