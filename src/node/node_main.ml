@@ -843,7 +843,7 @@ let _main_2 (type s)
                  inner (succ i) in
              inner 0, stop in
            let count_close_store, stop = count_thread "Closing store (%is)" in
-           Lwt.pick [ S.close ~flush:false ~sync:true store ;
+           Lwt.pick [ S.close ~flush:true ~sync:true store ;
                       count_close_store ] >>= fun () ->
            stop := true;
            Logger.fatal_f_
