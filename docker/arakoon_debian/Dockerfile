@@ -32,7 +32,8 @@ RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         sudo \
         libtool \
         libboost-all-dev \
-        iptables
+        iptables \
+        net-tools
 
 RUN useradd jenkins -u 1001 -g root
 
@@ -40,6 +41,12 @@ RUN pip install fabric junit-xml nose
 
 RUN wget https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh
 RUN sh ./opam_installer.sh /usr/local/bin 4.02.3
+
+RUN mkdir /home/tests
+RUN chmod 777 /home/tests
+ENV TEST_HOME='/home/tests'
+ENV PATH=${PATH}:/home/tests/apps/arakoon/bin
+
 RUN mkdir /home/opam
 ENV opam_env='opam config env --root=/home/opam/OPAM'
 RUN opam init --root=/home/opam/OPAM --comp 4.02.3
@@ -71,3 +78,4 @@ RUN eval `${opam_env}` && opam install -y \
 
 RUN echo "jenkins ALL=NOPASSWD: ALL" >/etc/sudoers.d/jenkins
 ENV LANG=C
+RUN chmod 777 /home/opam/OPAM/4.02.3/lib

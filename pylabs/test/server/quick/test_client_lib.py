@@ -16,6 +16,8 @@ limitations under the License.
 
 from Compat import X
 import os
+import logging
+import subprocess
 
 def test_client_lib():
     my_temp = '/tmp/client_lib_test'
@@ -37,7 +39,14 @@ def test_client_lib():
         if cwd == None:
             cwd = '../..'
         print cmd
-        r = X.subprocess.check_output(cmd,
-                                      cwd = cwd,
-                                      env = env)
-        print r
+        try:
+            r = X.subprocess.check_output(cmd,
+                                          cwd = cwd,
+                                          env = env,
+                                          stderr= X.subprocess.STDOUT
+            )
+            print r
+        except subprocess.CalledProcessError as ex:
+            logging.info("ex:%s" % ex)
+            logging.info("output=%s" % ex.output)
+            raise ex

@@ -73,13 +73,13 @@ def _writeConfig(self, p, h):
     logging.debug("writing (%i)%s:\n%s", self._count, fn, self.cfg2str(p))
     with open(fn,'w') as cfg:
         p.write(cfg)
-        
+
 
 def _run(self,cmd):
     #['mount', '-t', 'tmpfs', '-o', 'size=20m', 'tmpfs', '/opt/qbase3/var/tmp//arakoon_system_tests/test_disk_full_on_slave/sturdy_0/db']
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr = subprocess.PIPE)
     proc.wait()
-    output = proc.stdout.read()    
+    output = proc.stdout.read()
     err = proc.stderr.read()
     return (proc.returncode, output,err)
 
@@ -138,8 +138,11 @@ class Compat:
 
     subprocess = subprocess
 
+    root = os.environ.get('TEST_HOME')
+    if root is None:
+        root = os.environ['HOME']
 
-    _base = '/tmp/X'
+    _base = root
     tmpDir = _base + '/tmp'
     appDir = _base + '/apps'
     cfgDir = _base + '/cfg'
@@ -150,7 +153,7 @@ class Compat:
 class _LOGGING:
     def __init__(self,q):
         self._q = q
-        
+
     def info(self,template,*rest):
         message = template % rest
         self._q.logger.log(message,level = 10)
@@ -158,7 +161,7 @@ class _LOGGING:
     def debug(self,template,*rest):
         message = template % rest
         self._q.logger.log(message,level = 5)
-            
+
 
 class Q: # (Compat)
     def __init__(self):
@@ -178,7 +181,7 @@ class Q: # (Compat)
         self.AppStatusType = q.enumerators.AppStatusType
         self.listFilesInDir = q.system.fs.listFilesInDir
 
-        self.subprocess = subprocess 
+        self.subprocess = subprocess
         def check_output(cmd, **kwargs):
             return subprocess.Popen(cmd, stdout=subprocess.PIPE, **kwargs).communicate()[0]
         self.subprocess.check_output = check_output
@@ -188,7 +191,7 @@ class Q: # (Compat)
 
     getConfig = _getConfig
     writeConfig = _writeConfig
-            
+
     def removeDirTree(self,path):
         return self._q.system.fs.removeDirTree(path)
 
@@ -197,7 +200,7 @@ class Q: # (Compat)
 
     def removeFile(self,path):
         os.unlink(path)
-    
+
     def getFileContents(self, path):
         data = self._q.system.fs.fileGetContents(path)
         return data
@@ -209,7 +212,7 @@ class Q: # (Compat)
         self._q.system.fs.copyDirTree(source,destination)
     cfg2str = _cfg2str
     run = _run
-    
+
 
 def which_compat():
     print "which_compat"
