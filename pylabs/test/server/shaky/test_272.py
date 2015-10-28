@@ -43,18 +43,12 @@ def test_272():
     for i in range(100):
         Common.rotate_log(node, 1, False)
         time.sleep(0.2)
-        # Note:
-        # At this point, we expect one node to be running, as well as the
-        # benchmark process. The `assert_running_nodes` procedure uses
-        # 'pgrep -c' which counts the number of 'arakoon' processes running, so
-        # we should pass *2* here, despite only a single node process should be
-        # running.
-        Common.assert_running_nodes(2)
+        Common.assert_running_nodes(1)
         rc = bench.returncode
         if rc <> None:
             raise Exception ("benchmark should not have stopped")
 
-    Common.assert_running_nodes(2)
+    Common.assert_running_nodes(1)
     logging.info("now wait for benchmark to finish")
     rc = bench.wait()
     if rc <> 0:
