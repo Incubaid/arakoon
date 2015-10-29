@@ -332,7 +332,7 @@ module X = struct
     let t0 = Unix.gettimeofday () in
     Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i)
     >>= fun () ->
-    tlog_coll # accept i v >>= fun () ->
+    tlog_coll # accept i v >>= fun total_size ->
     begin
       match v with
         | Value.Vc (us,_)     ->
@@ -345,9 +345,9 @@ module X = struct
     let d = t1 -. t0 in
     if d >= 1.0
     then
-      Logger.info_f_ "T:on_accept took: %f" d
+      Logger.info_f_ "T:on_accept took: %f (%i B)" d total_size
     else
-      Logger.debug_f_ "T:on_accept took: %f" d
+      Logger.debug_f_ "T:on_accept took: %f (%i B) " d total_size
 
   let reporting period backend () =
     let fp = float period in

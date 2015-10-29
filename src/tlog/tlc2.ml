@@ -512,7 +512,7 @@ class tlc2
              self # _prelude i >>= fun file ->
              let p = F.file_pos file in
              let oc = F.oc_of file in
-             Tlogcommon.write_entry oc i value >>= fun () ->
+             Tlogcommon.write_entry oc i value >>= fun total_size ->
              Lwt_io.flush oc >>= fun () ->
              begin
                if sync
@@ -528,7 +528,7 @@ class tlc2
              let entry = Entry.make i value p marker in
              _previous_entry <- Some entry;
              Index.note entry _index;
-             Lwt.return ()
+             Lwt.return total_size
            end)
 
     method log_value i value =

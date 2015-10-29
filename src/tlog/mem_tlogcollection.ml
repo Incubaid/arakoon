@@ -74,7 +74,7 @@ class mem_tlog_collection _name =
       let entry = Entry.make i v 0L marker in
       let () = data <- entry::data in
       let () = last_entry <- (Some entry) in
-      Lwt.return ()
+      Lwt.return 0
 
     method log_value i v = self #log_value_explicit i v ~sync:false None
 

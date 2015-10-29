@@ -313,7 +313,9 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
 
 let last_entries
       (type s) (module S : Store.STORE with type t = s)
-      store tlog_collection (start_i:Sn.t) (oc:Lwt_io.output_channel)
+      store
+      (tlog_collection:Tlogcollection.tlog_collection)
+      (start_i:Sn.t) (oc:Lwt_io.output_channel)
   =
   (* This one is kept (for how long?)
      for x-version clusters during upgrades
@@ -368,7 +370,8 @@ let last_entries
             let i = Entry.i_of entry
             and v = Entry.v_of entry
             in
-            Tlogcommon.write_entry oc i v
+            Tlogcommon.write_entry oc i v >>= fun _total_size ->
+            Lwt.return ()
           in
           Lwt.catch
             (fun () -> tlog_collection # iterate start_i3 too_far_i f)
@@ -384,7 +387,9 @@ let last_entries
 
 let last_entries2
       (type s) (module S : Store.STORE with type t = s)
-      store tlog_collection (start_i:Sn.t) (oc:Lwt_io.output_channel)
+      store
+      (tlog_collection:Tlogcollection.tlog_collection)
+      (start_i:Sn.t) (oc:Lwt_io.output_channel)
   =
   Logger.debug_f_ "last_entries2 %s" (Sn.string_of start_i) >>= fun () ->
   let consensus_i = S.consensus_i store in
@@ -401,7 +406,8 @@ let last_entries2
             let i = Entry.i_of entry
             and v = Entry.v_of entry
             in
-            Tlogcommon.write_entry oc i v
+            Tlogcommon.write_entry oc i v >>= fun _total_size ->
+            Lwt.return_unit
           in
           Llio.output_int oc 1 >>= fun () ->
           Lwt.catch
