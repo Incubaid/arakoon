@@ -14,6 +14,8 @@ before_install () {
     echo "yes" | sudo add-apt-repository ppa:$PPA
     echo "Updating Apt cache"
     sudo apt-get update -qq
+    echo "updating keys"
+    sudo apt-key update
     echo "Installing general dependencies"
     sudo apt-get install -qq ${APT_DEPENDS}
     echo "Installing dependencies"
