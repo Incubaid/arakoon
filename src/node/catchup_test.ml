@@ -39,7 +39,7 @@ let _fill tlog_coll n =
         and v = Printf.sprintf "value%i" i in
         let u = Update.Set (k,v) in
         let value = Value.create_client_value [u] sync in
-        tlog_coll # log_value (Sn.of_int i) value >>= fun () ->
+        tlog_coll # log_value (Sn.of_int i) value >>= fun _total_size ->
         _loop (i+1)
       end
   in
@@ -61,8 +61,8 @@ let _fill2 tlog_coll n =
         let value = Value.create_client_value [u] sync in
         let value2 = Value.create_client_value [u2] sync in
         let sni = Sn.of_int i in
-        tlog_coll # log_value  sni value  >>= fun () ->
-        tlog_coll # log_value  sni value2 >>= fun () ->
+        tlog_coll # log_value  sni value  >>= fun _ ->
+        tlog_coll # log_value  sni value2 >>= fun _ ->
         _loop (i+1)
       end
   in
@@ -87,8 +87,8 @@ let _fill3 tlog_coll n =
         let value = Value.create_client_value [u; u3] sync in
         let value2 = Value.create_client_value [u2; u3] sync in
         let sni = Sn.of_int i in
-        tlog_coll # log_value sni value  >>= fun () ->
-        tlog_coll # log_value sni value2 >>= fun () ->
+        tlog_coll # log_value sni value  >>= fun _ ->
+        tlog_coll # log_value sni value2 >>= fun _ ->
         _loop (i+1)
       end
   in

@@ -34,11 +34,11 @@ let prepare_tlog_scenarios (dn,factory) =
   Tlogcommon.tlogEntriesPerFile := 5 ;
   factory dn "node_name" >>= fun (tlog_coll:tlog_collection) ->
   let value = Value.create_master_value ~lease_start:0. "me" in
-  tlog_coll # log_value  0L value  >>= fun () ->
-  tlog_coll # log_value  1L value  >>= fun () ->
-  tlog_coll # log_value  2L value  >>= fun () ->
-  tlog_coll # log_value  3L value  >>= fun () ->
-  tlog_coll # log_value  4L value  >>= fun () ->
+  tlog_coll # log_value  0L value  >>= fun _ ->
+  tlog_coll # log_value  1L value  >>= fun _ ->
+  tlog_coll # log_value  2L value  >>= fun _ ->
+  tlog_coll # log_value  3L value  >>= fun _ ->
+  tlog_coll # log_value  4L value  >>= fun _ ->
   tlog_coll # close () >>= fun _ ->
   Lwt.return old_tlog_entries_value
 
@@ -48,7 +48,7 @@ let test_interrupted_rollover (dn, tlx_dir, factory) =
     Unix.unlink fn; *)
   factory dn "node_name" >>= fun tlog_coll ->
   let value = Value.create_master_value ~lease_start:0. "me" in
-  tlog_coll # log_value 5L value >>= fun () ->
+  tlog_coll # log_value 5L value >>= fun _ ->
   tlog_coll # close () >>= fun _ ->
   Tlc2.get_tlog_names dn tlx_dir >>= fun tlog_names ->
   let n = List.length tlog_names in
@@ -204,10 +204,11 @@ let test_compression_bug (dn, tlx_dir, factory) =
       let key = Printf.sprintf "test_compression_bug_%i" i in
       let value = Value.create_client_value [Update.Set(key, v)] sync in
       let sni = Sn.of_int i in
-      tlc # log_value sni value >>= fun () ->
+      tlc # log_value sni value >>= fun _ ->
       loop (i+1)
   in
-  tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
+  tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false)
+  >>= fun _total_size ->
   loop 1 >>= fun () ->
   tlc # close ~wait_for_compression:true () >>= fun () ->
   File_system.stat (tlx_dir ^ "/000.tlx") >>= fun stat ->
@@ -239,11 +240,13 @@ let test_compression_previous (dn, tlx_dir, factory) =
       let key = Printf.sprintf "test_compression_bug_%i" i in
       let value = Value.create_client_value [Update.Set(key, v)] sync in
       let sni = Sn.of_int i in
-      tlc # log_value sni value >>= fun () ->
+      tlc # log_value sni value >>= fun _ ->
       loop (i+1)
   in
-  tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false) >>= fun () ->
-  loop 1 >>= fun () ->
+  tlc # log_value 0L (Value.create_client_value [Update.Set("xxx","XXX")] false)
+  >>= fun _ ->
+  loop 1
+  >>= fun () ->
   tlc # close ~wait_for_compression:true () >>= fun () ->
 
   (* mess around : uncompress tlxs to tlogs again, put some temp files in the way *)

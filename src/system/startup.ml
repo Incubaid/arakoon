@@ -81,7 +81,7 @@ let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
     | [] -> Lwt.return ()
     | v :: vs ->
       begin
-        tlc # log_value i v >>= fun () ->
+        tlc # log_value i v >>= fun _ ->
         loop (Sn.succ i) vs
       end
   in

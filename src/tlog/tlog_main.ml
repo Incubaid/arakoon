@@ -112,8 +112,12 @@ let mark_tlog file_name node_name =
 let make_tlog tlog_name (i:int) =
   let sni = Sn.of_int i in
   let t =
-    let f oc = Tlogcommon.write_entry oc sni
-                 (Value.create_client_value [Update.Update.Nop] false)
+    let f oc =
+      Tlogcommon.write_entry
+        oc sni
+        (Value.create_client_value [Update.Update.Nop] false)
+        >>= fun _ -> Lwt.return_unit
+
     in
     Lwt_io.with_file ~mode:Lwt_io.output tlog_name f
   in
