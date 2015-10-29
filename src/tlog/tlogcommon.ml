@@ -133,7 +133,7 @@ let write_entry oc i value =
   let chksum = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
   Llio.output_int32 oc chksum >>= fun() ->
   Llio.output_string oc cmd >>= fun () ->
-  let extra_size = 12 (* i:8 + chksum:4 + string:4 *) in
+  let extra_size = 16 (* i:8 + chksum:4 + string:4 *) in
   let total_size = Bytes.length cmd + extra_size in
   Lwt.return total_size
 
