@@ -46,8 +46,8 @@ let session_thread (sid:string) cid protocol fd =
     (fun () ->
        let (ic, oc) = match fd with
          | Plain fd' ->
-             let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd'
-             and oc = Lwt_io.of_fd ~mode:Lwt_io.output fd' in
+             let ic = Lwt_io.of_fd ~close:Lwt.return ~mode:Lwt_io.input fd'
+             and oc = Lwt_io.of_fd ~close:Lwt.return ~mode:Lwt_io.output fd' in
              (ic, oc)
          | TLS fd' ->
              let ic = Lwt_ssl.in_channel_of_descr fd'
