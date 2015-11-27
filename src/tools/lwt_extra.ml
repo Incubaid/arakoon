@@ -71,3 +71,12 @@ end = struct
                     else ();
                 Lwt.return ()))
 end
+
+let run f =
+  Lwt_main.run (
+      Lwt.finalize
+        f
+        (fun () ->
+         Lwt_io.flush Lwt_io.stdout >>= fun () ->
+         Lwt_io.flush Lwt_io.stderr)
+  )
