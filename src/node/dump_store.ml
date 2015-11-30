@@ -59,7 +59,7 @@ let dump_store filename =
     summary store >>= fun () ->
     S.close store ~sync:false ~flush:false
   in
-  Lwt_main.run (t());
+  Lwt_extra.run t;
   0
 
 exception ExitWithCode of int;;
@@ -151,7 +151,7 @@ let inject_as_head fn node_id cfg_fn ~force ~in_place =
 
   in
   try
-    Lwt_main.run (t ())
+    Lwt_extra.run t
   with
     | ExitWithCode i -> i
     | exn -> raise exn

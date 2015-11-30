@@ -35,6 +35,8 @@ let with_remote_nodestream ~tls node_cfg cluster_id f =
   in
   with_connection' ~tls addrs do_it
 
+let run f = Lwt_extra.run f ; 0
+
 let ping ~tls ip port cluster_id =
   let do_it connection =
     let t0 = Unix.gettimeofday () in
@@ -46,8 +48,8 @@ let ping ~tls ip port cluster_id =
     Lwt_io.printlf "%s\ntook\t%f" s d
   in
   let sa = make_address ip port in
-  let t = with_connection ~tls sa do_it in
-  Lwt_main.run t; 0
+  let t () = with_connection ~tls sa do_it in
+  run t
 
 
 
@@ -62,7 +64,6 @@ let find_master ~tls cluster_cfg =
     | Unknown_node (n, _) -> return n (* Keep original behaviour *)
     | Exception exn -> Lwt.fail exn
 
-let run f = Lwt_main.run (f ()); 0
 
 let with_master_client ~tls cfg_name f =
   let open Node_cfg in

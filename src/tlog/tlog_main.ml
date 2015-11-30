@@ -29,7 +29,7 @@ let dump_tlog filename ~values=
   in
   let folder,_,index = Tlc2.folder_for filename None in
 
-  let t =
+  let t () =
     begin
       let do_it ic =
 
@@ -43,7 +43,7 @@ let dump_tlog filename ~values=
       Lwt_io.with_file ~mode:Lwt_io.input filename do_it
     end
   in
-  Lwt_main.run t
+  Lwt_extra.run t
 
 let _last_entry filename =
   let last = ref None in
@@ -85,11 +85,11 @@ let strip_tlog filename =
             Lwt.return 1
           end
   in
-  let t =
+  let t () =
     _last_entry filename >>= fun last ->
     maybe_truncate last
   in
-  Lwt_main.run t
+  Lwt_extra.run t
 
 let mark_tlog file_name node_name =
   let t =
@@ -135,11 +135,11 @@ let compress_tlog tlu archive_type=
   let () = if not (Sys.file_exists tlu) then failwith "Input file %s does not exist" tlu in
   let tlx = Tlc2.to_archive_name compressor tlu in
   let () = if Sys.file_exists tlx then failwith "Can't compress %s as %s already exists" tlu tlx in
-  let t =
+  let t () =
     Compression.compress_tlog ~cancel:(ref false) tlu tlx compressor >>= fun () ->
     File_system.unlink tlu
   in
-  Lwt_main.run t;
+  Lwt_extra.run t;
   0
 
 let uncompress_tlog tlx =
