@@ -184,22 +184,43 @@ let log_prelude cluster_cfg =
 
 let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db"
 
-let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~name ~cluster_cfg ~make_tlog_coll =
+let only_catchup
+      (type s) (module S : Store.STORE with type t = s)
+      ~tls_ctx
+      ~name
+      ~cluster_cfg
+      ~make_tlog_coll
+      get_snapshot_name
+  =
   Logger.info_ "ONLY CATCHUP" >>= fun () ->
   let me, other_configs = _split name cluster_cfg.cfgs in
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
+  let snapshot_name = get_snapshot_name() in
+  let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
+  Lwt.catch
+    (fun () ->
+     S.copy_store2 full_snapshot_path db_name
+                   ~overwrite:false
+                   ~throttling:Node_cfg.default_head_copy_throttling
+    )
+    (function
+      | Not_found -> Lwt.return ()
+      | e -> raise e
+    )
+  >>= fun () ->
+
+  S.make_store ~lcnum:cluster_cfg.lcnum
+               ~ncnum:cluster_cfg.ncnum
+               db_name >>= fun store ->
+  let compressor = me.compressor in
+  make_tlog_coll ~compressor
+                 me.tlog_dir me.tlx_dir me.head_dir
+                 ~fsync:false name ~fsync_tlog_dir:false
+  >>= fun tlc ->
   let try_catchup mr_name =
     Lwt.catch
       (fun () ->
-       S.make_store ~lcnum:cluster_cfg.lcnum
-                    ~ncnum:cluster_cfg.ncnum
-                    db_name >>= fun store ->
-       let compressor = me.compressor in
-       make_tlog_coll ~compressor
-                      me.tlog_dir me.tlx_dir me.head_dir
-                      ~fsync:false name ~fsync_tlog_dir:false
-       >>= fun tlc ->
        Catchup.catchup ~tls_ctx ~stop:(ref false)
                        me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
@@ -399,9 +420,12 @@ let _main_2 (type s)
   if catchup_only
   then
     begin
-      only_catchup (module S) ~tls_ctx:ssl_context ~name ~cluster_cfg ~make_tlog_coll
-      >>= fun _ -> (* we don't need that here as there is no continuation *)
-
+      only_catchup
+        (module S)
+        ~tls_ctx:ssl_context
+        ~name ~cluster_cfg ~make_tlog_coll
+        get_snapshot_name
+      >>= fun () ->
       Lwt.return 0
     end
   else
