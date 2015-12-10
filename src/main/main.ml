@@ -215,6 +215,7 @@ let main () =
   and right = ref None
   and rinc = ref false
   and scenario = ref (String.concat ", " Benchmark.default_scenario)
+  and autofix = ref false
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -315,6 +316,7 @@ let main () =
     (* ("-port", Arg.Set_int port, "specifies server port"); *)
     ("-config", Arg.Set_string config_file,
      "specifies config file (default = cfg/arakoon.ini )");
+    ("-autofix", Arg.Set autofix, "attempt to autofix (option to -node)");
     ("-catchup-only", Arg.Set catchup_only,
      "will only do a catchup of the node, without actually starting it (option to --node)");
     ("-daemonize", Arg.Set daemonize,
@@ -489,7 +491,7 @@ let main () =
           let make_config () = Node_cfg.read_config canonical in
           Daemons.maybe_daemonize !daemonize make_config;
           let main_t = (Node_main.main_t make_config
-                          !node_id !daemonize !catchup_only)
+                          !node_id !daemonize !catchup_only !autofix)
           in
           (* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
           Lwt_main.run main_t
