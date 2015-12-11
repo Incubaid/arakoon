@@ -104,16 +104,19 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
       Hashtbl.add stores db_name store;
       Lwt.return store
   end in
-  let t = Node_main._main_2
-    (module S)
-    (_make_tlog_coll tlcs values)
-    get_cfgs
-    (fun () -> "DUMMY")
-    ~name
-    ~daemonize:false
-    ~catchup_only:false
-    ~stop:!stop
-          >>= fun _ -> Lwt.return () in
+  let t =
+    Node_main._main_2
+      (module S)
+      (_make_tlog_coll tlcs values)
+      get_cfgs
+      (fun () -> "DUMMY")
+      ~name
+      ~daemonize:false
+      ~catchup_only:false
+      ~autofix:false
+      ~stop:!stop
+    >>= fun _ -> Lwt.return ()
+  in
   node_ts := t :: !node_ts;
   t
 

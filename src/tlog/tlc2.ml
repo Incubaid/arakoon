@@ -893,40 +893,38 @@ let make_tlc2 ~compressor tlog_dir tlf_dir head_dir ~fsync node_id ~fsync_tlog_d
   >>= fun () ->
   Lwt.return col
 
+let _truncate_tlog filename =
+  let skipper () _entry = Lwt.return () in
+  let folder,extension,index = folder_for filename None in
+  if extension <> ".tlog"
+  then Lwt.fail (Failure "Cannot truncate a compressed tlog")
+  else
+    begin
+      let do_it ic =
+        let lowerI = Sn.start
+        and higherI = None
+        and first = Sn.of_int 0
+        in
+        Lwt.catch
+          (fun() -> folder ic ~index lowerI higherI ~first () skipper)
+          (function
+            | Tlogcommon.TLogCheckSumError pos
+            | Tlogcommon.TLogUnexpectedEndOfFile pos ->
+               let fd = Unix.openfile filename [ Unix.O_RDWR ] 0o600 in
+               Lwt.return ( Unix.ftruncate fd (Int64.to_int pos) )
+            | ex -> Lwt.fail ex
+          )
+      in
+      Lwt_io.with_file ~mode:Lwt_io.input filename do_it
+    end
 
 let truncate_tlog filename =
-  let skipper () _entry = Lwt.return ()
-  in
-  let t () =
-    begin
-      let folder,extension,index = folder_for filename None in
-      if extension <> ".tlog"
-      then Lwt.fail (Failure "Cannot truncate a compressed tlog")
-      else
-        begin
-          let do_it ic =
-            let lowerI = Sn.start
-            and higherI = None
-            and first = Sn.of_int 0
-            in
-            Lwt.catch
-              (fun() -> folder ic ~index lowerI higherI ~first () skipper)
-              (function
-                | Tlogcommon.TLogCheckSumError pos
-                | Tlogcommon.TLogUnexpectedEndOfFile pos ->
-                  let fd = Unix.openfile filename [ Unix.O_RDWR ] 0o600 in
-                  Lwt.return ( Unix.ftruncate fd (Int64.to_int pos) )
-                | ex -> Lwt.fail ex
-              ) >>= fun () ->
-            Lwt.return 0
-          in
-          Lwt_io.with_file ~mode:Lwt_io.input filename do_it
-        end
-    end
-  in
   let t' =
     Lwt.catch
-      t
+      (fun () ->
+       _truncate_tlog filename
+       >>= fun () ->
+       Lwt.return 0)
       (fun ex ->
        Lwt_io.printlf "problem:%s%!" (Printexc.to_string ex) >>= fun () ->
        Lwt.return 1

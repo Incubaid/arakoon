@@ -387,7 +387,10 @@ let _main_2 (type s)
       (module S : Store.STORE with type t = s)
       make_tlog_coll
       make_config get_snapshot_name ~name
-      ~daemonize ~catchup_only ~stop : int Lwt.t =
+      ~daemonize ~catchup_only
+      ~autofix
+      ~stop : int Lwt.t
+  =
   Lwt_io.set_default_buffer_size 32768;
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
@@ -415,6 +418,7 @@ let _main_2 (type s)
   in
 
   log_prelude cluster_cfg >>= fun () ->
+  Logger.info_f_ "autofix:%b" autofix >>= fun () ->
   Plugin_loader.load me.home cluster_cfg.plugins >>= fun () ->
 
   if catchup_only
@@ -525,10 +529,12 @@ let _main_2 (type s)
         (quorum_function n_nodes) n_nodes >>= fun () ->
       Logger.info_f_ "DAEMONIZATION=%b" daemonize >>= fun () ->
 
-      let build_startup_state () =
-        begin
+      let open_tlog_collection_and_store ~autofix me =
+        Logger.info_f_ "open_tlog_collection_and_store ~autofix:%b" autofix >>= fun () ->
+        let db_name = full_db_name me in
+        let head_copied = ref false in
+        let _open_tlc_and_store () =
           Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
-          let db_name = full_db_name me in
           let snapshot_name = get_snapshot_name() in
           let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
           Lwt.catch
@@ -536,10 +542,13 @@ let _main_2 (type s)
              S.copy_store2 full_snapshot_path db_name
                            ~overwrite:false
                            ~throttling:Node_cfg.default_head_copy_throttling
+             >>= fun () ->
+             head_copied := true;
+             Lwt.return_unit
             )
             (function
-              | Not_found -> Lwt.return ()
-              | e -> raise e
+              | Not_found -> Lwt.return_unit
+              | e -> Lwt.fail e
             )
           >>= fun () ->
           let compressor = me.compressor in
@@ -551,6 +560,54 @@ let _main_2 (type s)
           and ncnum = cluster_cfg.ncnum
           in
           S.make_store ~lcnum ~ncnum db_name >>= fun (store:S.t) ->
+          Lwt.return (tlog_coll, store)
+        in
+        Lwt.catch
+        (fun () -> _open_tlc_and_store ())
+        (fun exn ->
+         if autofix
+         then
+           begin
+             let clean_up_retry fn =
+               (if not !head_copied
+               then File_system.unlink db_name
+               else Lwt.return_unit)
+               >>= fun () ->
+               Tlog_main._mark_tlog fn (Tlc2._make_close_marker me.node_name) >>= fun _ ->
+               _open_tlc_and_store()
+             in
+             match exn with
+             | Tlc2.TLCNotProperlyClosed _ ->
+                begin
+                  Logger.warning_ ~exn "AUTOFIX: improperly closed tlog"
+                  >>= fun ()->
+                  Tlc2.get_last_tlog me.tlog_dir me.tlx_dir
+                  >>= fun (_, fn) ->
+                  clean_up_retry fn
+                end
+             | Tlogcommon.TLogUnexpectedEndOfFile _ ->
+                begin
+                  Logger.warning_ ~exn "AUTOFIX: unexpected end of tlog"
+                  >>= fun () ->
+                  Tlc2.get_last_tlog me.tlog_dir me.tlx_dir
+                  >>= fun (_, fn) ->
+                  Tlc2._truncate_tlog fn >>= fun ()->
+                  clean_up_retry fn
+                end
+
+             | _ ->
+                Logger.fatal_f_ ~exn "AUTOFIX: can't autofix this" >>= fun () ->
+                Lwt.fail exn
+           end
+         else
+           Lwt.fail exn
+        )
+      in
+      let build_startup_state () =
+        begin
+
+          open_tlog_collection_and_store me ~autofix
+          >>= fun (tlog_coll, store) ->
           let last_i = tlog_coll # get_last_i () in
           begin
             if me.is_witness
@@ -585,6 +642,8 @@ let _main_2 (type s)
           let act_not_preferred = ref false in
           let sb =
             let test = Node_cfg.Node_cfg.test cluster_cfg in
+            let snapshot_name = get_snapshot_name() in
+            let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
             new SB.sync_backend me
               (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
               inject_push
@@ -939,11 +998,14 @@ let _main_2 (type s)
     end
 
 
-let main_t make_config name daemonize catchup_only : int Lwt.t =
+let main_t make_config name daemonize catchup_only autofix : int Lwt.t =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop:(ref false)
+  _main_2 (module S)
+          make_tlog_coll
+          make_config get_snapshot_name
+          ~name ~daemonize ~catchup_only ~autofix ~stop:(ref false)
 
 let test_t make_config name ~stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
@@ -953,5 +1015,7 @@ let test_t make_config name ~stop =
   in
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false
-  and catchup_only = false in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop
+  and catchup_only = false
+  and autofix = false in
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name
+          ~name ~daemonize ~catchup_only ~stop ~autofix

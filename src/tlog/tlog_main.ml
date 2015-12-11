@@ -91,22 +91,23 @@ let strip_tlog filename =
   in
   Lwt_extra.run t
 
+let _mark_tlog file_name node_name =
+  _last_entry file_name >>= fun last ->
+  match last with
+  | None -> Lwt.return 0
+  | Some e ->
+     let i     = Entry.i_of e
+     and value = Entry.v_of e
+     in
+     let f oc = Tlogcommon.write_marker oc i value (Some node_name) in
+     Lwt_io.with_file
+       ~mode:Lwt_io.output
+       ~flags:[Unix.O_APPEND;Unix.O_WRONLY]
+       file_name f
+     >>= fun () -> Lwt.return 0
+
 let mark_tlog file_name node_name =
-  let t =
-    _last_entry file_name >>= fun last ->
-    match last with
-      | None -> Lwt.return 0
-      | Some e ->
-        let i     = Entry.i_of e
-        and value = Entry.v_of e
-        in
-        let f oc = Tlogcommon.write_marker oc i value (Some node_name) in
-        Lwt_io.with_file
-          ~mode:Lwt_io.output
-          ~flags:[Unix.O_APPEND;Unix.O_WRONLY]
-          file_name f
-        >>= fun () -> Lwt.return 0
-  in
+  let t = _mark_tlog file_name node_name in
   Lwt_main.run t
 
 let make_tlog tlog_name (i:int) =

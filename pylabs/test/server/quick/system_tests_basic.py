@@ -106,22 +106,98 @@ def test_max_value_size_tinkering ():
     assert_raises (X.arakoon_client.ArakoonException, client.set, key, value)
 
 
-@C.with_custom_setup(C.setup_1_node,C.basic_teardown)
-def test_marker_presence_required ():
+def _remove_marker(cluster, nn):
+    cfg = cluster.getNodeConfig(nn)
+    home = cfg['home']
+    tlog = home + '/000.tlog'
     _arakoon = CONFIG.binary_full_path
-    C.assert_running_nodes(1)
+    subprocess.call([_arakoon,'--strip-tlog', tlog])
+
+def _truncate_tlog(cluster, nn, n_bytes):
+    cfg = cluster.getNodeConfig(nn)
+    home = cfg['home']
+    tlog = home + '/000.tlog'
+    _arakoon = CONFIG.binary_full_path
+    subprocess.call(['truncate', tlog, '-s', str(n_bytes)])
+
+def _mini_fill(cluster):
     client = C.get_client()
     for x in xrange(100):
         client.set("x%i" % x,"X%i" % x)
+
+def _wait_for_master(cluster):
+    start = time.time()
+    end = start + 10
+    interval = 1
+    cfg = "%s.cfg" % cluster._getConfigFileName()
+    print cfg
+    args = [
+        CONFIG.binary_full_path,
+        '-config', cfg,
+        '--who-master'
+    ]
+    while time.time() < end:
+        logging.info('Retrieving master')
+
+        proc = subprocess.Popen(args, close_fds=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        rc = proc.wait()
+
+        logging.info('rc: %s', rc)
+
+        if rc == 0:
+            return proc.stdout.read().strip()
+        else:
+            e = proc.stderr.read()
+            logging.info('`--who-master` returned %r: %r', rc, e)
+
+        time.sleep(interval)
+
+    raise Exception('Unable to find master')
+
+@C.with_custom_setup(C.setup_1_node, C.basic_teardown)
+def test_autofix_missing_marker():
+    cluster = C._getCluster()
+    C.assert_running_nodes(1)
+
+    _mini_fill(cluster)
+
+    cluster.stop()
+    nn = C.node_names[0]
+    _remove_marker(cluster, nn)
+    cluster.startOne(nn, ["-autofix"])
+    _wait_for_master(cluster)
+
+@C.with_custom_setup(C.setup_1_node,C.basic_teardown)
+def test_autofix_unexpected_end():
+    cluster = C._getCluster()
+    C.assert_running_nodes(1)
+
+    _mini_fill(cluster)
+
+    cluster.stop()
+    nn = C.node_names[0]
+    _truncate_tlog(cluster, nn, -1)
+
+    cluster.startOne(nn, ["-autofix"])
+    _wait_for_master(cluster)
+
+
+
+@C.with_custom_setup(C.setup_1_node,C.basic_teardown)
+def test_marker_presence_required ():
+
+    cluster = C._getCluster()
+    C.assert_running_nodes(1)
+    _mini_fill(cluster)
     cluster = C._getCluster()
     cluster.stop()
 
     # remove the marker
     nn = C.node_names[0]
-    cfg = cluster.getNodeConfig(nn)
-    home = cfg['home']
-    tlog = home + '/000.tlog'
-    subprocess.call([_arakoon,'--strip-tlog', tlog])
+    _remove_marker(cluster, nn)
+
 
     # this will fail
     cluster.start()
@@ -131,12 +207,16 @@ def test_marker_presence_required ():
     #check the exit code:
     cfgp = "%s.cfg" % (cluster._getConfigFileName()) # OMG
     logging.debug("cfgp=%s",cfgp)
+    _arakoon = CONFIG.binary_full_path
     try:
        subprocess.check_call([_arakoon, '--node', nn, '-config', cfgp])
     except subprocess.CalledProcessError,e:
         assert_equals(e.returncode,42)
 
     # add the marker and start again:
+    cfg = cluster.getNodeConfig(nn)
+    home = cfg['home']
+    tlog = home + '/000.tlog'
     subprocess.call([_arakoon,'--mark-tlog', tlog, 'closed:%s' % nn])
     cluster.start()
     time.sleep(1.0)
