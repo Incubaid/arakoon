@@ -64,7 +64,7 @@ RUN eval `${opam_env}` && opam install -y \
         ctypes \
         ctypes-foreign \
         uuidm \
-        zarith \
+        zarith.1.3 \
         mirage-no-xen.1 \
         quickcheck \
         nocrypto \
