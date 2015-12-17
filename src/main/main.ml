@@ -425,13 +425,13 @@ let main () =
   let options = [] in
   let interface = actions @ options in
 
-  let make_config =
+  let make_config () =
     let canonical =
       if !config_file.[0] = '/'
       then !config_file
       else Filename.concat (Unix.getcwd()) !config_file
     in
-    fun () -> Node_cfg.read_config canonical
+    Node_cfg.read_config canonical
   in
 
   let do_local ~tls = function

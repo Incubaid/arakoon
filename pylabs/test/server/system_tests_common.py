@@ -530,6 +530,13 @@ def collapse(name, n = 1):
     rc = X.subprocess.call([CONFIG.binary_full_path, '--collapse-remote',cluster_id,ip,port,str(n)])
     return rc
 
+def local_collapse(name, n=1):
+    cluster = _getCluster()
+    cfg = "%s.cfg" % cluster._getConfigFileName()
+    rc = X.subprocess.call([ CONFIG.binary_full_path, '--collapse-local', name, str(n),
+                             '-config', cfg ])
+    return rc
+
 def add_node ( i ):
     ni = node_names[i]
     logging.info( "Adding node %s to config", ni )
