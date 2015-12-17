@@ -48,6 +48,7 @@ type local_action =
   | STATISTICS
   | PREFIX
   | USER_FUNCTION
+  | Collapse_local
   | Collapse_remote
   | Backup_db
   | Optimize_db
@@ -335,6 +336,10 @@ let main () =
        !scenario);
     ("-max_results", Arg.Set_int max_results, "max size of the result (for --prefix)");
     ("--test-repeat", Arg.Set_int test_repeat_count, "<repeat_count>");
+    ("--collapse-local", Arg.Tuple[set_laction Collapse_local;
+                                   Arg.Set_string node_id;
+                                   Arg.Set_int n_tlogs;],
+     "<node_id> <n> collapse all but <n> tlogs into the head database");
     ("--collapse-remote", Arg.Tuple[set_laction Collapse_remote;
                                     Arg.Set_string cluster_id;
                                     Arg.Set_string ip;
@@ -420,6 +425,15 @@ let main () =
   let options = [] in
   let interface = actions @ options in
 
+  let make_config =
+    let canonical =
+      if !config_file.[0] = '/'
+      then !config_file
+      else Filename.concat (Unix.getcwd()) !config_file
+    in
+    fun () -> Node_cfg.read_config canonical
+  in
+
   let do_local ~tls = function
     | ShowUsage -> print_endline usage;0
     | RunAllTests -> run_all_tests ()
@@ -453,6 +467,13 @@ let main () =
     | WHO_MASTER -> Client_main.who_master ~tls !config_file ()
     | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible ~tls !config_file
     | STATISTICS -> Client_main.statistics ~tls !config_file
+    | Collapse_local ->
+       Lwt_main.run
+         begin
+           let cfg = make_config () in
+           Collapser.collapse_out_of_band cfg !node_id !n_tlogs
+         end;
+       0
     | Collapse_remote -> Collapser_main.collapse_remote
                            ~tls !ip !port !cluster_id !n_tlogs
     | Backup_db -> Nodestream_main.get_db ~tls !ip !port !cluster_id !location
@@ -483,12 +504,6 @@ let main () =
     match node with
       | Node ->
         begin
-          let canonical =
-            if !config_file.[0] = '/'
-            then !config_file
-            else Filename.concat (Unix.getcwd()) !config_file
-          in
-          let make_config () = Node_cfg.read_config canonical in
           Daemons.maybe_daemonize !daemonize make_config;
           let main_t = (Node_main.main_t make_config
                           !node_id !daemonize !catchup_only !autofix)

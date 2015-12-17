@@ -783,4 +783,19 @@ module Node_cfg = struct
         verify t.head_dir "Head dir" (InvalidHeadDir t.head_dir)
 
       end
+
+  let split node_name cfgs =
+    let rec loop me_o others = function
+      | [] -> me_o, others
+      | cfg :: rest ->
+         if cfg.node_name = node_name then
+           loop (Some cfg) others rest
+         else
+           loop me_o (cfg::others) rest
+    in
+    let me_o, others = loop None [] cfgs in
+    match me_o with
+    | None -> failwith (node_name ^ " is not known in config")
+    | Some me -> me,others
+
 end

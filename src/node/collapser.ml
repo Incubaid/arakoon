@@ -238,3 +238,35 @@ let collapse_many
       tlog_coll # remove_oldest_tlogs tlogs_to_collapse >>= fun () ->
       cb (Sn.div g_too_far_i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
     end
+
+let collapse_out_of_band cfg name tlogs_to_keep =
+  let open Lwt.Infix in
+  let open Node_cfg.Node_cfg in
+
+  let me, _ = split name cfg.cfgs in
+  let head_location = Filename.concat me.head_dir Tlc2.head_fname in
+
+  let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
+  S.make_store
+    ~lcnum:cfg.lcnum
+    ~ncnum:cfg.ncnum
+    ~read_only:true head_location >>= fun head ->
+
+  Tlc2.make_tlc2 ~compressor:me.compressor
+                 me.tlog_dir me.tlx_dir me.head_dir
+                 ~fsync:true name ~fsync_tlog_dir:true
+  >>= fun tlog_coll ->
+
+  collapse_many
+    tlog_coll
+    (module S)
+    (S.copy_store2,
+     head_location,
+     me.head_copy_throttling)
+    tlogs_to_keep
+    (fun sn -> Lwt_log.debug_f "sn' = %i" sn)
+    (fun sn -> Lwt_log.debug_f "sn = %Li" sn)
+    me.collapse_slowdown
+  >>= fun () ->
+  Lwt.return ()
+
