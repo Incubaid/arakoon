@@ -209,6 +209,7 @@ let make_server_thread
         Lwt.catch
           (fun () ->
            Lwt_unix.accept listening_socket >>= fun (plain_fd, cl_socket_address) ->
+           Lwt_unix.setsockopt listening_socket Unix.SO_KEEPALIVE true;
            let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
            let finalize () =
              Hashtbl.remove client_threads cid;
