@@ -90,7 +90,7 @@ let get_keeper_config config =
 let get_nursery_client keeper_id cli_cfg =
   let get_nc client =
     client # get_nursery_cfg () >>= fun ncfg ->
-    Lwt.return ( Nursery.NC.make ncfg keeper_id )
+    Lwt.return ( Nursery.NC.make ncfg keeper_id default_tcp_keepalive)
   in
   with_master_remote_stream keeper_id cli_cfg get_nc
 

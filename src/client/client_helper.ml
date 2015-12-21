@@ -39,9 +39,9 @@ let with_connection ~tls ~tcp_keepalive sa do_it = match tls with
   | None -> Lwt_io.with_connection sa do_it
   | Some ctx ->
     let fd = Lwt_unix.socket (Unix.domain_of_sockaddr sa) Unix.SOCK_STREAM 0 in
+    Tcp_keepalive.apply fd tcp_keepalive;
     Lwt_unix.set_close_on_exec fd;
     Lwt_unix.connect fd sa >>= fun () ->
-    Tcp_keepalive.apply fd tcp_keepalive;
     Typed_ssl.Lwt.ssl_connect fd ctx >>= fun (_, sock) ->
     let ic = Lwt_ssl.in_channel_of_descr sock
     and oc = Lwt_ssl.out_channel_of_descr sock in

@@ -27,11 +27,11 @@ let section = Logger.Section.main
 
 let so2s = Log_extra.string_option2s
 
-let try_connect (ips, port) =
+let try_connect ~tcp_keepalive (ips, port) =
   Lwt.catch
     (fun () ->
        let sa = Network.make_address ips port in
-       Network.__open_connection sa >>= fun (_, ic, oc) ->
+       Network.__open_connection ~tcp_keepalive sa >>= fun (_, ic, oc) ->
        let r = Some (ic,oc) in
        Lwt.return r
     )
@@ -50,12 +50,13 @@ module NC = struct
 
   type t = {
     rc : NCFG.t;
+    tcp_keepalive : Tcp_keepalive.t;
     keeper_cn: string;
     connections : (nn ,lc) Hashtbl.t;
     masters: (string, string option) Hashtbl.t;
   }
 
-  let make rc keeper_cn =
+  let make rc keeper_cn tcp_keepalive =
     let masters = Hashtbl.create 5 in
     let () = NCFG.iter_cfgs rc (fun k _ -> Hashtbl.add masters k None) in
     let connections = Hashtbl.create 13 in
@@ -66,7 +67,7 @@ module NC = struct
                       let a = Address (ip,port) in
                       Hashtbl.add connections nn a) v)
     in
-    {rc; connections;masters;keeper_cn}
+    { rc; connections; masters; keeper_cn; tcp_keepalive; }
 
   let _get_connection t nn =
     let (cn,_node) = nn in
@@ -74,7 +75,7 @@ module NC = struct
       | Address (ips,port) ->
         begin
           let ip = List.hd ips in
-          try_connect (ip,port) >>= function
+          try_connect ~tcp_keepalive:t.tcp_keepalive (ip,port) >>= function
           | Some conn ->
             Protocol_common.prologue cn conn >>= fun () ->
             let () = Hashtbl.add t.connections nn (Connection conn) in
@@ -435,7 +436,7 @@ let nursery_test_main () =
   let () = NCFG.add_cluster nursery_cfg "left" left_cfg in
   let () = NCFG.add_cluster nursery_cfg "right" right_cfg in
   let keeper = "left" in
-  let nc = NC.make nursery_cfg keeper in
+  let nc = NC.make nursery_cfg keeper Node_cfg.default_tcp_keepalive in
   (*
   let test k v =
     NC.set client k v >>= fun () ->

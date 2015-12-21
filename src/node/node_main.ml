@@ -225,7 +225,7 @@ let only_catchup
   let try_catchup mr_name =
     Lwt.catch
       (fun () ->
-       Catchup.catchup ~tls_ctx ~stop:(ref false)
+       Catchup.catchup ~tls_ctx ~tcp_keepalive:cluster_cfg.tcp_keepalive ~stop:(ref false)
                        me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
        S.close store ~flush:true ~sync:true >>= fun () ->
@@ -825,7 +825,9 @@ let _main_2 (type s)
                   else None
           in
           let constants =
-            Multi_paxos.make ~catchup_tls_ctx:catchup_tls_ctx my_name
+            Multi_paxos.make
+              ~catchup_tls_ctx:catchup_tls_ctx my_name
+              ~tcp_keepalive
               me.is_learner
               other_names send
               get_last_value

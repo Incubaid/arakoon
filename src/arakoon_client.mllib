@@ -31,4 +31,5 @@ Arakoon_client_config
 Lwt_extra
 Network
 Typed_ssl
+Unix_fd
 Tcp_keepalive

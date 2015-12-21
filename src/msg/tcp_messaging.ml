@@ -151,7 +151,7 @@ class tcp_messaging
       Logger.info_f_ "establishing connection to (%s,%i) (timeout = %f)" host_ip port timeout
       >>= fun () ->
       Lwt_unix.with_timeout timeout
-        (fun () ->__open_connection ?ssl_context socket_address)
+        (fun () -> __open_connection ?ssl_context ~tcp_keepalive socket_address)
       >>= fun (socket, ic, oc) ->
       Llio.output_int64 oc _MAGIC >>= fun () ->
       Llio.output_int oc _VERSION >>= fun () ->

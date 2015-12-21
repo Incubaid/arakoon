@@ -35,7 +35,7 @@ let apply fd t =
   then
     begin
       Lwt_unix.setsockopt fd Unix.SO_KEEPALIVE true;
-      let unix_fd = Network.lwt_unix_fd_to_unix_fd fd in
+      let unix_fd = Unix_fd.lwt_unix_fd_to_unix_fd fd in
       set_tcp_keepalive_time unix_fd t.tcp_keepalive_time;
       set_tcp_keepalive_intvl unix_fd t.tcp_keepalive_intvl;
       set_tcp_keepalive_probes unix_fd t.tcp_keepalive_probes;
