@@ -153,14 +153,20 @@ class tcp_messaging
       Lwt_unix.with_timeout timeout
         (fun () -> __open_connection ?ssl_context ~tcp_keepalive socket_address)
       >>= fun (socket, ic, oc) ->
-      Llio.output_int64 oc _MAGIC >>= fun () ->
-      Llio.output_int oc _VERSION >>= fun () ->
-      Llio.output_string oc my_cookie >>= fun () ->
-      Llio.output_string oc my_ip >>= fun () ->
-      Llio.output_int oc my_port  >>= fun () ->
-      Lwt.return (socket, ic, oc)
     (* open_connection can also fail with Unix.Unix_error (63, "connect",_)
        on local host *)
+      Lwt.catch
+        (fun () ->
+         Llio.output_int64 oc _MAGIC >>= fun () ->
+         Llio.output_int oc _VERSION >>= fun () ->
+         Llio.output_string oc my_cookie >>= fun () ->
+         Llio.output_string oc my_ip >>= fun () ->
+         Llio.output_int oc my_port  >>= fun () ->
+         Lwt.return (socket, ic, oc))
+        (fun exn ->
+         Lwt_io.close ic >>= fun () ->
+         Lwt_io.close oc >>= fun () ->
+         Lwt.fail exn)
 
     method private _get_connection (addresses:RR.t) =
       let (address:address) = RR.current addresses in

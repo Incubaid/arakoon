@@ -77,9 +77,16 @@ module NC = struct
           let ip = List.hd ips in
           try_connect ~tcp_keepalive:t.tcp_keepalive (ip,port) >>= function
           | Some conn ->
-            Protocol_common.prologue cn conn >>= fun () ->
-            let () = Hashtbl.add t.connections nn (Connection conn) in
-            Lwt.return conn
+             Lwt.catch
+               (fun () ->
+                Protocol_common.prologue cn conn >>= fun () ->
+                let () = Hashtbl.add t.connections nn (Connection conn) in
+                Lwt.return conn)
+               (fun exn ->
+                let ic, oc = conn in
+                Lwt_io.close ic >>= fun () ->
+                Lwt_io.close oc >>= fun () ->
+                Lwt.fail exn)
           | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
         end
       | Connection conn -> Lwt.return conn
