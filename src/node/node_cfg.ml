@@ -27,6 +27,21 @@ let default_client_buffer_capacity = 32
 let default_lcnum = 16384
 let default_ncnum = 8192
 let default_head_copy_throttling = 0.0
+
+type tcp_keepalive_cfg = Tcp_keepalive.t = {
+      enable_tcp_keepalive : bool;
+      tcp_keepalive_time : int;
+      tcp_keepalive_intvl : int;
+      tcp_keepalive_probes : int;
+    }
+
+let default_tcp_keepalive = {
+    enable_tcp_keepalive = true;
+    tcp_keepalive_time = 20;
+    tcp_keepalive_intvl = 20;
+    tcp_keepalive_probes = 3;
+  }
+
 open Master_type
 open Client_cfg
 
@@ -231,7 +246,8 @@ module Node_cfg = struct
       lcnum : int; (* tokyo cabinet: leaf nodes in cache *)
       ncnum : int; (* tokyo cabinet: internal nodes in cache *)
       tls : TLSConfig.Cluster.t option;
-}
+      tcp_keepalive : tcp_keepalive_cfg;
+    }
 
   let node_cfg_to_node_client_cfg (cfg : t) =
     { Arakoon_client_config.ips = cfg.ips;
@@ -328,6 +344,7 @@ module Node_cfg = struct
       lcnum = default_lcnum;
       ncnum = default_ncnum;
       tls = None;
+      tcp_keepalive = default_tcp_keepalive;
     }
     in
     cluster_cfg
@@ -659,6 +676,26 @@ module Node_cfg = struct
           in
           Some cfg
     in
+    let enable_tcp_keepalive =
+      Ini.get
+        inifile "global" "enable_tcp_keepalive"
+        Ini.p_bool (Ini.default true)
+    in
+    let tcp_keepalive_time =
+      Ini.get
+        inifile "global" "tcp_keepalive_time"
+        Ini.p_int (Ini.default 20)
+    in
+    let tcp_keepalive_intvl =
+      Ini.get
+        inifile "global" "tcp_keepalive_intvl"
+        Ini.p_int (Ini.default 20)
+    in
+    let tcp_keepalive_probes =
+      Ini.get
+        inifile "global" "tcp_keepalive_probes"
+        Ini.p_int (Ini.default 3)
+    in
     let cluster_cfg =
       { cfgs;
         log_cfgs;
@@ -676,6 +713,12 @@ module Node_cfg = struct
         lcnum;
         ncnum;
         tls;
+        tcp_keepalive = {
+            enable_tcp_keepalive;
+            tcp_keepalive_time;
+            tcp_keepalive_intvl;
+            tcp_keepalive_probes;
+          };
       }
     in
     cluster_cfg

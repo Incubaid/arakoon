@@ -66,6 +66,7 @@ let run_report connections =
 class tcp_messaging
   ?(timeout=60.0)
   ?(client_ssl_context:[> `Client ] Typed_ssl.t option)
+  ~tcp_keepalive_settings
   my_addresses my_cookie (drop_it: drop_function)
   max_buffer_size ~stop =
 
@@ -401,6 +402,7 @@ class tcp_messaging
                     ~name ~setup_callback
                     ~teardown_callback ip my_port protocol
                     ~scheme ?ssl_context
+                    ~tcp_keepalive_settings
                     ~stop
           in
           s ()

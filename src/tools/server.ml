@@ -150,6 +150,7 @@ let make_server_thread
       ?(setup_callback=no_callback)
       ?(teardown_callback = no_callback)
       ?(ssl_context : [> `Server ] Typed_ssl.t option)
+      ~tcp_keepalive_settings
       ~scheme ~stop
       host port protocol =
 
@@ -209,7 +210,7 @@ let make_server_thread
         Lwt.catch
           (fun () ->
            Lwt_unix.accept listening_socket >>= fun (plain_fd, cl_socket_address) ->
-           Lwt_unix.setsockopt listening_socket Unix.SO_KEEPALIVE true;
+           Tcp_keepalive.apply plain_fd tcp_keepalive_settings;
            let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
            let finalize () =
              Hashtbl.remove client_threads cid;
