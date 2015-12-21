@@ -350,7 +350,7 @@ let build_tcp () =
   let (m : messaging) =
     new Tcp_messaging.tcp_messaging (["127.0.0.1"], 7777) "yummie"
         (fun _ _ _ -> false) Node_cfg.default_max_buffer_size ~stop:(ref false)
-        ~tcp_keepalive_settings:Node_cfg.default_tcp_keepalive
+        ~tcp_keepalive:Node_cfg.default_tcp_keepalive
   in
   let network = network_of_messaging m in
   m # get_buffer, network

@@ -367,7 +367,8 @@ let interrupted_election () =
    *)
   let get_master_from cfg =
     Client_main.with_client
-      cfg ~tls:None cluster_id
+      cfg ~tls:None ~tcp_keepalive:Node_cfg.default_tcp_keepalive
+      cluster_id
       (fun client -> client # who_master ())
   in
   let rec phase1 () =

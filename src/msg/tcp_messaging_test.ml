@@ -97,7 +97,7 @@ let make_transport addresses =
   let tcp_transport =
     new tcp_messaging
         addresses "yummy" (fun _ _ _-> false) Node_cfg.default_max_buffer_size ~stop:(ref false)
-        ~tcp_keepalive_settings:Node_cfg.default_tcp_keepalive
+        ~tcp_keepalive:Node_cfg.default_tcp_keepalive
   in
   (tcp_transport :> messaging)
 
