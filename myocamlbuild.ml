@@ -6,12 +6,7 @@ let dependencies = [ "lwt";
                      "ssl";
                      "bz2";
                      "quickcheck";
-                     "nocrypto";
-                     "zarith";
-                     "cstruct";
-                     "ctypes";
                      "ocplib-endian";
-                     "uuidm";
                    ]
 
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)
@@ -138,10 +133,6 @@ let _ = dispatch & function
       flag ["ocaml";"link";"is_main"](
         S[A"-linkpkg"; A"src/libcutil.a";
          ]);
-
-      flag ["ocaml";"link";"is_main"](
-        S[A"-package"; A"nocrypto";]
-      );
 
       flag ["ocaml";"byte";"link"] (S[A"-custom";]);
 

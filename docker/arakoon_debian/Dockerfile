@@ -51,30 +51,19 @@ RUN mkdir /home/opam
 ENV opam_env='opam config env --root=/home/opam/OPAM'
 RUN opam init --root=/home/opam/OPAM --comp 4.02.3
 
-RUN eval `${opam_env}` && opam install -y \
+RUN eval `${opam_env}` && \
+    opam update && \
+    opam install -y \
         ocamlfind \
-        ssl \
+        ssl.0.5.2 \
         camlbz2 \
         snappy \
-        sexplib \
         bisect \
-        lwt \
+        lwt.2.5.1 \
         camltc \
-        cstruct \
-        ctypes \
-        ctypes-foreign \
-        uuidm \
-        zarith.1.3 \
-        mirage-no-xen.1 \
         quickcheck \
-        nocrypto \
-        cmdliner \
         conf-libev \
-        depext \
-        kinetic-client \
-        tiny_json \
-        ppx_deriving_yojson \
-        core_kernel
+        depext
 
 RUN echo "jenkins ALL=NOPASSWD: ALL" >/etc/sudoers.d/jenkins
 ENV LANG=C
