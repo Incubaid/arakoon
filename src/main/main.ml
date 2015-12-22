@@ -420,6 +420,8 @@ let main () =
   let options = [] in
   let interface = actions @ options in
 
+  let tcp_keepalive = default_tcp_keepalive in
+
   let do_local ~tls = function
     | ShowUsage -> print_endline usage;0
     | RunAllTests -> run_all_tests ()
@@ -454,21 +456,32 @@ let main () =
     | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible ~tls !config_file
     | STATISTICS -> Client_main.statistics ~tls !config_file
     | Collapse_remote -> Collapser_main.collapse_remote
-                           ~tls !ip !port !cluster_id !n_tlogs
-    | Backup_db -> Nodestream_main.get_db ~tls !ip !port !cluster_id !location
-    | Optimize_db -> Nodestream_main.optimize_db ~tls !ip !port !cluster_id
-    | Defrag_db   -> Nodestream_main.defrag_db ~tls !ip !port !cluster_id
+                           ~tls ~tcp_keepalive
+                           !ip !port !cluster_id !n_tlogs
+    | Backup_db -> Nodestream_main.get_db
+                     ~tls ~tcp_keepalive
+                     !ip !port !cluster_id !location
+    | Optimize_db -> Nodestream_main.optimize_db
+                       ~tls ~tcp_keepalive
+                       !ip !port !cluster_id
+    | Defrag_db   -> Nodestream_main.defrag_db
+                       ~tls ~tcp_keepalive
+                       !ip !port !cluster_id
     | NumberOfValues -> Client_main.get_key_count ~tls !config_file ()
     | InitNursery -> Nursery_main.init_nursery !config_file !cluster_id
     | MigrateNurseryRange -> Nursery_main.migrate_nursery_range
                                !config_file !left_cluster !separator !right_cluster
     | DeleteNurseryCluster -> Nursery_main.delete_nursery_cluster !config_file !cluster_id !separator
-    | PING -> Client_main.ping ~tls !ip !port !cluster_id
+    | PING -> Client_main.ping
+                ~tls ~tcp_keepalive
+                !ip !port !cluster_id
     | NODE_VERSION -> Client_main.node_version ~tls !node_id !config_file
     | NODE_STATE   -> Client_main.node_state ~tls !node_id !config_file
     | InjectAsHead -> Dump_store.inject_as_head !filename !node_id !config_file
                         ~force:(!force) ~in_place:(!in_place)
-    | Drop_master -> Nodestream_main.drop_master ~tls !ip !port !cluster_id
+    | Drop_master -> Nodestream_main.drop_master
+                       ~tls ~tcp_keepalive
+                       !ip !port !cluster_id
     | RANGE_ENTRIES ->
        Client_main.range_entries
          ~tls !config_file

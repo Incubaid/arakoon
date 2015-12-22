@@ -157,6 +157,7 @@ let post_failure () =
     lcnum = 8192;
     ncnum = 4096;
     tls = None;
+    tcp_keepalive = Node_cfg.default_tcp_keepalive;
   }
   in
   let get_cfgs () = cluster_cfg in
@@ -217,6 +218,7 @@ let restart_slaves () =
      lcnum = Node_cfg.default_lcnum;
      ncnum = Node_cfg.default_ncnum;
      tls = None;
+     tcp_keepalive = Node_cfg.default_tcp_keepalive;
     }
   in
   let get_cfgs () = cluster_cfg in
@@ -275,6 +277,7 @@ let ahead_master_loses_role () =
      lcnum = 8192;
      ncnum = 4096;
      tls = None;
+     tcp_keepalive = Node_cfg.default_tcp_keepalive;
     }
   in
   let get_cfgs () = cluster_cfg in
@@ -346,6 +349,7 @@ let interrupted_election () =
      lcnum = 8192;
      ncnum = 4096;
      tls = None;
+     tcp_keepalive = Node_cfg.default_tcp_keepalive;
     }
   in
   let get_cfgs () = cluster_cfg in
@@ -363,7 +367,8 @@ let interrupted_election () =
    *)
   let get_master_from cfg =
     Client_main.with_client
-      cfg ~tls:None cluster_id
+      cfg ~tls:None ~tcp_keepalive:Node_cfg.default_tcp_keepalive
+      cluster_id
       (fun client -> client # who_master ())
   in
   let rec phase1 () =

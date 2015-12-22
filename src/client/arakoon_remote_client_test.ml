@@ -63,7 +63,7 @@ let __client_server_wrapper__ (real_test:real_test) =
         (List.filter (fun cfg -> cfg.Node_cfg.node_name = master_name) cluster_cfg.Node_cfg.cfgs)
     in
     Client_main.with_client
-      ~tls:None
+      ~tls:None ~tcp_keepalive:default_tcp_keepalive
       master_cfg
       cluster_cfg.Node_cfg.cluster_id
       real_test
