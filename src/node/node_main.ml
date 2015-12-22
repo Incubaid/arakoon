@@ -99,6 +99,7 @@ let _config_messaging
       ?ssl_context me others
       cookie laggy
       lease_period max_buffer_size
+      ~tcp_keepalive
       ~stop =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
@@ -120,14 +121,16 @@ let _config_messaging
       [] others
   in
   let client_ssl_context = ssl_context in
-  let messaging = new tcp_messaging
-    (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5)
-    ?client_ssl_context ~stop in
+  let messaging =
+    new tcp_messaging
+        (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5)
+        ~tcp_keepalive
+        ?client_ssl_context ~stop in
   messaging # register_receivers mapping;
   (messaging :> Messaging.messaging)
 
 
-let _config_service ?ssl_context cfg stop backend =
+let _config_service ?ssl_context ~tcp_keepalive cfg stop backend =
   let port = cfg.client_port in
   let hosts = cfg.ips in
   let max_connections =
@@ -141,6 +144,7 @@ let _config_service ?ssl_context cfg stop backend =
                       Server.make_server_thread ~name host port
                         (Client_protocol.protocol stop backend)
                         ~scheme ?ssl_context ~stop
+                        ~tcp_keepalive
                    )
                    hosts
   in
@@ -207,7 +211,7 @@ let only_catchup
   let try_catchup mr_name =
     Lwt.catch
       (fun () ->
-       Catchup.catchup ~tls_ctx ~stop:(ref false)
+       Catchup.catchup ~tls_ctx ~tcp_keepalive:cluster_cfg.tcp_keepalive ~stop:(ref false)
                        me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
        S.close store ~flush:true ~sync:true >>= fun () ->
@@ -495,8 +499,10 @@ let _main_2 (type s)
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
+      let tcp_keepalive = cluster_cfg.tcp_keepalive in
       let messaging  = _config_messaging
                          ?ssl_context
+                         ~tcp_keepalive
                          me cfgs cookie me.is_laggy
                          (float me.lease_period)
                          cluster_cfg.max_buffer_size
@@ -645,7 +651,10 @@ let _main_2 (type s)
           in
           let backend = (sb :> Backend.backend) in
 
-          let service = _config_service ?ssl_context:service_ssl_context me stop backend in
+          let service = _config_service
+                          ?ssl_context:service_ssl_context
+                          ~tcp_keepalive
+                          me stop backend in
 
           let send, _run, _register, is_alive =
             Multi_paxos.network_of_messaging messaging in
@@ -684,6 +693,7 @@ let _main_2 (type s)
                  let addrs = List.map (fun ip -> Network.make_address ip master_cfg.client_port) master_cfg.ips in
                  Client_main.with_connection'
                    ~tls:ssl_context
+                   ~tcp_keepalive
                    addrs
                    (fun _addr conn ->
                     Arakoon_remote_client.make_remote_client cluster_id conn >>= fun client ->
@@ -801,7 +811,9 @@ let _main_2 (type s)
                   else None
           in
           let constants =
-            Multi_paxos.make ~catchup_tls_ctx:catchup_tls_ctx my_name
+            Multi_paxos.make
+              ~catchup_tls_ctx:catchup_tls_ctx my_name
+              ~tcp_keepalive
               me.is_learner
               other_names send
               get_last_value

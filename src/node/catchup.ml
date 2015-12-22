@@ -26,54 +26,12 @@ open Tlogcommon
 exception StoreAheadOfTlogs of (Int64.t * Sn.t)
 exception StoreCounterTooLow of string
 
-let with_connection ~tls_ctx address f = match tls_ctx with
-  | None -> Lwt_io.with_connection address f
-  | Some ctx ->
-      let fd = Lwt_unix.socket (Unix.domain_of_sockaddr address) Unix.SOCK_STREAM 0 in
-      Lwt_unix.set_close_on_exec fd;
-      Lwt_unix.connect fd address >>= fun () ->
-      Typed_ssl.Lwt.ssl_connect fd ctx >>= fun (_, sock) ->
-      let ic = Lwt_ssl.in_channel_of_descr sock
-      and oc = Lwt_ssl.out_channel_of_descr sock in
-      Lwt.catch
-        (fun () ->
-          f (ic, oc) >>= fun r ->
-          Lwt_ssl.close sock >>= fun () ->
-          Lwt.return r)
-        (fun exc ->
-          Lwt.catch
-            (fun () ->
-              Lwt_ssl.close sock)
-            (fun _ -> Lwt.return ()) >>= fun () ->
-          Lwt.fail exc)
-
-let _with_client_connection ~tls_ctx (ips,port) f =
-  let sl2s ss = list2s (fun s -> s) ss in
-  let rec loop = function
-    | [] -> Llio.lwt_failfmt "None of the ips: %s can be reached" (sl2s ips)
-    | ip :: rest ->
-      Lwt.catch
-        (fun () ->
-           let address = Network.make_address ip port in
-           with_connection ~tls_ctx address f)
-        (fun exn ->
-           Logger.info_f_ ~exn "ip = %s " ip >>= fun () ->
-           match exn with
-             | Unix.Unix_error(error,_,_) ->
-               begin
-                 match error with
-                   | Unix.ECONNREFUSED
-                   | Unix.ENETUNREACH
-                   | Unix.EHOSTUNREACH
-                   | Unix.EHOSTDOWN ->
-                     loop rest
-                   | _ -> Lwt.fail exn
-               end
-             | Lwt_unix.Timeout ->
-               loop rest
-             | _ -> Lwt.fail exn)
-  in
-  loop ips
+let _with_client_connection ~tls_ctx ~tcp_keepalive (ips,port) f =
+  Client_helper.with_connection'
+    ~tls:tls_ctx
+    ~tcp_keepalive
+    (List.map (fun ip -> Network.make_address ip port) ips)
+    (fun _ -> f)
 
 
 let head_saved_epilogue hfn tlog_coll =
@@ -105,7 +63,7 @@ let stop_fuse stop =
   else
     Lwt.return ()
 
-let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
+let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
   =
   let current_i = tlog_coll # get_last_i () in
   Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
@@ -138,7 +96,7 @@ let catchup_tlog (type s) ~tls_ctx ~stop other_configs ~cluster_id  mr_name ((mo
 
   Lwt.catch
     (fun () ->
-      _with_client_connection  ~tls_ctx mr_addresses copy_tlog >>= fun () ->
+      _with_client_connection  ~tls_ctx ~tcp_keepalive mr_addresses copy_tlog >>= fun () ->
       Logger.info_f_ "catchup_tlog completed"
     )
     (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")
@@ -273,11 +231,15 @@ let catchup_store ~stop (type s) me
       end
     end
 
-let catchup ~tls_ctx ~stop me other_configs ~cluster_id ((_,_,tlog_coll) as dbt) mr_name =
+let catchup
+      ~tls_ctx ~tcp_keepalive
+      ~stop me other_configs ~cluster_id ((_,_,tlog_coll) as dbt) mr_name =
   Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent"
     (Sn.string_of (tlog_coll # get_last_i ())) mr_name
   >>= fun () ->
-  catchup_tlog ~tls_ctx ~stop other_configs ~cluster_id mr_name dbt >>= fun until_i ->
+  catchup_tlog
+    ~tls_ctx ~tcp_keepalive
+    ~stop other_configs ~cluster_id mr_name dbt >>= fun until_i ->
   Logger.info_f_ "CATCHUP phase 1 done (until_i = %s); now the store"
     (Sn.string_of until_i) >>= fun () ->
   catchup_store ~stop me dbt (Sn.succ until_i) >>= fun () ->

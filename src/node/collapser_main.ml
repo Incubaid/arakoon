@@ -19,7 +19,7 @@ limitations under the License.
 open Lwt
 
 
-let collapse_remote ~tls ip port cluster_id n =
+let collapse_remote ~tls ~tcp_keepalive ip port cluster_id n =
   let t () =
     begin
       if n < 1
@@ -34,7 +34,7 @@ let collapse_remote ~tls ip port cluster_id n =
       Lwt.return 0
     in
     Lwt.catch
-      (fun () -> Client_main.with_connection ~tls address collapse)
+      (fun () -> Client_main.with_connection ~tls ~tcp_keepalive address collapse)
       (fun exn -> Logger.fatal Logger.Section.main ~exn "remote_collapsing_failed"
         >>= fun () -> Lwt.return (-1)
       )
