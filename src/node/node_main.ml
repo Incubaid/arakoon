@@ -25,20 +25,6 @@ open Statistics
 
 let section = Logger.Section.main
 
-let _split node_name cfgs =
-  let rec loop me_o others = function
-    | [] -> me_o, others
-    | cfg :: rest ->
-      if cfg.node_name = node_name then
-        loop (Some cfg) others rest
-      else
-        loop me_o (cfg::others) rest
-  in
-  let me_o, others = loop None [] cfgs in
-  match me_o with
-    | None -> failwith (node_name ^ " is not known in config")
-    | Some me -> me,others
-
 
 let _config_logging me get_cfgs =
   let cluster_cfg = get_cfgs () in
@@ -197,7 +183,7 @@ let only_catchup
       get_snapshot_name
   =
   Logger.info_ "ONLY CATCHUP" >>= fun () ->
-  let me, other_configs = _split name cluster_cfg.cfgs in
+  let me, other_configs = Node_cfg.Node_cfg.split name cluster_cfg.cfgs in
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
   let snapshot_name = get_snapshot_name() in
@@ -398,7 +384,7 @@ let _main_2 (type s)
   Lwt_io.set_default_buffer_size 32768;
   let cluster_cfg = make_config () in
   let cfgs = cluster_cfg.cfgs in
-  let me, others = _split name cfgs in
+  let me, others = Node_cfg.Node_cfg.split name cfgs in
   _config_logging me.node_name make_config >>= fun dump_crash_log ->
   let maybe_dump_crash_log () =
     match dump_crash_log with
