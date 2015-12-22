@@ -63,6 +63,9 @@ install_client:
           _build/src/tools/lwt_extra.cmi \
           _build/src/tools/typed_ssl.mli \
           _build/src/tools/typed_ssl.cmi \
+          _build/src/tools/unix_fd.cmi \
+          _build/src/tools/tcp_keepalive_sockopt_stubs.o \
+          _build/src/tools/tcp_keepalive.cmi \
           _build/src/arakoon_client.a
 
 uninstall_client:
