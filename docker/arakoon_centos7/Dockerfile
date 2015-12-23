@@ -57,6 +57,7 @@ RUN eval `${opam_env}` && \
         camltc \
         quickcheck \
         conf-libev \
+        ocplib-endian \
         depext
 
 
