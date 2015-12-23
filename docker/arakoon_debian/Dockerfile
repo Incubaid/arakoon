@@ -63,6 +63,7 @@ RUN eval `${opam_env}` && \
         camltc \
         quickcheck \
         conf-libev \
+        ocplib-endian \
         depext
 
 RUN echo "jenkins ALL=NOPASSWD: ALL" >/etc/sudoers.d/jenkins
