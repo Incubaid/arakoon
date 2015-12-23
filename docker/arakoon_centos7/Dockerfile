@@ -45,30 +45,19 @@ RUN mv cudf_remote_proxy /usr/local/bin/
 
 ENV OPAMEXTERNALSOLVER="cudf_remote_proxy %{input}% %{output}% %{criteria}%"
 
-RUN eval `${opam_env}` && opam install -y \
+RUN eval `${opam_env}` && \
+    opam update && \
+    opam install -y \
         ocamlfind \
-        ssl \
+        ssl.0.5.2 \
         camlbz2 \
         snappy \
-        sexplib \
         bisect \
-        lwt \
+        lwt.2.5.1 \
         camltc \
-        cstruct \
-        ctypes \
-        ctypes-foreign \
-        uuidm \
-        zarith \
-        mirage-no-xen.1 \
         quickcheck \
-        nocrypto \
-        cmdliner \
         conf-libev \
-        depext \
-        kinetic-client \
-        tiny_json \
-        ppx_deriving_yojson \
-        core_kernel
+        depext
 
 
 RUN yum -y install autoconf help2man perl-Thread-Queue
