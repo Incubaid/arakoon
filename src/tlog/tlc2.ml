@@ -808,17 +808,6 @@ class tlc2
       File_system.rename tmp canon
 
 
-    method remove_oldest_tlogs count =
-      get_tlog_names tlog_dir tlf_dir >>= fun existing ->
-      let rec remove_one l = function
-        | 0 -> Lwt.return ()
-        | n ->
-          let oldest = get_full_path tlog_dir tlf_dir (List.hd l) in
-          Logger.debug_f_ "Unlinking %s" oldest >>= fun () ->
-          File_system.unlink (oldest) >>= fun () ->
-          remove_one (List.tl l) (n-1)
-      in remove_one existing count
-
     method remove_below i =
       get_tlog_names tlog_dir tlf_dir >>= fun existing ->
       let maybe_remove fn =

@@ -213,11 +213,15 @@ let collapse_many
   tlog_coll # get_tlog_count () >>= fun total_tlogs ->
   Logger.debug_f_ "total_tlogs = %i; tlogs_to_keep=%i" total_tlogs tlogs_to_keep >>= fun () ->
   let (_,(head_location:string), _) = store_fs in
-  _head_i (module S) head_location >>= fun head_io ->
   let last_i = tlog_coll # get_last_i () in
-  Logger.debug_f_ "head @ %s : last_i %s " (Log_extra.option2s Sn.string_of head_io) (Sn.string_of last_i)
-  >>= fun () ->
-  let head_i = match head_io with None -> Sn.start | Some i -> i in
+  let get_head_i () =
+    _head_i (module S) head_location >>= fun head_io ->
+    Logger.debug_f_ "head @ %s : last_i %s " (Log_extra.option2s Sn.string_of head_io) (Sn.string_of last_i)
+    >>= fun () ->
+    let head_i = match head_io with None -> Sn.start | Some i -> i in
+    Lwt.return head_i
+  in
+  get_head_i () >>= fun head_i ->
   let lag = Sn.to_int (Sn.sub last_i head_i) in
   let npt = !Tlogcommon.tlogEntriesPerFile in
   let tlog_lag = (lag +npt - 1)/ npt in
@@ -235,7 +239,8 @@ let collapse_many
       (* +2 because before X goes to the store, you need to have seen X+1 and thus too_far = X+2 *)
       Logger.debug_f_ "g_too_far_i = %s" (Sn.string_of g_too_far_i) >>= fun () ->
       collapse_until tlog_coll (module S) store_fs g_too_far_i cb slowdown >>= fun () ->
-      tlog_coll # remove_oldest_tlogs tlogs_to_collapse >>= fun () ->
+      get_head_i () >>= fun head_i ->
+      tlog_coll # remove_below head_i >>= fun () ->
       cb (Sn.div g_too_far_i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
     end
 
@@ -245,6 +250,11 @@ let collapse_out_of_band cfg name tlogs_to_keep =
 
   let me, _ = split name cfg.cfgs in
   let head_location = Filename.concat me.head_dir Tlc2.head_fname in
+
+  let () = match cfg.overwrite_tlog_entries with
+    | None -> ()
+    | Some i ->  Tlogcommon.tlogEntriesPerFile := i
+  in
 
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   S.make_store

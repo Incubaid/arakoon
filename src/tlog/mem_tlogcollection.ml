@@ -91,8 +91,6 @@ class mem_tlog_collection _name =
         let () = ignore wait_for_compression in
         Lwt.return ()
 
-    method remove_oldest_tlogs _count = Lwt.return ()
-
     method remove_below _i = Lwt.return ()
   end
 
