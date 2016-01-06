@@ -810,6 +810,40 @@ def test_multi_get_option():
             assert_true(v is None)
     logging.debug("done")
 
+
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_client_when_master_dies():
+    client = C.get_client ()
+    master = client.whoMaster()
+    print "master=", master
+    v0 = "the_value"
+    key = "they_key"
+    client[key] = v0
+
+    C.stopOne(master)
+    cluster = C._getCluster()
+    _wait_for_master(cluster)
+    master = client.whoMaster()
+    print "new master:", master
+    try:
+        v1 = client[key]
+        print "got value",v1
+    except Exception as ex:
+        print "EXCEPTION:"
+        print ex
+        print ex.__class__
+        assert_true(isinstance(ex, X.arakoon_client.ArakoonException))
+        assert_true(False, "should not throw")
+
+    master = client.whoMaster()
+    print "master", master
+    client2 = C.get_client ()
+    v2 = client2[key]
+    print "so far so good"
+    v1 = client[key]
+    print v1
+
+
 @C.with_custom_setup(C.setup_3_nodes_ipv6, C.basic_teardown)
 def test_ipv6():
     cli = C.get_client()
