@@ -1,5 +1,7 @@
 #!/bin/bash -xue
 
+./jenkins/common.sh
+
 echo $PWD
 eval `${opam_env}`
 echo TEST_HOME=${TEST_HOME}
