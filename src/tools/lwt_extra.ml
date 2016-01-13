@@ -72,6 +72,19 @@ end = struct
                 Lwt.return ()))
 end
 
+let read_file fn =
+  Lwt_io.with_file Lwt_io.Input fn
+    (fun ic ->
+     let stream = Lwt_io.read_lines ic in
+     Lwt_stream.to_list stream >>= fun lines ->
+     let buf = Buffer.create 4096 in
+     List.iter (fun line ->
+                Buffer.add_string buf line;
+                Buffer.add_char buf '\n';
+               ) lines;
+     Lwt.return (Buffer.contents buf)
+    )
+
 let run f =
   Lwt_main.run (
       Lwt.finalize

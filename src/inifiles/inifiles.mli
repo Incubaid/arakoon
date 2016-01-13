@@ -52,8 +52,7 @@ type section_specification = {
 (** The type of a secification *)
 type specification = section_specification list
 
-(** send the name of an ini file to the constructor the file must
-    exist, but can be empty *)
+(** parse text into inifile object. *)
 class inifile : ?spec:specification -> string ->
   object
     (** get a value from the config object raise Invalid_section, or
@@ -72,13 +71,13 @@ class inifile : ?spec:specification -> string ->
     method setval : string -> string -> string -> unit
 
     (** delete the topmost binding (the one returned by getval) from the
-        section sec. Possibly exposeing another binding.  raise
+        section sec. Possibly exposing another binding.  raise
         Invalid_section on error.  delval sec elt *)
     method delval : string -> string -> unit
 
     (** save the changes you have made
         optionally save to a different file *)
-    method save : ?file:string -> unit -> unit
+    method save : Lwt_io.file_name -> unit Lwt.t
 
     (** iterates across a section. passes all key valu pairs to f
         exactly once.*)

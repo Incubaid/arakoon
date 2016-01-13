@@ -69,8 +69,8 @@ module ClientCfg = struct
   let get (t:t) name = Hashtbl.find t name
 
 
-  let from_file section fn =  (* This is the format as defined in the extension *)
-    let inifile = new Inifiles.inifile fn in
+  let _from_txt section txt =
+    let inifile = new Inifiles.inifile txt in
     let cfg = make () in
     let _ips node_name = Ini.get inifile node_name "ip" Ini.p_string_list Ini.required in
     let _get s n p = Ini.get inifile s n p Ini.required in
@@ -83,5 +83,18 @@ module ClientCfg = struct
                ) nodes
     in
     cfg
+
+  let _from_file section filename =
+    Lwt_extra.read_file filename >>= fun txt ->
+    _from_txt section txt |> Lwt.return
+
+  let _from_etcd section peers path =
+    Arakoon_etcd.retrieve_value peers path >>= fun txt ->
+    _from_txt section txt |> Lwt.return
+
+  let from_url section url =  (* This is the format as defined in the extension *)
+    match url with
+    | Arakoon_url.File f -> _from_file section f
+    | Arakoon_url.Etcd (peers,path) -> _from_etcd section peers path
 
 end

@@ -160,7 +160,7 @@ let post_failure () =
     tcp_keepalive = Node_cfg.default_tcp_keepalive;
   }
   in
-  let get_cfgs () = cluster_cfg in
+  let get_cfgs () = cluster_cfg |> Lwt.return in
   let v0 = Value.create_master_value ~lease_start:0. node0 in
   let v1 = Value.create_client_value [Update.Set("x","y")] false in
   let tlcs = Hashtbl.create 5 in
@@ -221,7 +221,7 @@ let restart_slaves () =
      tcp_keepalive = Node_cfg.default_tcp_keepalive;
     }
   in
-  let get_cfgs () = cluster_cfg in
+  let get_cfgs () = cluster_cfg |> Lwt.return in
   let v0 = Value.create_master_value ~lease_start:0. node2 in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let tlcs = Hashtbl.create 5 in
@@ -280,7 +280,7 @@ let ahead_master_loses_role () =
      tcp_keepalive = Node_cfg.default_tcp_keepalive;
     }
   in
-  let get_cfgs () = cluster_cfg in
+  let get_cfgs () = cluster_cfg |> Lwt.return in
   let v0 = Value.create_master_value ~lease_start:0. node0 in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let v2 = Value.create_client_value [Update.Set("invalidkey", "shouldnotbepresent")] false in
@@ -352,7 +352,7 @@ let interrupted_election () =
      tcp_keepalive = Node_cfg.default_tcp_keepalive;
     }
   in
-  let get_cfgs () = cluster_cfg in
+  let get_cfgs () = cluster_cfg |> Lwt.return in
   let v0 = Value.create_master_value ~lease_start:0. wannabe_master in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
