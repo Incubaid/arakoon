@@ -22,6 +22,7 @@ let retrieve_value peers path =
   in
   let cmd_s = String.concat " " cmd in
   Lwt_io.eprintlf "cmd_s: %s" cmd_s >>= fun () ->
+  Lwt_log.info_f  "ETCD: %s" cmd_s >>= fun () ->
   let command = Lwt_process.shell cmd_s in
   Lwt_process.with_process_in
     command

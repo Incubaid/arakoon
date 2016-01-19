@@ -10,6 +10,8 @@ OCAML_FIND ?= ocamlfind
 all: build
 
 clean:
+	rm -rf ./debian/tmp/*
+	rm -rf ./debian/libarakoon-ocaml-dev/*
 	ocamlbuild -clean
 
 build:

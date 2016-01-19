@@ -37,7 +37,7 @@ RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 
 RUN useradd jenkins -u 1001 -g root
 
-RUN pip install fabric junit-xml nose
+RUN pip install fabric junit-xml nose simplejson python-etcd
 
 RUN wget https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh
 RUN sh ./opam_installer.sh /usr/local/bin 4.02.3
@@ -69,3 +69,9 @@ RUN eval `${opam_env}` && \
 RUN echo "jenkins ALL=NOPASSWD: ALL" >/etc/sudoers.d/jenkins
 ENV LANG=C
 RUN chmod 777 /home/opam/OPAM/4.02.3/lib
+
+# Install etcd:
+RUN curl -L  https://github.com/coreos/etcd/releases/download/v2.2.4/etcd-v2.2.4-linux-amd64.tar.gz -o etcd-v2.2.4-linux-amd64.tar.gz
+RUN tar xzvf etcd-v2.2.4-linux-amd64.tar.gz
+RUN cp ./etcd-v2.2.4-linux-amd64/etcd /usr/bin \
+    && cp ./etcd-v2.2.4-linux-amd64/etcdctl /usr/bin
