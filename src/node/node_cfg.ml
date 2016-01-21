@@ -722,31 +722,17 @@ module Node_cfg = struct
             };
         }
       in
-      cluster_cfg
-
-  let _retrieve_cfg_from_file config_file =
-    Lwt_extra.read_file config_file >>= fun txt ->
-    let cfg = _retrieve_cfg_from_txt txt in
-    Lwt.return cfg
-
-  let _retrieve_cfg_from_etcd peers path =
-    Arakoon_etcd.retrieve_value peers path >>= fun txt ->
-    let cfg = _retrieve_cfg_from_txt txt in
-    Lwt.return cfg
-
+      cluster_cfg |> Lwt.return
 
   let node_name t = t.node_name
+
   let home t = t.home
 
   let client_addresses t = (t.ips, t.client_port)
 
   let get_master t = t.master
 
-  let retrieve_cfg url =
-    match url with
-    | Arakoon_url.File f            -> _retrieve_cfg_from_file f
-    | Arakoon_url.Etcd (peers,path) -> _retrieve_cfg_from_etcd peers path
-
+  let retrieve_cfg url = Arakoon_etcd.retrieve_cfg _retrieve_cfg_from_txt url
 
   let retrieve_client_cfg url = retrieve_cfg url >>= fun cfg -> Lwt.return (to_client_cfg cfg)
 

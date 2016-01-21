@@ -77,8 +77,8 @@ let setup_logger file_name =
   Lwt_log.default := file_logger;
   Lwt.return ()
 
-let _get_keeper_config_from_file fn url=
-  Lwt_extra.read_file fn >>= fun txt ->
+let _get_keeper_config_generic fetcher url=
+  fetcher() >>= fun txt ->
   let inifile = new Inifiles.inifile txt in
   Node_cfg.get_nursery_cfg inifile url >>= fun m_cfg ->
   begin
@@ -89,8 +89,12 @@ let _get_keeper_config_from_file fn url=
   end
 
 let get_keeper_config cfg_url =
-  match cfg_url with
-  | Arakoon_url.File f -> _get_keeper_config_from_file f cfg_url
+  let fetcher =
+    match cfg_url with
+    | Arakoon_url.File f             -> (fun () -> Lwt_extra.read_file f)
+    | Arakoon_url.Etcd (peers, path) -> (fun () -> Arakoon_etcd.retrieve_value peers path)
+  in
+  _get_keeper_config_generic fetcher cfg_url
 
 let get_nursery_client keeper_id cli_cfg =
   let get_nc client =
