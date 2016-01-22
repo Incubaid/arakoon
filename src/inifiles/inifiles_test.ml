@@ -14,7 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
  *)
 
-let test_parsing () =
+let _parse txt =
+  try
+    let _cfg = Node_cfg.Node_cfg._retrieve_cfg_from_txt txt in ()
+  with (Inifiles.Ini_parse_error(lnum,txt) as exn)->
+    let () =
+      Printf.printf "lnum:%i\n%s" lnum txt in
+    raise exn
+
+let test_parsing1 () =
   let txt =
     let lines =[
       "[global]"
@@ -49,20 +57,22 @@ let test_parsing () =
       ;"fsync = false"
       ]
     in
-    (*let lines = ["[global]\ncluster = x,y,z\n";] in*)
     String.concat "\n" lines
   in
-  let () =
-    try
-      let _cfg = Node_cfg.Node_cfg._retrieve_cfg_from_txt txt in ()
-    with (Inifiles.Ini_parse_error(lnum,txt) as exn)->
-      let () =
-        Printf.printf "lnum:%i\n%s" lnum txt in
-      raise exn
+  _parse txt
+
+let test_parsing2 () =
+  let txt =
+    let open Lwt.Infix in
+    Lwt_extra.run
+      (fun () ->
+       Lwt_extra.read_file "./cfg/arakoon.ini"
+      )
   in
-  ()
+  _parse txt
 
 open OUnit
 let suite = "inifiles" >:::[
-      "parsing" >:: test_parsing;
+      "parsing1" >:: test_parsing1;
+      "parsing2" >:: test_parsing2;
     ]

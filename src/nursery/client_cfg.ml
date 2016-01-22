@@ -82,19 +82,8 @@ module ClientCfg = struct
                   add cfg n (ips,port)
                ) nodes
     in
-    cfg
+    cfg |> Lwt.return
 
-  let _from_file section filename =
-    Lwt_extra.read_file filename >>= fun txt ->
-    _from_txt section txt |> Lwt.return
-
-  let _from_etcd section peers path =
-    Arakoon_etcd.retrieve_value peers path >>= fun txt ->
-    _from_txt section txt |> Lwt.return
-
-  let from_url section url =  (* This is the format as defined in the extension *)
-    match url with
-    | Arakoon_url.File f -> _from_file section f
-    | Arakoon_url.Etcd (peers,path) -> _from_etcd section peers path
+  let from_url section url = Arakoon_etcd.retrieve_cfg (_from_txt section) url
 
 end

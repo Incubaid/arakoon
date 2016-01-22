@@ -95,7 +95,17 @@ let rec filterfile ?(buf=Buffer.create 500) f fd =
   with End_of_file -> Buffer.contents buf
 
 let parse_inifile txt tbl =
-  let lxbuf = Lexing.from_string (txt ^ "\n") in (* otherwise, it might fail for a silly reason *)
+  let lxbuf =
+    let lines = Str.split (Str.regexp "\n") txt in
+    let lines' = List.filter (fun line -> not (Str.string_match comment line 0)) lines in
+    let buf = Buffer.create (String.length txt) in
+    let () =List.iter
+      (fun line -> Buffer.add_string buf line;
+                   Buffer.add_char buf '\n'
+      ) lines' in
+    let txt' = Buffer.contents buf in
+    Lexing.from_string txt'
+  in
   try
     let parsed_txt = Parseini.inifile Inilexer.lexini lxbuf in
     List.iter
