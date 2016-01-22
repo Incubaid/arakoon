@@ -20,7 +20,14 @@ type url =
 
 let to_string = function
   | File f -> f
-  | _ -> "??"
+  | Etcd (peers,path) ->
+     let peers_s =
+       List.map
+         (fun (host,port) -> Printf.sprintf "%s:%i" host port)
+         peers
+       |> String.concat ","
+     in
+     Printf.sprintf "etcd://%s/%s" peers_s path
 
 let make string =
   let protocol, rest =
