@@ -423,14 +423,14 @@ module Node_cfg = struct
     in
     master
 
-  let get_nursery_cfg inifile cfg_url =
+  let get_nursery_cfg inifile =
     try
       begin
         let n_cluster_id = Ini.get inifile "nursery" "cluster_id" Ini.p_string Ini.required in
-        ClientCfg.from_url "nursery" cfg_url >>= fun cfg ->
-        Some (n_cluster_id, cfg) |> Lwt.return
+        let cfg = ClientCfg.from_ini "nursery" inifile in
+        Some (n_cluster_id, cfg)
       end
-    with _ -> Lwt.return_none
+    with _ -> None
 
   let _get_cluster_id inifile =
     try
@@ -653,7 +653,7 @@ module Node_cfg = struct
       let quorum_function = _get_quorum_function inifile in
       let lease_period = _get_lease_period inifile in
       let cluster_id = _get_cluster_id inifile in
-      let m_n_cfg = None (* TODO: get_nursery_cfg inifile config_file *) in
+      let m_n_cfg = get_nursery_cfg inifile in
       let overwrite_tlog_entries = _tlog_entries_overwrite inifile in
       let max_value_size = _max_value_size inifile in
       let max_buffer_size = _max_buffer_size inifile in

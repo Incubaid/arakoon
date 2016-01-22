@@ -80,7 +80,7 @@ let setup_logger file_name =
 let _get_keeper_config_generic fetcher url=
   fetcher() >>= fun txt ->
   let inifile = new Inifiles.inifile txt in
-  Node_cfg.get_nursery_cfg inifile url >>= fun m_cfg ->
+  let m_cfg = Node_cfg.get_nursery_cfg inifile in
   begin
     match m_cfg with
       | None -> failwith "No nursery keeper specified in config file"
