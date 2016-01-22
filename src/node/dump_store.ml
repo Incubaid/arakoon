@@ -64,22 +64,18 @@ let dump_store filename =
 
 exception ExitWithCode of int;;
 
-let inject_as_head fn node_id cfg_fn ~force ~in_place =
-  let canonical =
-    if cfg_fn.[0] = '/'
-    then cfg_fn
-    else Filename.concat (Unix.getcwd()) cfg_fn
-  in
-  let cluster_cfg = read_config canonical in
-  let node_cfgs = List.filter
-                    (fun ncfg -> node_name ncfg = node_id)
-                    cluster_cfg.cfgs
-  in
-  let node_cfg = match node_cfgs with
-    | [] -> failwith (Printf.sprintf "unknown node: %S" node_id)
-    | x :: _ -> x
-  in
+let inject_as_head fn node_id cfg_url ~force ~in_place =
+
   let t () =
+    retrieve_cfg cfg_url >>= fun cluster_cfg ->
+    let node_cfgs = List.filter
+                      (fun ncfg -> node_name ncfg = node_id)
+                      cluster_cfg.cfgs
+    in
+    let node_cfg = match node_cfgs with
+      | [] -> failwith (Printf.sprintf "unknown node: %S" node_id)
+      | x :: _ -> x
+    in
     let tlog_dir = node_cfg.tlog_dir in
     let tlx_dir = node_cfg.tlx_dir in
     let head_dir = node_cfg.head_dir in

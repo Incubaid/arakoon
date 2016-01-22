@@ -27,7 +27,7 @@ let section = Logger.Section.main
 
 
 let _config_logging me get_cfgs =
-  let cluster_cfg = get_cfgs () in
+  get_cfgs () >>= fun cluster_cfg ->
   let cfg =
     try List.find (fun c -> c.node_name = me) cluster_cfg.cfgs
     with Not_found -> failwith ("Could not find config for node " ^ me )
@@ -376,13 +376,14 @@ end
 let _main_2 (type s)
       (module S : Store.STORE with type t = s)
       make_tlog_coll
-      make_config get_snapshot_name ~name
+      (make_config: unit -> 'a Lwt.t)
+      get_snapshot_name ~name
       ~daemonize ~catchup_only
       ~autofix
       ~stop : int Lwt.t
   =
   Lwt_io.set_default_buffer_size 32768;
-  let cluster_cfg = make_config () in
+  make_config () >>= fun cluster_cfg ->
   let cfgs = cluster_cfg.cfgs in
   let me, others = Node_cfg.Node_cfg.split name cfgs in
   _config_logging me.node_name make_config >>= fun dump_crash_log ->
@@ -996,7 +997,9 @@ let _main_2 (type s)
     end
 
 
-let main_t make_config name daemonize catchup_only autofix : int Lwt.t =
+let main_t (make_config: unit -> 'a Lwt.t)
+           name daemonize catchup_only autofix : int Lwt.t
+  =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let make_tlog_coll = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in

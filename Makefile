@@ -10,6 +10,8 @@ OCAML_FIND ?= ocamlfind
 all: build
 
 clean:
+	rm -rf ./debian/tmp/*
+	rm -rf ./debian/libarakoon-ocaml-dev/*
 	ocamlbuild -clean
 
 build:
@@ -64,6 +66,8 @@ install_client:
           _build/src/tools/typed_ssl.mli \
           _build/src/tools/typed_ssl.cmi \
           _build/src/tools/unix_fd.cmi \
+	  _build/src/tools/arakoon_etcd.cmi \
+	  _build/src/tools/arakoon_url.cmi \
           _build/src/tools/tcp_keepalive_sockopt_stubs.o \
           _build/src/tools/tcp_keepalive.cmi \
           _build/src/arakoon_client.a
