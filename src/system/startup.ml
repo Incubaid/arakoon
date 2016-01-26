@@ -73,10 +73,17 @@ let _make_cfg name n lease_period =
     head_copy_throttling = 0.0;
   }
 
-let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
-                    ~fsync node_id ~fsync_tlog_dir =
+let _make_tlog_coll
+      ~tlcs ~values
+      ~compressor ?(tlog_max_entries:int option) ?(tlog_max_size:int option)
+      tlc_name tlf_dir head_dir
+      ~(fsync:bool) (node_id:string) ~(fsync_tlog_dir:bool)
+  =
   let () = ignore compressor in
-  Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir >>= fun tlc ->
+  Mem_tlogcollection.make_mem_tlog_collection
+    ?tlog_max_entries ?tlog_max_size
+    tlc_name tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir
+  >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return ()
     | v :: vs ->
@@ -94,20 +101,22 @@ let node_ts = ref []
 
 let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
   let module S =
-  struct
-    include LS
-    let make_store
-        ~lcnum ~ncnum
-        ?(read_only=false) (db_name:string) =
-      LS.make_store ~lcnum ~ncnum ~read_only db_name >>= fun store ->
-      LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () ->
-      Hashtbl.add stores db_name store;
-      Lwt.return store
-  end in
+    struct
+      include LS
+      let make_store
+            ~lcnum ~ncnum
+            ?(read_only=false) (db_name:string) =
+        LS.make_store ~lcnum ~ncnum ~read_only db_name >>= fun store ->
+        LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () ->
+        Hashtbl.add stores db_name store;
+        Lwt.return store
+    end
+  in
+  let (tlc_factory:Tlogcollection.tlc_factory) = _make_tlog_coll ~tlcs ~values in
   let t =
     Node_main._main_2
       (module S)
-      (_make_tlog_coll tlcs values)
+      (tlc_factory)
       get_cfgs
       (fun () -> "DUMMY")
       ~name
@@ -150,7 +159,8 @@ let post_failure () =
     cluster_id = "ricky";
     plugins = [];
     nursery_cfg = None;
-    overwrite_tlog_entries = None;
+    tlog_max_entries = 10_000;
+    tlog_max_size = 100_000;
     max_value_size = Node_cfg.default_max_value_size;
     max_buffer_size = Node_cfg.default_max_buffer_size;
     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
@@ -211,7 +221,8 @@ let restart_slaves () =
      cluster_id = "ricky";
      plugins = [];
      nursery_cfg = None;
-     overwrite_tlog_entries = None;
+     tlog_max_entries = 10_000;
+     tlog_max_size = 100_000;
      max_value_size = Node_cfg.default_max_value_size;
      max_buffer_size = Node_cfg.default_max_buffer_size;
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
@@ -270,7 +281,8 @@ let ahead_master_loses_role () =
      cluster_id = "ricky";
      plugins = [];
      nursery_cfg = None;
-     overwrite_tlog_entries = None;
+     tlog_max_entries = 10_000;
+     tlog_max_size = 100_000;
      max_value_size = Node_cfg.default_max_value_size;
      max_buffer_size = Node_cfg.default_max_buffer_size;
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
@@ -342,7 +354,8 @@ let interrupted_election () =
      cluster_id;
      plugins = [];
      nursery_cfg = None;
-     overwrite_tlog_entries = None;
+     tlog_max_entries = 10_000;
+     tlog_max_size = 100_000;
      max_value_size = Node_cfg.default_max_value_size;
      max_buffer_size = Node_cfg.default_max_buffer_size;
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;

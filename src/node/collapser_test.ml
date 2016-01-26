@@ -19,6 +19,7 @@ limitations under the License.
 open Lwt
 open OUnit
 open Update
+open Tlog_map
 
 let section = Logger.Section.main
 let compressor = Compression.Snappy
@@ -54,11 +55,13 @@ let _make_values tlc n =
   in
   loop 0
 
-let test_collapse_until (dn, tlf_dir, head_dir) =
-  let () = Tlogcommon.tlogEntriesPerFile := 1000 in
-  Logger.debug_f_ "dn=%s, tlf_dir=%s, head_dir=%s" dn tlf_dir head_dir >>= fun () ->
-  Tlc2.make_tlc2 ~compressor dn tlf_dir head_dir
-                 ~fsync:false "node_name" ~fsync_tlog_dir:false >>= fun tlc ->
+let test_collapse_until (dn, tlx_dir, head_dir) =
+  let node_id = "node_name" in
+  TlogMap.make ~tlog_max_entries:1000 dn tlx_dir node_id >>= fun tlog_map ->
+  Logger.debug_f_ "dn=%s, tlf_dir=%s, head_dir=%s" dn tlx_dir head_dir >>= fun () ->
+  Tlc2.make_tlc2 ~compressor dn tlx_dir head_dir
+                 ~fsync:false node_id ~fsync_tlog_dir:false
+  >>= fun tlc ->
   _make_values tlc 1111 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
@@ -87,17 +90,20 @@ let test_dn = "/tmp/collapser"
 let _tlf_dir = "/tmp/collapser_tlf"
 let _head_dir = "/tmp/collapser_head"
 
-let test_collapse_many (dn, tlf_dir, head_dir) =
-  let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  Logger.debug_f_ "test_collapse_many_regime dn=%s, tlf_dir=%s, head_dir=%s" dn tlf_dir head_dir >>= fun () ->
-  Tlc2.make_tlc2 ~compressor dn tlf_dir head_dir
-                 ~fsync:false "node_name" ~fsync_tlog_dir:false >>= fun tlc ->
+let test_collapse_many (dn, tlx_dir, head_dir) =
+  let node_id = "node_name" in
+  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id >>= fun tlog_map ->
+
+  Logger.debug_f_ "test_collapse_many_regime dn=%s, tlx_dir=%s, head_dir=%s" dn tlx_dir head_dir
+  >>= fun () ->
+  Tlc2.make_tlc2 ~compressor dn tlx_dir head_dir
+                 ~fsync:false node_id ~fsync_tlog_dir:false >>= fun tlc ->
   _make_values tlc 632 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *)
   let storename = Filename.concat test_dn "head.db" in
-  let cb fn = Logger.debug_f_ "collapsed %s" (Sn.string_of fn) in
-  let cb' = fun _n -> Lwt.return () in
+  let cb n = Logger.debug_f_ "collapsed %03i" n in
+  let cb' = fun _ -> Lwt.return () in
   File_system.unlink storename >>= fun () ->
   let store_methods = (Batched_store.Local_store.copy_store2, storename, 0.0) in
   Collapser.collapse_many tlc (module S) store_methods 5 cb' cb None >>= fun () ->

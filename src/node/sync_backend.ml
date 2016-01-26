@@ -679,16 +679,17 @@ struct
             (* remove all but tlogs_to_keep last tlogs *)
             Collapser._head_i (module S) head_path >>= fun head_io ->
 
-            let head_n = match head_io with
+            let head_i, head_n = match head_io with
               | None -> failwith "impossible i for copied head"
-              | Some i -> Tlc2.get_file_number i
+              | Some i -> i, tlog_collection # get_tlog_from_i i
             in
-            let keep_bottom_n = Sn.succ (Sn.sub head_n (Sn.of_int tlogs_to_keep)) in
-            if Sn.compare keep_bottom_n Sn.zero = 1
+            let keep_bottom_n = head_n -  tlogs_to_keep + 1 in
+            if keep_bottom_n > 0 
             then
               begin
                 self # wait_for_tlog_release keep_bottom_n >>= fun () ->
-                tlog_collection # remove_below (Tlc2.get_tlog_i keep_bottom_n)
+                let keep_i = tlog_collection # get_start_i keep_bottom_n in
+                tlog_collection # remove_below keep_i
               end
             else
               Lwt.return ()

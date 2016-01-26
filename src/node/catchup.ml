@@ -210,17 +210,16 @@ let catchup_store ~stop (type s) me
               Printf.sprintf
                 "Catchup store failed. Store counter is too low: %s < %s"
                 (Sn.string_of si) (Sn.string_of pred_too_far_i)
-            and n_entries = Sn.of_int !Tlogcommon.tlogEntriesPerFile in
+            and n_entries = failwith "todo" (*Sn.of_int !Tlogcommon.tlogEntriesPerFile *) in
             if Sn.rem si n_entries = Sn.pred n_entries
             then
               let ssi = Sn.succ si in
               tlog_coll # which_tlog_file ssi >>= function
               | None ->
                 let n = tlog_coll # get_tlog_from_i ssi in
-                let ni = Sn.to_int n in
                 Lwt.return
                   (Printf.sprintf
-                     "%s (found tlog nor archive for %3i)" msg ni)
+                     "%s (found tlog nor archive for %3i)" msg n)
               | Some _ -> Lwt.return msg
             else
               Lwt.return msg
@@ -245,7 +244,10 @@ let catchup
   catchup_store ~stop me dbt (Sn.succ until_i) >>= fun () ->
   Logger.info_ "CATCHUP end"
 
-let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((module S : Store.STORE with type t = s), store, tlog_coll) =
+let verify_n_catchup_store
+      (type s) ~stop me ?(apply_last_tlog_value=false)
+      ((module S : Store.STORE with type t = s), store, tlog_coll)
+  =
   let current_i = tlog_coll # get_last_i () in
   let too_far_i =
     if apply_last_tlog_value
@@ -255,15 +257,17 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
       current_i in
   let io_s = Log_extra.option2s Sn.string_of  in
   let si_o = S.consensus_i store in
-  Logger.info_f_ "verify_n_catchup_store; too_far_i=%s current_i=%s si_o:%s"
-    (Sn.string_of too_far_i) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
-   match too_far_i, si_o with
+
+  Logger.info_f_
+    "verify_n_catchup_store; too_far_i=%s current_i=%s si_o:%s"
+    (Sn.string_of too_far_i) (Sn.string_of current_i) (io_s si_o)
+  >>= fun () ->
+
+  match too_far_i, si_o with
     | i, None when i <= 0L -> Lwt.return ()
     | i, Some j when i = j -> Lwt.return ()
-    | i, Some j when i > j ->
-      catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
-    | _, None ->
-      catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
+    | i, Some j when i > j -> catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
+    | _, None              -> catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
     | _,_ ->
       let msg = Printf.sprintf
         "too_far_i:%s, si_o:%s should not happen: tlogs have been removed?"
@@ -281,71 +285,8 @@ let last_entries
   =
   (* This one is kept (for how long?)
      for x-version clusters during upgrades
-  *)
-  Logger.warning_f_ "DEPRECATED : last_entries " >>= fun () ->
-  Logger.debug_f_ "last_entries %s" (Sn.string_of start_i) >>= fun () ->
-  let consensus_i = S.consensus_i store in
-  begin
-    match consensus_i with
-      | None -> Lwt.return ()
-      | Some ci ->
-        begin
-          tlog_collection # get_infimum_i () >>= fun inf_i ->
-          let too_far_i = Sn.succ ci in
-          Logger.debug_f_
-            "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
-            (Sn.string_of too_far_i)
-          >>= fun () ->
-          begin
-            if start_i < inf_i
-            then
-              begin
-                Llio.output_int oc 2 >>= fun () ->
-                tlog_collection # dump_head oc
-              end
-            else
-              Lwt.return start_i
-          end
-          >>= fun start_i2->
-
-
-          let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
-          let rec loop_parts (start_i2:Sn.t) =
-            if Sn.rem start_i2 step = Sn.start &&
-               Sn.add start_i2 step < too_far_i
-            then
-              begin
-                Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
-                >>= fun () ->
-                Llio.output_int oc 3 >>= fun () ->
-                tlog_collection # dump_tlog_file start_i2 oc
-                >>= fun start_i2' ->
-                loop_parts start_i2'
-              end
-            else
-              Lwt.return start_i2
-          in
-          loop_parts start_i2
-          >>= fun start_i3 ->
-          Llio.output_int oc 1 >>= fun () ->
-          let f entry =
-            let i = Entry.i_of entry
-            and v = Entry.v_of entry
-            in
-            Tlogcommon.write_entry oc i v >>= fun _total_size ->
-            Lwt.return ()
-          in
-          Lwt.catch
-            (fun () -> tlog_collection # iterate start_i3 too_far_i f)
-            (function
-              | Tlogcommon.TLogUnexpectedEndOfFile _ -> Lwt.return ()
-              | ex -> Lwt.fail ex) >>= fun () ->
-          Sn.output_sn oc (-1L)
-        end
-  end
-  >>= fun () ->
-  Logger.info_f_ "done with_last_entries"
-
+   *)
+  Lwt.fail_with "no longer supported"
 
 let last_entries2
       (type s) (module S : Store.STORE with type t = s)
@@ -360,9 +301,6 @@ let last_entries2
     match consensus_i with
       | None -> Lwt.return ()
       | Some ci ->
-
-        let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
-
         let stream_entries start_i too_far_i =
           let _write_entry entry =
             let i = Entry.i_of entry
@@ -381,9 +319,11 @@ let last_entries2
           Sn.output_sn oc (-1L)
         in
         let too_far_i = Sn.succ ci in
+        let step = failwith "todo" (*Sn.of_int (!Tlogcommon.tlogEntriesPerFile) *) in
         let rec loop_files (start_i2:Sn.t) =
-          if Sn.rem start_i2 step = Sn.start &&
-             Sn.add start_i2 step < too_far_i
+          if (* there are complete log files *)
+            Sn.rem start_i2 step = Sn.start &&
+              Sn.add start_i2 step < too_far_i
           then
             begin
               Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i

@@ -39,9 +39,6 @@ exception TLogCheckSumError of Int64.t
 exception TLogUnexpectedEndOfFile of Int64.t
 exception TLogSabotage
 
-let tlogEntriesPerFile =
-  ref (IFDEF SMALLTLOG THEN 1000 ELSE (100 * 1000) END)
-
 let tlogExtension = ".tlog"
 let tlogFileRegex =
   let qex = Str.quote tlogExtension in

@@ -239,7 +239,8 @@ module Node_cfg = struct
       cluster_id : string;
       plugins: string list;
       nursery_cfg : (string*ClientCfg.t) option;
-      overwrite_tlog_entries: int option;
+      tlog_max_size : int ;
+      tlog_max_entries: int;
       max_value_size: int;
       max_buffer_size: int;
       client_buffer_capacity: int;
@@ -273,7 +274,8 @@ module Node_cfg = struct
            ; "cluster_id", string c.cluster_id
            ; "plugins", list string c.plugins
            ; "nursery_cfg", option (pair string ClientCfg.to_string) c.nursery_cfg
-           ; "overwrite_tlog_entries", option int c.overwrite_tlog_entries
+           ; "tlog_max_entries", int c.tlog_max_entries
+           ; "tlog_max_size", int c.tlog_max_size
            ; "max_value_size", int c.max_value_size
            ; "max_buffer_size", int c.max_buffer_size
            ; "client_buffer_capacity", int c.client_buffer_capacity
@@ -326,7 +328,7 @@ module Node_cfg = struct
     let batched_transaction_cfgs = [("default_batched_transaction_config", get_default_batched_transaction_config ())] in
     let cfgs = loop [] n_nodes in
     let quorum_function = Quorum.quorum_function in
-    let overwrite_tlog_entries = None in
+
     let cluster_cfg = {
       cfgs;
       log_cfgs;
@@ -337,7 +339,8 @@ module Node_cfg = struct
       _lease_period = default_lease_period;
       cluster_id;
       plugins = [];
-      overwrite_tlog_entries;
+      tlog_max_entries = 10_000 ;
+      tlog_max_size  = 100_000;
       max_value_size = default_max_value_size;
       max_buffer_size = default_max_buffer_size;
       client_buffer_capacity = default_client_buffer_capacity;
@@ -350,13 +353,17 @@ module Node_cfg = struct
     cluster_cfg
 
 
-
+  let _global_int inifile attribute d =
+    Ini.get inifile "global" attribute Ini.p_int (Ini.default d)
 
   let _node_names inifile =
     Ini.get inifile "global" "cluster" Ini.p_string_list Ini.required
 
   let _ips inifile node_name =
     Ini.get inifile node_name "ip" Ini.p_string_list Ini.required
+
+  let _tlog_max_entries inifile = _global_int inifile "tlog_max_entries"    10_000
+  let _tlog_max_size    inifile = _global_int inifile "tlog_max_size"    5_000_000
 
   let _tlog_entries_overwrite inifile =
     Ini.get inifile "global" "__tainted_tlog_entries_per_file"
@@ -507,6 +514,7 @@ module Node_cfg = struct
     let client_port = get_int "client_port" in
     let messaging_port = get_int "messaging_port" in
     let home = get_string "home" in
+
     let tlog_dir =
       try get_string "tlog_dir"
       with _ -> home
@@ -536,7 +544,7 @@ module Node_cfg = struct
       else
         begin
           let s = Ini.get inifile node_name "tlog_compression" Ini.p_string
-                          (Ini.default "bz2")
+                          (Ini.default "snappy")
           in
           match String.lowercase s with
           | "snappy"  -> Compression.Snappy
@@ -618,35 +626,41 @@ module Node_cfg = struct
       let fm = _startup_mode inifile in
       let nodes = _node_names inifile in
       let plugin_names = _plugins inifile in
-      let cfgs, remaining = List.fold_left
-                              (fun (a,remaining) section ->
-                               if List.mem section nodes || _get_bool inifile section "learner"
-                               then
-                                 let cfg = _node_config inifile section fm in
-                                 let new_remaining = List.filter (fun x -> x <> section) remaining in
-                                 (cfg::a, new_remaining)
-                               else (a,remaining))
-                              ([],nodes) (inifile # sects) in
+      let cfgs, remaining =
+        List.fold_left
+          (fun (a,remaining) section ->
+           if List.mem section nodes || _get_bool inifile section "learner"
+           then
+             let cfg = _node_config inifile section fm in
+             let new_remaining = List.filter (fun x -> x <> section) remaining in
+             (cfg::a, new_remaining)
+           else (a,remaining))
+          ([],nodes) (inifile # sects)
+      in
       let log_cfg_names = List.map (fun cfg -> cfg.log_config) cfgs in
-      let log_cfgs = List.fold_left
-                       (fun a section ->
-                        if List.mem (Some section) log_cfg_names
-                        then
-                          let log_cfg = _log_config inifile section in
-                          (section, log_cfg)::a
-                        else
-                          a)
-                       [] (inifile # sects) in
+      let log_cfgs =
+        List.fold_left
+          (fun a section ->
+           if List.mem (Some section) log_cfg_names
+           then
+             let log_cfg = _log_config inifile section in
+             (section, log_cfg)::a
+           else
+             a)
+          [] (inifile # sects)
+      in
       let batched_transaction_cfg_names = List.map (fun cfg -> cfg.batched_transaction_config) cfgs in
-      let batched_transaction_cfgs = List.fold_left
-                                       (fun a section ->
-                                        if List.mem (Some section) batched_transaction_cfg_names
-                                        then
-                                          let batched_transaction_cfg = _batched_transaction_config inifile section in
-                                          (section, batched_transaction_cfg)::a
-                                        else
-                                          a)
-                                       [] (inifile # sects) in
+      let batched_transaction_cfgs =
+        List.fold_left
+          (fun a section ->
+           if List.mem (Some section) batched_transaction_cfg_names
+           then
+             let batched_transaction_cfg = _batched_transaction_config inifile section in
+             (section, batched_transaction_cfg)::a
+           else
+             a)
+          [] (inifile # sects)
+      in
       let () = if List.length remaining > 0 then
                  failwith ("Can't find config section for: " ^ (String.concat "," remaining))
       in
@@ -655,6 +669,16 @@ module Node_cfg = struct
       let cluster_id = _get_cluster_id inifile in
       let m_n_cfg = get_nursery_cfg inifile in
       let overwrite_tlog_entries = _tlog_entries_overwrite inifile in
+      let tlog_max_entries = _tlog_max_entries inifile in
+      let tlog_max_size    = _tlog_max_size inifile in
+      let () = match overwrite_tlog_entries with
+        | None -> ()
+        | Some _ ->
+           let msg = "deprecated:__tainted_tlog_entries_per_file will be ignored;"^
+                       " please use 'tlog_max_entries' "
+           in
+           Logger.ign_warning_ msg
+      in
       let max_value_size = _max_value_size inifile in
       let max_buffer_size = _max_buffer_size inifile in
       let client_buffer_capacity = _client_buffer_capacity inifile in
@@ -707,7 +731,8 @@ module Node_cfg = struct
           _lease_period = lease_period;
           cluster_id = cluster_id;
           plugins = plugin_names;
-          overwrite_tlog_entries;
+          tlog_max_entries;
+          tlog_max_size;
           max_value_size;
           max_buffer_size;
           client_buffer_capacity;

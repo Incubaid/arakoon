@@ -166,7 +166,7 @@ let log_prelude cluster_cfg =
   Logger.info_f_ "version: %i.%i.%i" Arakoon_version.major
     Arakoon_version.minor Arakoon_version.patch   >>= fun () ->
   Logger.info_f_ "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Soft)      >>= fun () ->
-  Logger.info_f_ "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)       >>= fun () ->
+
   Logger.info_f_ "cluster_cfg=%s" (string_of_cluster_cfg cluster_cfg)            >>= fun () ->
   Logger.info_f_ "Batched_store.max_entries = %i" !Batched_store.max_entries    >>= fun () ->
   Logger.info_f_ "Batched_store.max_size = %i" !Batched_store.max_size
@@ -179,7 +179,7 @@ let only_catchup
       ~tls_ctx
       ~name
       ~cluster_cfg
-      ~make_tlog_coll
+      ~(make_tlog_coll:Tlogcollection.tlc_factory)
       get_snapshot_name
   =
   Logger.info_ "ONLY CATCHUP" >>= fun () ->
@@ -205,6 +205,8 @@ let only_catchup
                db_name >>= fun store ->
   let compressor = me.compressor in
   make_tlog_coll ~compressor
+                 ~tlog_max_entries:cluster_cfg.tlog_max_entries
+                 ~tlog_max_size:cluster_cfg.tlog_max_size
                  me.tlog_dir me.tlx_dir me.head_dir
                  ~fsync:false name ~fsync_tlog_dir:false
   >>= fun tlc ->
@@ -375,7 +377,7 @@ end
 
 let _main_2 (type s)
       (module S : Store.STORE with type t = s)
-      make_tlog_coll
+      (make_tlog_coll:Tlogcollection.tlc_factory)
       (make_config: unit -> 'a Lwt.t)
       get_snapshot_name ~name
       ~daemonize ~catchup_only
@@ -402,11 +404,6 @@ let _main_2 (type s)
 
   let ssl_context = build_ssl_context me cluster_cfg in
   let service_ssl_context = build_service_ssl_context me cluster_cfg in
-
-  let () = match cluster_cfg.overwrite_tlog_entries with
-    | None -> ()
-    | Some i ->  Tlogcommon.tlogEntriesPerFile := i
-  in
 
   log_prelude cluster_cfg >>= fun () ->
   Logger.info_f_ "autofix:%b" autofix >>= fun () ->
@@ -546,6 +543,8 @@ let _main_2 (type s)
           >>= fun () ->
           let compressor = me.compressor in
           make_tlog_coll ~compressor
+                         ~tlog_max_entries:cluster_cfg.tlog_max_entries
+                         ~tlog_max_size:cluster_cfg.tlog_max_size
                          me.tlog_dir me.tlx_dir me.head_dir
                          ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
@@ -566,15 +565,17 @@ let _main_2 (type s)
                then File_system.unlink db_name
                else Lwt.return_unit)
                >>= fun () ->
-               Tlog_main._mark_tlog fn (Tlc2._make_close_marker me.node_name) >>= fun _ ->
+               Tlog_main._mark_tlog fn (Tlog_map._make_close_marker me.node_name) >>= fun _ ->
                _open_tlc_and_store()
              in
+             let open Tlog_map in
              match exn with
-             | Tlc2.TLCNotProperlyClosed _ ->
+             | Tlog_map.TLCNotProperlyClosed _ ->
                 begin
                   Logger.warning_ ~exn "AUTOFIX: improperly closed tlog"
                   >>= fun ()->
-                  Tlc2.get_last_tlog me.tlog_dir me.tlx_dir
+                  TlogMap.make me.tlog_dir me.tlx_dir me.node_name >>= fun tlog_map ->
+                  TlogMap.get_last_tlog tlog_map
                   >>= fun (_, fn) ->
                   clean_up_retry fn
                 end
@@ -582,7 +583,8 @@ let _main_2 (type s)
                 begin
                   Logger.warning_ ~exn "AUTOFIX: unexpected end of tlog"
                   >>= fun () ->
-                  Tlc2.get_last_tlog me.tlog_dir me.tlx_dir
+                  TlogMap.make me.tlog_dir me.tlx_dir me.node_name >>= fun tlog_map ->
+                  TlogMap.get_last_tlog tlog_map
                   >>= fun (_, fn) ->
                   Tlc2._truncate_tlog fn >>= fun ()->
                   clean_up_retry fn
@@ -950,7 +952,7 @@ let _main_2 (type s)
             Logger.fatal_f_ "[rc=%i] Store counter too low: %s" rc msg >>= fun () ->
             maybe_dump_crash_log () >>= fun () ->
             Lwt.return rc
-          | Tlc2.TLCNotProperlyClosed msg ->
+          | Tlog_map.TLCNotProperlyClosed msg ->
             let rc = 42 in
             Logger.fatal_f_ "[rc=%i] tlog not properly closed %s" rc msg >>= fun () ->
             Lwt.return rc
@@ -1001,7 +1003,7 @@ let main_t (make_config: unit -> 'a Lwt.t)
            name daemonize catchup_only autofix : int Lwt.t
   =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
-  let make_tlog_coll = Tlc2.make_tlc2 in
+  let (make_tlog_coll :Tlogcollection.tlc_factory) = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
   _main_2 (module S)
           make_tlog_coll

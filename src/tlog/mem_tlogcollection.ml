@@ -70,6 +70,9 @@ class mem_tlog_collection _name =
 
     method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
+    method tlogs_to_collapse _ _ _ = failwith "tlogs_to_collapse not supported"
+    method is_rollover_point _ = failwith "is_rollover_point not supported"
+
     method log_value_explicit i (v:Value.t) ~sync marker =
       let entry = Entry.make i v 0L marker in
       let () = data <- entry::data in
@@ -85,7 +88,8 @@ class mem_tlog_collection _name =
 
     method get_head_name () = failwith "get_head_name not implemented"
 
-    method get_tlog_from_i _ = Sn.start
+    method get_tlog_from_i _ = 0
+    method get_start_i n = Sn.zero
 
     method close ?(wait_for_compression = false) () =
         let () = ignore wait_for_compression in
@@ -94,7 +98,8 @@ class mem_tlog_collection _name =
     method remove_below _i = Lwt.return ()
   end
 
-let make_mem_tlog_collection _tlog_dir _tlf_dir _head_dir ~fsync name ~fsync_tlog_dir =
+let make_mem_tlog_collection
+      ?tlog_max_entries ?tlog_max_size _tlog_dir _tlf_dir _head_dir ~fsync name ~fsync_tlog_dir =
   let () = ignore fsync in
   let () = ignore fsync_tlog_dir in
   let x = new mem_tlog_collection name in
