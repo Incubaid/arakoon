@@ -83,12 +83,19 @@ class remote_nodestream ((ic,oc) as conn) =
             end
         end
       in
+      let _should_reinit = ref false in
       let rec loop_parts () =
         Llio.input_int ic >>= function
         | (-2) -> Logger.info_f_ "loop_parts done"
         | 1 ->
           begin
             Logger.debug_f_ "loop_entries" >>= fun () ->
+            begin
+              if !_should_reinit
+              then tlog_coll # reinit()
+              else Lwt.return ()
+            end
+            >>= fun () ->
             loop_entries () >>= fun () ->
             loop_parts ()
           end
@@ -101,17 +108,18 @@ class remote_nodestream ((ic,oc) as conn) =
             loop_parts ()
           end
         | 3 ->
-          begin
-            Logger.debug_f_ "save_file" >>= fun () ->
-            Llio.input_string ic >>= fun name ->
-            Llio.input_int64 ic >>= fun length ->
-            Logger.info_f_ "got %s (%Li bytes)" name length >>= fun () ->
-            tlog_coll # save_tlog_file name length ic >>= fun () ->
-            loop_parts ()
-          end
+           begin
+             let () = _should_reinit := true in
+             Logger.debug_f_ "save_file" >>= fun () ->
+             Llio.input_string ic >>= fun name ->
+             Llio.input_int64 ic >>= fun length ->
+             Logger.info_f_ "got %s (%Li bytes)" name length >>= fun () ->
+             tlog_coll # save_tlog_file name length ic >>= fun () ->
+             loop_parts ()
+           end
         | x  -> Llio.lwt_failfmt "don't know what %i means" x
       in
-      loop_parts()
+      loop_parts() 
     in
     request  oc outgoing >>= fun () ->
     response ic incoming

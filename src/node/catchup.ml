@@ -90,8 +90,7 @@ let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_i
       tlog_coll # log_value_explicit i value ~sync:false None >>= fun _ ->
       stop_fuse stop
     in
-
-    client # iterate current_i f tlog_coll ~head_saved_cb
+    client # iterate current_i f tlog_coll ~head_saved_cb 
   in
 
   Lwt.catch
@@ -210,21 +209,9 @@ let catchup_store ~stop (type s) me
               Printf.sprintf
                 "Catchup store failed. Store counter is too low: %s < %s"
                 (Sn.string_of si) (Sn.string_of pred_too_far_i)
-            and n_entries = failwith "todo" (*Sn.of_int !Tlogcommon.tlogEntriesPerFile *) in
-            if Sn.rem si n_entries = Sn.pred n_entries
-            then
-              let ssi = Sn.succ si in
-              tlog_coll # which_tlog_file ssi >>= function
-              | None ->
-                let n = tlog_coll # get_tlog_from_i ssi in
-                Lwt.return
-                  (Printf.sprintf
-                     "%s (found tlog nor archive for %3i)" msg n)
-              | Some _ -> Lwt.return msg
-            else
-              Lwt.return msg
+            in
+            Lwt.fail (StoreCounterTooLow msg)
           end
-          >>= fun msg -> Lwt.fail (StoreCounterTooLow msg)
         else
           Lwt.return ()
       end
@@ -283,9 +270,6 @@ let last_entries
       (tlog_collection:Tlogcollection.tlog_collection)
       (start_i:Sn.t) (oc:Lwt_io.output_channel)
   =
-  (* This one is kept (for how long?)
-     for x-version clusters during upgrades
-   *)
   Lwt.fail_with "no longer supported"
 
 let last_entries2
@@ -301,11 +285,14 @@ let last_entries2
     match consensus_i with
       | None -> Lwt.return ()
       | Some ci ->
-        let stream_entries start_i too_far_i =
+         let stream_entries start_i too_far_i =
+           Logger.debug_f_ "stream_entries :%s %s" (Sn.string_of start_i) (Sn.string_of too_far_i)
+           >>= fun () ->
           let _write_entry entry =
             let i = Entry.i_of entry
             and v = Entry.v_of entry
             in
+            Logger.debug_f_ "write_entry:%s" (Sn.string_of i) >>= fun () ->
             Tlogcommon.write_entry oc i v >>= fun _total_size ->
             Lwt.return_unit
           in
@@ -319,22 +306,17 @@ let last_entries2
           Sn.output_sn oc (-1L)
         in
         let too_far_i = Sn.succ ci in
-        let step = failwith "todo" (*Sn.of_int (!Tlogcommon.tlogEntriesPerFile) *) in
         let rec loop_files (start_i2:Sn.t) =
-          if (* there are complete log files *)
-            Sn.rem start_i2 step = Sn.start &&
-              Sn.add start_i2 step < too_far_i
-          then
-            begin
-              Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
+          match tlog_collection # complete_file_to_deliver start_i2 with
+          | None -> Lwt.return start_i2
+          | Some (tlog_number, start_i2') ->
+             begin
+              Logger.debug_f_ "start_i2=%Li < %Li (outputting %03i)" start_i2 too_far_i tlog_number
               >>= fun () ->
               Llio.output_int oc 3 >>= fun () ->
-              tlog_collection # dump_tlog_file start_i2 oc
-              >>= fun start_i2' ->
+              tlog_collection # dump_tlog_file tlog_number oc >>= fun () ->
               loop_files start_i2'
             end
-          else
-            Lwt.return start_i2
         in
         let maybe_dump_head () =
           tlog_collection # get_infimum_i () >>= fun inf_i ->
@@ -358,22 +340,18 @@ let last_entries2
 
           (* maybe stream a bit *)
           begin
-            let (-:) = Sn.sub
-            and (+:) = Sn.add
-            and (/:) = Sn.rem and ( *: ) = Sn.mul
-            in
-            let next_rotation =
-              ((start_i2 +: (step -: 1L)) /: step) *: step
-            in
-            Logger.debug_f_ "next_rotation = %Li" next_rotation >>= fun () ->
-            (if start_i2 < next_rotation && next_rotation < too_far_i
-             then
-               begin
-                 stream_entries start_i2 next_rotation >>= fun () ->
-                 Lwt.return next_rotation
-               end
-             else Lwt.return start_i2
-            )
+            match tlog_collection # next_rollover start_i2 with
+            | None -> Lwt.return start_i2
+            | Some next_rollover ->
+               Logger.debug_f_ "next_rollover = %Li" next_rollover >>= fun () ->
+               (if next_rollover < too_far_i
+                then
+                  begin
+                    stream_entries start_i2 next_rollover >>= fun () ->
+                    Lwt.return next_rollover
+                  end
+                else Lwt.return start_i2
+               )
           end
           >>= fun start_i3 ->
           (* push out files *)

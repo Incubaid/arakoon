@@ -125,7 +125,8 @@ module F = struct
 end
 
 
-let _init_file fsync_dir tlog_map c =
+let _init_file fsync_dir tlog_map =
+  let c = TlogMap.get_tlog_number tlog_map in
   let fn = file_name c in
   let full_name = TlogMap.get_full_path tlog_map fn in
   Lwt_unix.openfile full_name [Unix.O_CREAT;Unix.O_APPEND;Unix.O_WRONLY] 0o644 >>= fun fd ->
@@ -151,18 +152,10 @@ class tlc2
         (tlog_map: TlogMap.t)
         (node_id:string) ~(fsync:bool) ~(fsync_tlog_dir:bool)
   =
-  let inner =
-    let io = match last with
-      | None -> None
-      | Some e -> Some (Entry.i_of e)
-    in
-    TlogMap.inner_of_i tlog_map io in
 
   object(self: # tlog_collection)
     val mutable _file = (None:F.t option)
     val mutable _index = (None: Index.index)
-    val mutable _inner = inner (* ~ pos in file *)
-    val mutable _outer = new_c (* ~ pos in dir *)
     val mutable _previous_entry = last
     val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
     val mutable _compression_thread = None
@@ -177,7 +170,7 @@ class tlc2
     method validate_last_tlog () =
       validate_last tlog_map node_id ~check_marker:false >>= fun r ->
       let (_validity, _entry, new_index) = r in
-      let tlu = TlogMap.get_full_path tlog_map (file_name _outer) in
+      let tlu = TlogMap.get_full_path tlog_map (TlogMap.get_tlog_number tlog_map|> file_name) in
       let matches = Index.match_filename tlu new_index in
       Logger.debug_f_ "tlu=%S new_index=%s index=%s => matches=%b"
         tlu
@@ -271,11 +264,6 @@ class tlc2
                else Lwt.return ()
              end
              >>= fun () ->
-             let () = match _previous_entry with
-               | None -> _inner <- _inner +1
-               | Some pe->
-                 let pi = Entry.i_of pe in if pi < i then _inner <- _inner +1
-             in
              let entry = Entry.make i value p marker in
              _previous_entry <- Some entry;
              Index.note entry _index;
@@ -295,38 +283,40 @@ class tlc2
       match _file with
         | None ->
           begin
-
             let outer = TlogMap.outer_of_i tlog_map i in
-            _outer <- outer;
             Logger.debug_f_ "prelude i:%s: outer=%i" (Sn.string_of i) outer>>= fun () ->
             begin
-              if (_outer <> 0) && (TlogMap.is_first_of_new tlog_map i )
+              if (outer <> 0) && (TlogMap.is_first_of_new tlog_map i )
               then
                 (* the first thing logged falls exactly into a new tlog,
                    the compression job for the previous one thus is not yet picked up *)
-                self # _add_compression_job (pred _outer)
+                self # _add_compression_job (pred outer)
               else
                 Lwt.return ()
             end >>= fun () ->
             let () =
-              if TlogMap.should_roll tlog_map _outer i
+              if TlogMap.should_roll tlog_map
               then
-                let new_outer = TlogMap.new_outer tlog_map i in
-                _outer <- new_outer
+                let _new_outer = TlogMap.new_outer tlog_map i in
+                ()
             in
-            _init_file fsync_tlog_dir tlog_map _outer >>= fun file ->
+            _init_file fsync_tlog_dir tlog_map  >>= fun file ->
             _file <- Some file;
             _index <- Index.make (F.fn_of file);
             Lwt.return file
           end
         | Some (file:F.t) ->
-          if TlogMap.should_roll tlog_map _outer i
+          if TlogMap.should_roll tlog_map
           then
             let do_jump () =
+              let old_outer = TlogMap.get_tlog_number tlog_map  in
               let new_outer = TlogMap.new_outer tlog_map i in
-              Logger.info_f_ "i= %s & outer = %i => jump to %i" (Sn.string_of i) _outer new_outer
+              Logger.info_f_ "i= %s old_outer = %i => jump to %i"
+                             (Sn.string_of i)
+                             old_outer 
+                             new_outer
               >>= fun () ->
-              self # _jump_to_tlog file new_outer
+              self # _jump_to_tlog file old_outer new_outer
             in
             do_jump ()
           else
@@ -346,15 +336,12 @@ class tlc2
          end
       | No -> Lwt.return ()
 
-    method private _jump_to_tlog file new_outer =
+    method private _jump_to_tlog file old_outer new_outer =
       F.close file >>= fun () ->
-      let old_outer = _outer in
-      _inner <- 0;
-      _outer <- new_outer;
-      _init_file fsync_tlog_dir tlog_map new_outer >>= fun new_file ->
+      _init_file fsync_tlog_dir tlog_map >>= fun new_file ->
       _file <- Some new_file;
       let index =
-        let fn = file_name _outer in
+        let fn = file_name new_outer in
         let full_name = TlogMap.get_full_path tlog_map fn in
         Index.make full_name
       in
@@ -477,7 +464,7 @@ class tlc2
       Logger.debug_ "tlc2::closes () (part2)" >>= fun () ->
       let last_file () =
         match _file with
-          | None -> _init_file fsync_tlog_dir tlog_map _outer
+          | None -> _init_file fsync_tlog_dir tlog_map 
           | Some file -> Lwt.return file
       in
       last_file () >>= fun file ->
@@ -499,14 +486,14 @@ class tlc2
 
     method get_start_i (n:int) : Sn.t = TlogMap.get_start_i tlog_map n
     method is_rollover_point i = TlogMap.is_rollover_point tlog_map i
-
+    method next_rollover i     = TlogMap.next_rollover tlog_map i
+                                                       
     method get_tlog_count () =
       TlogMap.get_tlog_names tlog_map >>= fun tlogs ->
       Lwt.return (List.length tlogs)
 
-    method which_tlog_file (start_i : Sn.t) =
+    method which_tlog_file (n:int) =
       let open Compression in
-      let n = self # get_tlog_from_i start_i in
       let an0 = archive_name Snappy n
       and an1 = archive_name Bz2 n
       and fn = file_name n
@@ -525,15 +512,15 @@ class tlc2
       loop [an0_c;an1_c;fn_c]
 
 
-    method dump_tlog_file start_i oc =
-      self # which_tlog_file start_i >>= fun co ->
+    method dump_tlog_file n oc =
+      self # which_tlog_file n >>= fun co ->
       let canonical = match co with
         | Some fn -> fn
-        | None -> let n = self # get_tlog_from_i start_i in
+        | None -> 
                   let fn = file_name n in
                   TlogMap.get_full_path tlog_map fn
       in
-      Logger.debug_f_ "start_i = %Li => canonical=%s" start_i canonical >>= fun () ->
+      Logger.debug_f_ "n = %03i => canonical=%s" n canonical >>= fun () ->
       let name = Filename.basename canonical in
       Llio.output_string oc name >>= fun () ->
       File_system.stat canonical >>= fun stats ->
@@ -548,12 +535,15 @@ class tlc2
         )
       >>= fun () ->
       Logger.debug_f_ "dumped:%s (%Li) bytes" canonical length
-      >>= fun () ->
-      let next_i = failwith "Sn.add start_i (Sn.of_int !tlogEntriesPerFile)" in
-      Lwt.return next_i
 
     method save_tlog_file name length ic =
       (* what with rotation (jump to new tlog), open streams, ...*)
+      begin
+        match _file with
+        | None -> Lwt.return ()
+        | Some file -> F.close file >>= fun () -> _file <- None;Lwt.return ()
+      end 
+      >>= fun () ->                                                               
       let canon = TlogMap.get_full_path tlog_map name in
       let tmp = canon ^ ".tmp" in
       Logger.debug_f_ "save_tlog_file: %s" tmp >>= fun () ->
@@ -563,7 +553,17 @@ class tlc2
       File_system.rename tmp canon
 
 
+    method reinit () =
+      begin
+        match _file with
+        | None -> Lwt.return ()
+        | Some file -> F.close file >>= fun () -> _file <- None;Lwt.return ()
+      end 
+      >>= fun () ->                                                               
+      TlogMap.reinit tlog_map
+                     
     method remove_below i = TlogMap.remove_below tlog_map i
+    method complete_file_to_deliver i = TlogMap.complete_file_to_deliver tlog_map i 
   end
 
 
@@ -613,7 +613,7 @@ let make_tlc2 ~compressor
         let i = Entry.i_of e in
         let v = Entry.v_of e in
         let marker = Some (_make_open_marker node_id) in
-        _init_file fsync_tlog_dir tlog_map new_c >>= fun file ->
+        _init_file fsync_tlog_dir tlog_map >>= fun file ->
         let oc = F.oc_of file in
         Tlogcommon.write_marker oc i v marker >>= fun () ->
         F.close file >>= fun () ->

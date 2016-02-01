@@ -68,16 +68,11 @@ class mem_tlog_collection _name =
 
     method save_tlog_file _name _length _ic = failwith "save_tlog_file not supported"
 
+    method reinit () = Lwt.return ()
     method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
     method tlogs_to_collapse _ _ _ = failwith "tlogs_to_collapse not supported"
-    method is_rollover_point _ = failwith "is_rollover_point not supported"
 
-    method log_value_explicit i (v:Value.t) ~sync marker =
-      let entry = Entry.make i v 0L marker in
-      let () = data <- entry::data in
-      let () = last_entry <- (Some entry) in
-      Lwt.return 0
 
     method log_value i v = self #log_value_explicit i v ~sync:false None
 
@@ -90,12 +85,22 @@ class mem_tlog_collection _name =
 
     method get_tlog_from_i _ = 0
     method get_start_i n = Sn.zero
+    method is_rollover_point _ = failwith "is_rollover_point not supported"
+    method next_rollover _ = Some Int64.max_int
+
+    method log_value_explicit i (v:Value.t) ~sync marker =
+      let entry = Entry.make i v 0L marker in
+      let () = data <- entry::data in
+      let () = last_entry <- (Some entry) in
+      Lwt.return 0
+
 
     method close ?(wait_for_compression = false) () =
         let () = ignore wait_for_compression in
         Lwt.return ()
 
     method remove_below _i = Lwt.return ()
+    method complete_file_to_deliver = failwith "complete_tlog_file_to_deliver not supported"
   end
 
 let make_mem_tlog_collection

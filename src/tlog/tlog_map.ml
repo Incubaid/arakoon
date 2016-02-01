@@ -21,6 +21,12 @@ let folder_for filename index =
   | ".tlc"  -> AO.fold, extension, None
   | _       -> failwith (Printf.sprintf "no folder for '%s'" extension)
 
+let is_archive filename =
+  let extension = extension_of filename in
+  match extension with
+  | ".tlx" | ".tlf" | ".tlc"-> true
+  | _ -> false
+  
 let first_i_of filename =
   let extension = extension_of filename in
   let reader = 
@@ -45,7 +51,7 @@ let first_i_of filename =
          let buffer = Llio.make_buffer uncompressed 0 in
          let i =  Sn.sn_from buffer in
          Lwt.return i)
-    | ".tlc"  -> failwith "todo"
+    | ".tlc"  -> failwith "todo: first_i_if .tlc"
     | x -> failwith (Printf.sprintf "not a tlog_file:%s" x)
   in
   Lwt_io.with_file ~mode:Lwt_io.input filename reader >>= fun i ->
@@ -204,17 +210,39 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
     )
 
 module TlogMap = struct
+  type tlog_number = int
+  type is_archive = bool
   type t = {
       tlog_dir: string;
       tlx_dir : string;
       tlog_max_entries : int;
       tlog_max_size : int;
+      node_id : string;
       mutable tlog_size: int;
-      mutable tlog_number: int;
-      mutable i_to_tlog_number : (Sn.t * int) list;
+      mutable tlog_entries : int;
+      mutable tlog_number: tlog_number;
+      mutable i_to_tlog_number : (Sn.t * tlog_number * is_archive) list;
+      mutable should_roll: bool;
     }
+             
+  let show_map t =
+    "[" ^ 
+    String.concat ";"
+                  (List.map
+                     (fun (i,n,a) ->
+                       Printf.sprintf "(%s,%03i,%b)" (Sn.string_of i) n a
+                     ) t.i_to_tlog_number
+                  ) ^ "]"
+                  
+  let new_entry t s =
+    t.tlog_size <- t.tlog_size + s;
+    t.tlog_entries <- t.tlog_entries + 1;
+    if t.tlog_size >= t.tlog_max_size
+       || t.tlog_entries + 1 = t.tlog_max_entries
+    then
+      let () = t.should_roll <- true in
+      Logger.ign_debug_f_ "should roll over"
 
-  let new_entry t s = t.tlog_size <- t.tlog_size + s
 
   let get_tlog_number t= t.tlog_number
 
@@ -222,6 +250,38 @@ module TlogMap = struct
 
   let get_full_path t x = _get_full_path t.tlog_dir t.tlx_dir x
 
+
+  let _init tlog_dir tlx_dir node_id ~check_marker =
+    Logger.debug_f_ "_init ~check_marker:%b" check_marker >>= fun () ->
+    _get_tlog_names tlog_dir tlx_dir >>= fun tlog_names ->
+    let tlog_number = get_count tlog_names in
+    Logger.debug_f_ "tlog_number:%i" tlog_number >>= fun () ->
+    let full_path = _get_full_path tlog_dir tlx_dir (file_name tlog_number) in
+    _validate_one full_path node_id ~check_marker
+    >>= fun (last, index, tlog_size) ->
+    Lwt_list.map_s
+      (fun tlog_name ->
+        let n = get_number tlog_name in
+        let canonical = _get_full_path tlog_dir tlx_dir tlog_name in
+        first_i_of canonical >>= fun i ->
+        let b = is_archive tlog_name in
+       Lwt.return (i,n, b)
+      ) tlog_names
+    >>= fun i_to_tlog_number ->
+    let should_roll,last_start =
+      let rec find = function
+          | [] -> false , Sn.zero
+          | [(i0,_,true)] -> true, i0
+          | _ :: rest -> find rest
+      in find i_to_tlog_number
+    in
+    let tlog_entries =
+      match last with
+      | None -> 0
+      | Some e -> let i = Entry.i_of e in (Sn.to_int i) - (Sn.to_int last_start)
+    in
+    Lwt.return (tlog_entries, tlog_size, tlog_number, i_to_tlog_number, should_roll)
+      
   let make ?tlog_max_entries
            ?tlog_max_size
            tlog_dir tlx_dir node_id
@@ -233,28 +293,23 @@ module TlogMap = struct
     in
     let tlog_max_entries = with_default tlog_max_entries 100_000 in
     let tlog_max_size    = with_default tlog_max_size 32_000_000 in
-
-    _get_tlog_names tlog_dir tlx_dir >>= fun tlog_names ->
-    let tlog_number = get_count tlog_names in
-    Logger.debug_f_ "tlog_number:%i" tlog_number >>= fun () ->
-    let full_path = _get_full_path tlog_dir tlx_dir (file_name tlog_number) in
-    _validate_one full_path node_id ~check_marker:true
-    >>= fun (last, index, tlog_size) ->
-    Lwt_list.map_s
-      (fun tlog_name ->
-        let n = get_number tlog_name in
-        let canonical = _get_full_path tlog_dir tlx_dir tlog_name in
-       first_i_of canonical >>= fun i ->
-       Lwt.return (i,n)
-      ) tlog_names
-    >>= fun i_to_tlog_number ->
-    let t = {tlog_dir;tlx_dir;tlog_max_entries; tlog_max_size;
-             tlog_size; tlog_number;
-             i_to_tlog_number;
+    _init tlog_dir tlx_dir node_id ~check_marker:true
+    >>= fun (tlog_entries, tlog_size,tlog_number,i_to_tlog_number, should_roll) ->
+    
+    let t = {node_id; tlog_dir;tlx_dir;tlog_max_entries; tlog_max_size;
+             tlog_entries; tlog_size; tlog_number; i_to_tlog_number;should_roll;
             }
     in
     Lwt.return t
 
+  let reinit t =
+    _init t.tlog_dir t.tlx_dir t.node_id ~check_marker:false 
+    >>= fun (tlog_entries, tlog_size, tlog_number,i_to_tlog_number,should_roll) ->
+    t.tlog_size   <- tlog_size;
+    t.tlog_number <- tlog_number;
+    t.i_to_tlog_number <- i_to_tlog_number;
+    t.should_roll <- should_roll;
+    Lwt.return ()
 
   let get_last_tlog t =
     Logger.debug_ "get_last_tlog" >>= fun () ->
@@ -296,7 +351,9 @@ module TlogMap = struct
 
     let full_name = _get_full_path tlog_map.tlog_dir tlog_map.tlx_dir file_name in
     let folder, extension, index' = folder_for file_name index in
-    Logger.debug_f_ "fold_read extension=%s => index':%s" extension (Tlogreader2.Index.to_string index') >>= fun () ->
+    Logger.debug_f_ "fold_read extension=%s => index':%s" extension
+                    (Tlogreader2.Index.to_string index')
+    >>= fun () ->
     let ic_f ic = folder ic ~index:index' lowerI too_far_i ~first a0 f in
     Lwt.catch
       (fun () -> Lwt_io.with_file ~mode:Lwt_io.input full_name ic_f)
@@ -318,53 +375,18 @@ module TlogMap = struct
              Lwt.fail exn
         | exn -> Lwt.fail exn
       )
-  let iterate_tlog_dir t ~index start_i too_far_i f =
-    let open Tlogcommon in
-    let open Tlogreader2 in
-    let tfs = Sn.string_of too_far_i in
-    Logger.debug_f_ "Tlc2.iterate_tlog_dir start_i:%s too_far_i:%s ~index:%s"
-                    (Sn.string_of start_i) tfs (Index.to_string index)
-    >>= fun () ->
-    get_tlog_names t >>= fun tlog_names ->
-    let acc_entry (_i0:Sn.t) entry = f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i in
-    let num_tlogs = List.length tlog_names in
-    let maybe_fold (cnt,low) fn =
-      let factor = Sn.of_int (t.tlog_max_entries) in
-      let linf = Sn.of_int (get_number fn) in
-      let ( * ) = Sn.mul in
-      let test0 = linf * factor in
-      let test1 = (Sn.succ linf) * factor in
-      let low_s = Sn.string_of low in
-      let lowp = Sn.succ low in
-      let lowp_s = Sn.string_of lowp in
-      let test_result =
-        (test0 <= lowp) &&
-          (low   <  test1) &&
-            low <= too_far_i
-      in
-      Logger.debug_f_ "%s <?= lowp:%s &&  low:%s <? %s && (low:%s <?= %s) yields:%b"
-                      (Sn.string_of test0 ) lowp_s
-                      low_s (Sn.string_of test1)
-                      low_s tfs
-                      test_result
-      >>= fun () ->
-      if test_result
-      then
-        begin
-          Logger.debug_f_ "fold_read over: %s (test0=%s)" fn
-                          (Sn.string_of test0) >>= fun () ->
-          let first = test0 in
-          Logger.info_f_ "Replaying tlog file: %s (%d/%d)" fn cnt num_tlogs  >>= fun () ->
-          let t1 = Unix.gettimeofday () in
-          fold_read t fn ~index low (Some too_far_i) ~first low acc_entry >>= fun x ->
-          Logger.info_f_ "Completed replay of %s, took %f seconds, %i to go" fn (Unix.gettimeofday () -. t1) (num_tlogs - cnt) >>= fun () ->
-          Lwt.return (cnt+1,x)
-        end
-      else Lwt.return (cnt+1,low)
+      
+  let outer_of_i t i =
+    let rec find pn = function
+      | [] -> pn
+      | (i0,n0,_) :: rest ->
+         if i0 < i
+         then find n0 rest
+         else n0
     in
-    Lwt_list.fold_left_s maybe_fold (1,start_i) tlog_names
-    >>= fun _x ->
-    Lwt.return ()
+    find 0 t.i_to_tlog_number
+      
+  
 
   let inner_of_i t = function
     | None -> 0
@@ -372,48 +394,32 @@ module TlogMap = struct
        let step = (Sn.of_int t.tlog_max_entries) in
        (Sn.to_int (Sn.rem i step)) + 1
 
-  let outer_of_i t i =
-    let rec find pn = function
-      | [] -> pn
-      | (i0,n0) :: rest ->
-         if i0 < i
-         then find n0 rest
-         else n0
-    in
-    find 0 t.i_to_tlog_number
+  
 
   let get_start_i t n =
     let rec find = function
-      | [] -> failwith "todo"
-      | (i0,n0) :: rest ->
+      | [] -> Sn.zero (* TODO: maybe assert *)
+      | (i0,n0,_) :: rest ->
          if n0 = n
          then i0 else
            find rest
     in
-    find t.i_to_tlog_number
+    let r = find t.i_to_tlog_number in
+    Logger.ign_debug_f_ "get_start_i %s %i => %s"  (show_map t) n (Sn.string_of r) ;
+    r
+
+  
          
   let is_first_of_new t i = Sn.rem i (Sn.of_int t.tlog_max_entries) = Sn.zero
 
-  let should_roll t outer i =
-    let ( *: ) = Sn.mul in
-    let r = i >= (Sn.of_int t.tlog_max_entries) *: (Sn.of_int (outer + 1)) in
-    let r' = r || t.tlog_size >= t.tlog_max_size in
-    let () =
-      Logger.ign_debug_f_
-        "should_roll tlog_max_entries:%i tlog_max_size:%i outer:%i i:%Li tlog_size:%i => %b"
-        t.tlog_max_entries t.tlog_max_size outer i t.tlog_size r'
-    in
-    let () =
-      if r'
-      then
-        t.tlog_size <- 0
-    in
-    r'
-
-
+  let should_roll t = t.should_roll
+ 
   let new_outer t i =
     let r = t.tlog_number + 1 in
     let () = t.tlog_number <- r in
+    let () = t.tlog_size <- 0 in
+    let () = t.tlog_entries <- 0 in
+    let () = t.should_roll <- false in
     r
 
   let infimum t =
@@ -450,12 +456,83 @@ module TlogMap = struct
     Logger.ign_debug_f_ "is_rollover_point %s" (Sn.string_of i); 
     let rec find = function
       | [] -> false
-      | (i0,_ ) :: _ when i0 = i -> true
-      | (i0,_ ) :: _ when i0 > i -> false
+      | (i0,_,_ ) :: _ when i0 = i -> true
+      | (i0,_,_ ) :: _ when i0 > i -> false
       | _ :: rest -> find rest
     in
     find t.i_to_tlog_number
 
+  let complete_file_to_deliver t i =
+    let rec find = function
+      | [] -> None
+      | (i0,n,_)  :: (i1,_,_) :: _ when i0 = i -> Some (n,i1)
+      | (i0,_,_)  :: _ when i0 > i -> None
+      | _ :: rest -> find rest
+    in
+    find t.i_to_tlog_number
+
+  let next_rollover t i =
+    let rec find = function
+      | [] -> None
+      | (i0,_,_) :: (i1,_,_) :: _ when i0 <= i && i < i1 -> Some i1
+      | _ :: rest -> find rest
+    in
+    let r = find t.i_to_tlog_number in
+    let () =
+      Logger.ign_debug_f_
+        "next_rollover %s : %s => %s" (Sn.string_of i)
+        (show_map t) (To_string.option Sn.string_of r)
+    in
+    r
+
+  let iterate_tlog_dir t ~index start_i too_far_i f =
+    let open Tlogcommon in
+    let open Tlogreader2 in
+    let tfs = Sn.string_of too_far_i in
+    Logger.debug_f_ "TlogMap.iterate_tlog_dir start_i:%s too_far_i:%s ~index:%s"
+                    (Sn.string_of start_i) tfs (Index.to_string index)
+    >>= fun () ->
+    get_tlog_names t >>= fun tlog_names ->
+    let acc_entry (_i0:Sn.t) entry =
+      f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i
+    in
+    let num_tlogs = List.length tlog_names in
+    let maybe_fold (cnt,low) fn =
+      let fn_start = get_start_i t (get_number fn) in
+      let fn_next  = next_rollover t fn_start in
+      let low_n = Sn.succ low in
+      (* 000.tlx starting from (1, 14001) *)
+      let should_fold = 
+        match fn_next with
+        | None -> fn_start <= low_n
+        | Some next -> fn_start <= low_n && low_n < next
+      in
+      Logger.debug_f_ "maybe_fold %s low:%s" fn (Sn.string_of low) >>= fun () ->
+      Logger.debug_f_ "fn: fn_start:%s <= low_n:%s fn_next:%s => %b"
+                      (Sn.string_of fn_start) (Sn.string_of low_n)
+                      (To_string.option Sn.string_of fn_next)
+                      should_fold
+      >>= fun () ->
+      
+      let fold () =
+        Logger.debug_f_ "fold over: %s: [%s,...) "
+                           fn (Sn.string_of fn_start) 
+           >>= fun () ->
+           let first = fn_start in
+           Logger.info_f_ "Replaying tlog file: %s (%d/%d)" fn cnt num_tlogs  >>= fun () ->
+           let t1 = Unix.gettimeofday () in
+           fold_read t fn ~index low (Some too_far_i) ~first low acc_entry >>= fun low' ->
+           Logger.info_f_ "Completed replay of %s, took %f seconds, %i to go"
+                          fn (Unix.gettimeofday () -. t1) (num_tlogs - cnt)
+           >>= fun () ->
+           Lwt.return (cnt+1, low')
+      in
+      if should_fold then fold () else Lwt.return (cnt+1,low)
+    in
+    Lwt_list.fold_left_s maybe_fold (1,start_i) tlog_names
+    >>= fun _x ->
+    Lwt.return ()
+      
   let tlogs_to_collapse t head_i last_i tlogs_to_keep =
     let lag = Sn.to_int (Sn.sub last_i head_i) in
     let npt = t.tlog_max_entries in
