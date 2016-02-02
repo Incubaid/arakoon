@@ -82,7 +82,7 @@ let _log_repeat tlc (value:Value.t) n =
 
 let test_rollover (dn, tlx_dir, (factory:factory)) =
   Logger.info_f_ "test_rollover %s, %s" dn tlx_dir >>= fun () ->
-  TlogMap.make ~tlog_max_entries:5 dn tlx_dir node_id >>= fun tlog_map ->
+  TlogMap.make ~tlog_max_entries:5 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun (c:tlog_collection) ->
   let value = _make_set_v "x" "y" in
   _log_repeat c value 101 >>= fun () ->
@@ -147,7 +147,7 @@ let test_restart (dn, _tlf_dir, (factory:factory)) =
 
 let test_iterate (dn, tlx_dir, (factory: factory)) =
   Logger.info_f_ "test_iterate  %s, %s" dn tlx_dir >>= fun () ->
-  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id >>= fun tlog_map ->
+  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun  (tlc:tlog_collection) ->
   let value = _make_set_v "xxx" "y" in
   _log_repeat tlc value 323 >>= fun () ->
@@ -167,7 +167,7 @@ let test_iterate (dn, tlx_dir, (factory: factory)) =
 
 let test_iterate2 (dn, tlx_dir, (factory:factory)) =
   Logger.info_f_ "test_iterate2  %s, %s" dn tlx_dir >>= fun () ->
-  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id >>= fun tlog_map ->
+  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "test_iterate0" "xxx" in
   _log_repeat tlc value 3 >>= fun () ->
@@ -186,7 +186,7 @@ let test_iterate2 (dn, tlx_dir, (factory:factory)) =
 
 let test_iterate3 (dn, tlx_dir, (factory:factory)) =
   Logger.info_f_ "test_iterate3  %s, %s" dn tlx_dir >>= fun () ->
-  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id >>= fun tlog_map ->
+  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id  >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "test_iterate3" "xxx" in
   _log_repeat tlc value 120 >>= fun () ->
@@ -205,7 +205,7 @@ let test_iterate3 (dn, tlx_dir, (factory:factory)) =
 
 let test_validate_normal (dn, tlx_dir, (factory:factory)) =
   Logger.info_f_ "test_validate_normal  %s, %s" dn tlx_dir >>= fun () ->
-  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id >>= fun tlog_map ->
+  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "XXX" "X" in
   _log_repeat tlc value 123 >>= fun () ->
@@ -225,12 +225,12 @@ let test_validate_normal (dn, tlx_dir, (factory:factory)) =
 
 let test_validate_corrupt_1 (dn, tlx_dir, (factory:factory)) =
   let open Tlog_map in
-  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id >>= fun tlog_map ->
+  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "Incompetent" "Politicians" in
   _log_repeat tlc value 42 >>= fun () ->
   tlc # close () >>= fun () ->
-  TlogMap.make dn tlx_dir node_id >>= fun tlog_map ->
+  TlogMap.make dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   let fn = TlogMap.get_full_path tlog_map "000.tlog" in
   Lwt_unix.openfile fn [Unix.O_RDWR] 0o640 >>= fun fd ->
   Lwt_unix.lseek fd 666 Unix.SEEK_SET >>= fun _ ->

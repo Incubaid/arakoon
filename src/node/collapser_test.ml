@@ -57,7 +57,7 @@ let _make_values tlc n =
 
 let test_collapse_until (dn, tlx_dir, head_dir) =
   let node_id = "node_name" in
-  TlogMap.make ~tlog_max_entries:1000 dn tlx_dir node_id >>= fun tlog_map ->
+  TlogMap.make ~tlog_max_entries:1000 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   Logger.debug_f_ "dn=%s, tlf_dir=%s, head_dir=%s" dn tlx_dir head_dir >>= fun () ->
   Tlc2.make_tlc2 ~compressor dn tlx_dir head_dir
                  ~fsync:false node_id ~fsync_tlog_dir:false
@@ -92,7 +92,7 @@ let _head_dir = "/tmp/collapser_head"
 
 let test_collapse_many (dn, tlx_dir, head_dir) =
   let node_id = "node_name" in
-  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id >>= fun tlog_map ->
+  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
 
   Logger.debug_f_ "test_collapse_many_regime dn=%s, tlx_dir=%s, head_dir=%s" dn tlx_dir head_dir
   >>= fun () ->

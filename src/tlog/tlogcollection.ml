@@ -27,7 +27,12 @@ class type tlog_collection =
                               sync:bool -> string option -> int Lwt.t
   
   
-  method tlogs_to_collapse: Sn.t -> Sn.t -> int -> int
+  method tlogs_to_collapse:
+           head_i:Sn.t ->
+           last_i:Sn.t ->
+           tlogs_to_keep:int ->
+           (int * Sn.t) option
+               
   method get_last_value: Sn.t -> Value.t option (* Lwt.t *)
   method get_last: unit -> (Value.t * Sn.t) option
   method close : ?wait_for_compression : bool -> unit -> unit Lwt.t

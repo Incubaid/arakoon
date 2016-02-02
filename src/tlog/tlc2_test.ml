@@ -110,7 +110,7 @@ let test_iterate4 (dn, tlx_dir, (factory:Tlogcollection_test.factory)) =
 
 
 let test_iterate5 (dn, _tlx_dir, (factory:factory)) =
-  TlogMap.make ~tlog_max_entries:10 dn _tlx_dir node_id >>= fun tlog_map ->
+  TlogMap.make ~tlog_max_entries:10 dn _tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun (tlc:tlog_collection) ->
   let rec loop (tlc:tlog_collection) i =
     if i = 33
@@ -147,7 +147,7 @@ let test_iterate5 (dn, _tlx_dir, (factory:factory)) =
   Lwt.return ()
 
 let test_iterate6 (dn, _tlx_dir, (factory:factory)) =
-  TlogMap.make ~tlog_max_entries:10 dn _tlx_dir node_id >>= fun tlog_map ->
+  TlogMap.make ~tlog_max_entries:10 dn _tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   let sync = false in
   factory dn node_id >>= fun (tlc:tlog_collection) ->
   let rec loop i =
@@ -302,7 +302,7 @@ let test_size_based_roll_over1 (dn, tlx_dir, (factory:factory)) =
   File_system.lwt_directory_list tlx_dir >>= fun tlx_entries ->
   OUnit.assert_equal 3 (List.length tlx_entries) ~printer;
 
-  TlogMap.make dn tlx_dir node_id >>= fun second_map ->
+  TlogMap.make dn tlx_dir node_id ~check_marker:true >>= fun second_map ->
   OUnit.assert_equal 3 (TlogMap.get_tlog_number second_map) ~printer;
   Lwt.return_unit
 

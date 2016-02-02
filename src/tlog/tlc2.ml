@@ -71,7 +71,8 @@ let folder_for filename index =
 
 let _validate_list tlog_names node_id ~check_marker=
   Lwt_list.fold_left_s
-    (fun _ tn -> _validate_one tn node_id ~check_marker)
+    (fun _ tlog_name ->
+      _validate_one tlog_name node_id ~check_marker ~check_sabotage:true)
     (None,None,0)
     tlog_names
   >>= fun (eo,index, pos) ->
@@ -147,7 +148,7 @@ let _init_file fsync_dir tlog_map =
 
 class tlc2
         ?(compressor=Compression.Snappy)
-        (tlog_dir:string) (tlf_dir:string) (head_dir:string) (new_c:int)
+        (head_dir:string) 
         (last:Entry.t option) (index:Index.index)
         (tlog_map: TlogMap.t)
         (node_id:string) ~(fsync:bool) ~(fsync_tlog_dir:bool)
@@ -223,7 +224,7 @@ class tlc2
       in
 
       let add_previous_compression_jobs () =
-        File_system.lwt_directory_list tlog_dir >>= fun entries ->
+        File_system.lwt_directory_list tlog_map.TlogMap.tlog_dir >>= fun entries ->
         let filtered = List.filter
                          (fun e -> Str.string_match tlog_regexp e 0)
                          entries
@@ -431,7 +432,7 @@ class tlc2
         | None -> None
         | Some pe ->  Some (Entry.v_of pe, Entry.i_of pe)
 
-    method tlogs_to_collapse head_i last_i tlogs_to_keep =
+    method tlogs_to_collapse ~head_i ~last_i ~tlogs_to_keep =
       TlogMap.tlogs_to_collapse tlog_map head_i last_i tlogs_to_keep
 
     method close ?(wait_for_compression=false) () =
@@ -569,39 +570,26 @@ class tlc2
 
 
 
-let maybe_correct new_c last index =
-  if new_c > 0 && last = None
-  then
-    begin
-      (* somebody sabotaged us:
-         (s)he deleted the .tlog file but we have .tlf's
-         meaning rotation happened correctly.
-         This means the marker can not be present.
-         Let the node die; they should fix this manually.
-      *)
-      Lwt.fail TLogSabotage
-    end
-  else
-    Lwt.return (new_c, last, index)
-
 let make_tlc2 ~compressor
               ?tlog_max_entries ?tlog_max_size
               tlog_dir tlf_dir
               head_dir ~fsync node_id ~fsync_tlog_dir
   =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
-  TlogMap.make ?tlog_max_entries ?tlog_max_size tlog_dir tlf_dir node_id >>= fun tlog_map ->
+  TlogMap.make ?tlog_max_entries ?tlog_max_size
+               tlog_dir tlf_dir node_id ~check_marker:true
+  >>= fun tlog_map ->
   TlogMap.get_last_tlog tlog_map >>= fun (new_c, fn) ->
-  _validate_one fn node_id ~check_marker:true >>= fun (last, index, pos) ->
-  maybe_correct new_c last index >>= fun (new_c,last,new_index) ->
-  Logger.debug_f_ "make_tlc2 after maybe_correct %s" (Index.to_string new_index) >>= fun () ->
+  (* TODO: move index to tlogmap *)
+  _validate_one fn node_id ~check_marker:true ~check_sabotage:true >>= fun (last, index, pos) ->
+  Logger.debug_f_ "make_tlc2 index = %s" (Index.to_string index) >>= fun () ->
   let msg =
     match last with
       | None -> "None"
       | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
   in
   Logger.debug_f_ "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 tlog_dir tlf_dir head_dir new_c last new_index tlog_map
+  let col = new tlc2 head_dir last index tlog_map
                 ~compressor node_id ~fsync ~fsync_tlog_dir in
   (* rewrite last entry with ANOTHER marker so we can see we got here *)
   begin

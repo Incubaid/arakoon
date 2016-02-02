@@ -40,7 +40,7 @@ let replay_tlogs tlog_dir tlx_dir db_name end_i =
     let open Tlog_map in
     Lwt.catch
       (fun () ->
-         TlogMap.make tlog_dir tlx_dir "node_name???" >>= fun tlog_map ->
+         TlogMap.make tlog_dir tlx_dir "node_name???" ~check_marker:false >>= fun tlog_map ->
          S.make_store ~lcnum:1024 ~ncnum:512 db_name >>= fun store ->
          let cio = S.consensus_i store in
          let cios = Log_extra.option2s Sn.string_of cio in
@@ -50,9 +50,12 @@ let replay_tlogs tlog_dir tlx_dir db_name end_i =
              end_i with
              | None ->
                 begin
-
                  TlogMap.get_last_tlog tlog_map >>= fun (_new_c,fn) ->
-                 Tlog_map._validate_one fn "" ~check_marker:false >>= fun (last, _index, _pos) ->
+                 Tlog_map._validate_one
+                   fn ""
+                   ~check_marker:false
+                   ~check_sabotage:false
+                 >>= fun (last, _index, _pos) ->
                  let i =
                    match last with
                      | None -> Sn.start

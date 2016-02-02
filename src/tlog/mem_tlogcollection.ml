@@ -71,8 +71,8 @@ class mem_tlog_collection _name =
     method reinit () = Lwt.return ()
     method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
-    method tlogs_to_collapse _ _ _ = failwith "tlogs_to_collapse not supported"
-
+    method tlogs_to_collapse ~head_i ~last_i ~tlogs_to_keep =
+      failwith "tlogs_to_collapse not supported"
 
     method log_value i v = self #log_value_explicit i v ~sync:false None
 

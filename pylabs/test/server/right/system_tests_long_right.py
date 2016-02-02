@@ -21,6 +21,7 @@ from arakoon.ArakoonExceptions import *
 import arakoon
 import logging
 import time
+import threading
 import subprocess
 from nose.tools import *
 import os
@@ -490,7 +491,9 @@ def test_sabotage():
     test_size = num_tlogs * tlog_size
     Common.iterate_n_times(test_size, Common.simple_set)
     time.sleep(10)
+    print "stopping"
     clu.stop()
+    
     node_id = Common.node_names[0]
     node_cfg = clu.getNodeConfig(node_id)
     node_home_dir = node_cfg ['home']
@@ -502,12 +505,27 @@ def test_sabotage():
                   #"%s.db.wal" % (node_id,), # should not exist after a `proper` close
                   ])
     for f in files:
-        print f
+        print "removeing", f
         X.removeFile(f)
-
+    print "starting"
     cmd = clu._cmd('sturdy_0')
-    returncode = X.subprocess.call(cmd)
-    assert_equals(returncode, 50)
+    print cmd
+    
+    def start_node():
+        returncode = X.subprocess.call(cmd)
+        assert_equals(returncode, 50)
+        print "startup failure + correct returncode"
+    try:
+        
+        t = threading.Thread(target = start_node)
+        t.start()
+        t.join(10.0)
+        
+    except Exception,e:
+        print e
+        assert_equals(False,True)
+        
+    print "done"
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
 def test_large_catchup_while_running():

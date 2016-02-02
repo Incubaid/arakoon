@@ -222,26 +222,18 @@ let collapse_many
     Lwt.return head_i
   in
   get_head_i () >>= fun head_i ->
-  let tlogs_to_collapse = tlog_coll # tlogs_to_collapse head_i last_i tlogs_to_keep in
-  Logger.debug_f_ "tlogs_to_collapse = %i" tlogs_to_collapse >>= fun () ->
-  if tlogs_to_collapse <= 0
-  then
-    Logger.info_f_ "Nothing to collapse..." >>= fun () ->
-    cb' 0
-  else
+  let todo = tlog_coll # tlogs_to_collapse ~head_i ~last_i ~tlogs_to_keep in
+  match todo with
+  | None -> Logger.info_f_ "Nothing to collapse..." >>= fun () -> cb' 0
+  | Some (n, too_far_i) ->
     begin
-      Logger.info_f_ "Going to collapse %d tlogs" tlogs_to_collapse >>= fun () ->
-      cb' (tlogs_to_collapse+1) >>= fun () ->
-      let g_too_far_i =
-        failwith "Sn.add (Sn.of_int 2) (Sn.add head_i (Sn.of_int (tlogs_to_collapse * npt)))"
-      in
-      (* +2 because before X goes to the store, you need to have seen X+1 and thus too_far = X+2 *)
-      Logger.debug_f_ "g_too_far_i = %s" (Sn.string_of g_too_far_i) >>= fun () ->
-      collapse_until tlog_coll (module S) store_fs g_too_far_i cb slowdown >>= fun () ->
+      Logger.info_f_ "Going to collapse %d tlogs" n >>= fun () ->
+      cb' (n + 1) >>= fun () ->
+      Logger.debug_f_ "too_far_i = %s" (Sn.string_of too_far_i) >>= fun () ->
+      collapse_until tlog_coll (module S) store_fs too_far_i cb slowdown >>= fun () ->
       get_head_i () >>= fun head_i ->
       tlog_coll # remove_below head_i >>= fun () ->
-      let x = failwith "(Sn.div g_too_far_i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))" in
-      cb x
+      cb n
     end
 
 let collapse_out_of_band cfg name tlogs_to_keep =

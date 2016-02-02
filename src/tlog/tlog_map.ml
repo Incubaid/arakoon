@@ -162,7 +162,12 @@ let _make_open_marker node_id =  "opened:" ^ node_id
 type validation_result = (Entry.t option * Index.index * int)
 exception TLCNotProperlyClosed of (string * string)
 
-let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
+let _validate_one
+      tlog_name node_id
+      ~(check_marker:bool)
+      ~(check_sabotage:bool)
+    : validation_result Lwt.t
+  =
   Logger.debug_f_ "Tlog_map._validate_one %s" tlog_name >>= fun () ->
   let e2s e = let i = Entry.i_of e in Printf.sprintf "(%s,_)" (Sn.string_of i) in
   let prev_entry = ref None in
@@ -205,7 +210,20 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
        Lwt.return (eo', new_index, size)
     )
     (function
-      | Unix.Unix_error(Unix.ENOENT,_,_) -> Lwt.return (None, new_index, 0)
+     | Unix.Unix_error(Unix.ENOENT,_,_) ->
+        let ext = extension_of tlog_name in
+        let base = Filename.basename tlog_name in
+        Logger.debug_f_ "not found: %s. %s was removed?!" tlog_name base >>= fun () ->
+        if (not check_sabotage) || (ext = ".tlog" && get_number base = 0)
+        then Lwt.return (None, new_index, 0)
+        else (* 
+         somebody sabotaged us:
+         (s)he deleted the .tlog file but we have .tlf's
+         meaning rotation happened correctly.
+         This means the marker can not be present.
+         Let the node die; they should fix this manually.
+         *)
+          Lwt.fail TLogSabotage
       | exn -> Lwt.fail exn
     )
 
@@ -248,13 +266,13 @@ module TlogMap = struct
   let get_full_path t x = _get_full_path t.tlog_dir t.tlx_dir x
 
 
-  let _init tlog_dir tlx_dir node_id tlog_max_entries tlog_max_size ~check_marker =
+  let _init tlog_dir tlx_dir node_id tlog_max_entries tlog_max_size ~check_marker ~check_sabotage =
     Logger.debug_f_ "_init ~check_marker:%b" check_marker >>= fun () ->
     _get_tlog_names tlog_dir tlx_dir >>= fun tlog_names ->
     let tlog_number = get_count tlog_names in
     Logger.debug_f_ "tlog_number:%i" tlog_number >>= fun () ->
     let full_path = _get_full_path tlog_dir tlx_dir (file_name tlog_number) in
-    _validate_one full_path node_id ~check_marker
+    _validate_one full_path node_id ~check_marker ~check_sabotage
     >>= fun (last, index, tlog_size) ->
     Lwt_list.rev_map_s
       (fun tlog_name ->
@@ -286,6 +304,7 @@ module TlogMap = struct
   let make ?tlog_max_entries
            ?tlog_max_size
            tlog_dir tlx_dir node_id
+           ~check_marker
     =
     let with_default o d =
       match o with
@@ -295,7 +314,7 @@ module TlogMap = struct
     let tlog_max_entries = with_default tlog_max_entries 100_000 in
     let tlog_max_size    = with_default tlog_max_size 32_000_000 in
     _init
-      tlog_dir tlx_dir node_id ~check_marker:true
+      tlog_dir tlx_dir node_id ~check_marker ~check_sabotage:false
       tlog_max_entries tlog_max_size
     >>= fun (tlog_entries, tlog_size,tlog_number,i_to_tlog_number, should_roll) ->
     
@@ -307,7 +326,7 @@ module TlogMap = struct
 
   let reinit t =
     _init
-      t.tlog_dir t.tlx_dir t.node_id ~check_marker:false
+      t.tlog_dir t.tlx_dir t.node_id ~check_marker:false ~check_sabotage:false
       t.tlog_max_entries t.tlog_max_size
     >>= fun (tlog_entries, tlog_size, tlog_number,i_to_tlog_number,should_roll) ->
     t.tlog_size   <- tlog_size;
@@ -531,11 +550,28 @@ module TlogMap = struct
     Lwt.return ()
       
   let tlogs_to_collapse t head_i last_i tlogs_to_keep =
-    let lag = Sn.to_int (Sn.sub last_i head_i) in
-    let npt = t.tlog_max_entries in
-    let tlog_lag = (lag +npt - 1)/ npt in
-    let tlogs_to_collapse = tlog_lag - tlogs_to_keep - 1 in
-    tlogs_to_collapse
+    
+    let collapsable = List.filter (fun (i,n,archive) -> i >= head_i) t.i_to_tlog_number in
+    let rec drop n = function
+      | [] -> []
+      | x :: rest ->
+         if n = 0
+         then rest
+         else drop (n-1) rest
+    in
+    let to_collapse_rev = drop tlogs_to_keep collapsable in
+    let r = match to_collapse_rev with
+    | [] -> None
+    | (i, n, archive) :: rest -> Some (List.length rest, i)
+    in
+    let () = Logger.ign_debug_f_
+               "tlogs_to_collapse %s %s %i => %s"
+               (Sn.string_of head_i)
+               (Sn.string_of last_i)
+               tlogs_to_keep
+               (To_string.option (fun (n,i) -> Printf.sprintf "(%i,%s)" n (Sn.string_of i)) r)
+    in            
+    r
     
   let old_uncompressed t =
     List.filter (fun (_,_,is_archive) -> not is_archive) t.i_to_tlog_number
