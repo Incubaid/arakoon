@@ -319,12 +319,7 @@ module TlogMap = struct
     let full_path = _get_full_path t.tlog_dir t.tlx_dir (file_name new_c) in
     Lwt.return (new_c, full_path)
 
-
   
-  let get_tlog_i t n = Sn.mul n (Sn.of_int t.tlog_max_entries)
-
-
-
   let find_tlog_file t c =
     let open Compression in
     let f0 = archive_name Snappy c in
@@ -386,16 +381,6 @@ module TlogMap = struct
     in
     find 0 t.i_to_tlog_number
       
-  
-
-  let inner_of_i t = function
-    | None -> 0
-    | Some i ->
-       let step = (Sn.of_int t.tlog_max_entries) in
-       (Sn.to_int (Sn.rem i step)) + 1
-
-  
-
   let get_start_i t n =
     let rec find = function
       | [] -> Sn.zero (* TODO: maybe assert *)
