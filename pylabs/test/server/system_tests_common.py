@@ -754,7 +754,7 @@ def setup_2_nodes_forced_master (home_dir):
     setup_n_nodes( 2, True, home_dir, witness_nodes = True)
 
 def setup_2_nodes_forced_master_mini (home_dir):
-    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    extra = {'tlog_max_entries':'1000'}
     setup_n_nodes( 2, True, home_dir, extra)
 
 def setup_2_nodes_forced_master_normal_slaves (home_dir):
@@ -767,15 +767,15 @@ def setup_3_nodes_witness_slave (home_dir):
     setup_n_nodes( 3, False, home_dir, witness_nodes = True)
 
 def setup_3_nodes_mini(home_dir):
-    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    extra = {'tlog_max_entries':'1000'}
     setup_n_nodes( 3, False, home_dir, extra)
 
 def setup_2_nodes_mini(home_dir):
-    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    extra = {'tlog_max_entries':'1000'}
     setup_n_nodes(2, False, home_dir, extra)
 
 def setup_3_nodes_mini_forced_master(home_dir):
-    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    extra = {'tlog_max_entries':'1000'}
     setup_n_nodes( 3, True, home_dir, extra)
 
 def setup_3_nodes (home_dir) :
@@ -788,7 +788,7 @@ def setup_1_node (home_dir):
     setup_n_nodes( 1, False, home_dir )
 
 def setup_1_node_mini (home_dir):
-    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    extra = {'tlog_max_entries':'1000'}
     setup_n_nodes(1, False, home_dir, extra)
 
 default_setup = setup_3_nodes

@@ -307,11 +307,13 @@ let last_entries2
         in
         let too_far_i = Sn.succ ci in
         let rec loop_files (start_i2:Sn.t) =
+          Logger.debug_f_ "loop_files start_i2:%s" (start_i2 |> Sn.string_of) >>= fun () ->
           match tlog_collection # complete_file_to_deliver start_i2 with
           | None -> Lwt.return start_i2
           | Some (tlog_number, start_i2') ->
              begin
-              Logger.debug_f_ "start_i2=%Li < %Li (outputting %03i)" start_i2 too_far_i tlog_number
+               Logger.debug_f_ "start_i2=%Li < %Li (outputting %03i) start_i2'=%Li"
+                               start_i2 too_far_i tlog_number start_i2'
               >>= fun () ->
               Llio.output_int oc 3 >>= fun () ->
               tlog_collection # dump_tlog_file tlog_number oc >>= fun () ->
@@ -340,18 +342,22 @@ let last_entries2
 
           (* maybe stream a bit *)
           begin
-            match tlog_collection # next_rollover start_i2 with
-            | None -> Lwt.return start_i2
-            | Some next_rollover ->
-               Logger.debug_f_ "next_rollover = %Li" next_rollover >>= fun () ->
-               (if next_rollover < too_far_i
-                then
-                  begin
-                    stream_entries start_i2 next_rollover >>= fun () ->
-                    Lwt.return next_rollover
-                  end
-                else Lwt.return start_i2
-               )
+            if tlog_collection # is_rollover_point start_i2
+            then
+              Lwt.return start_i2
+            else
+              match tlog_collection # next_rollover start_i2 with
+              | None -> Lwt.return start_i2
+              | Some next_rollover ->
+                 Logger.debug_f_ "next_rollover = %Li" next_rollover >>= fun () ->
+                 (if next_rollover < too_far_i
+                  then
+                    begin
+                      stream_entries start_i2 next_rollover >>= fun () ->
+                      Lwt.return next_rollover
+                    end
+                  else Lwt.return start_i2
+                 )
           end
           >>= fun start_i3 ->
           (* push out files *)

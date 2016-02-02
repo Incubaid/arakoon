@@ -221,24 +221,21 @@ module TlogMap = struct
       mutable tlog_size: int;
       mutable tlog_entries : int;
       mutable tlog_number: tlog_number;
-      mutable i_to_tlog_number : (Sn.t * tlog_number * is_archive) list;
+      
+      mutable i_to_tlog_number : (Sn.t * tlog_number * is_archive) list; (* sorted: most recent first *)
       mutable should_roll: bool;
     }
              
   let show_map t =
-    "[" ^ 
-    String.concat ";"
-                  (List.map
-                     (fun (i,n,a) ->
+    To_string.list (fun (i,n,a) ->
                        Printf.sprintf "(%s,%03i,%b)" (Sn.string_of i) n a
                      ) t.i_to_tlog_number
-                  ) ^ "]"
-                  
+                      
   let new_entry t s =
     t.tlog_size <- t.tlog_size + s;
     t.tlog_entries <- t.tlog_entries + 1;
     if t.tlog_size >= t.tlog_max_size
-       || t.tlog_entries + 1 = t.tlog_max_entries
+       || t.tlog_entries = t.tlog_max_entries
     then
       let () = t.should_roll <- true in
       Logger.ign_debug_f_ "should roll over"
@@ -251,7 +248,7 @@ module TlogMap = struct
   let get_full_path t x = _get_full_path t.tlog_dir t.tlx_dir x
 
 
-  let _init tlog_dir tlx_dir node_id ~check_marker =
+  let _init tlog_dir tlx_dir node_id tlog_max_entries tlog_max_size ~check_marker =
     Logger.debug_f_ "_init ~check_marker:%b" check_marker >>= fun () ->
     _get_tlog_names tlog_dir tlx_dir >>= fun tlog_names ->
     let tlog_number = get_count tlog_names in
@@ -259,7 +256,7 @@ module TlogMap = struct
     let full_path = _get_full_path tlog_dir tlx_dir (file_name tlog_number) in
     _validate_one full_path node_id ~check_marker
     >>= fun (last, index, tlog_size) ->
-    Lwt_list.map_s
+    Lwt_list.rev_map_s
       (fun tlog_name ->
         let n = get_number tlog_name in
         let canonical = _get_full_path tlog_dir tlx_dir tlog_name in
@@ -268,18 +265,22 @@ module TlogMap = struct
        Lwt.return (i,n, b)
       ) tlog_names
     >>= fun i_to_tlog_number ->
-    let should_roll,last_start =
-      let rec find = function
-          | [] -> false , Sn.zero
-          | [(i0,_,true)] -> true, i0
-          | _ :: rest -> find rest
-      in find i_to_tlog_number
-    in
-    let tlog_entries =
+    let last_i =
       match last with
-      | None -> 0
-      | Some e -> let i = Entry.i_of e in (Sn.to_int i) - (Sn.to_int last_start)
+      | None -> Sn.zero
+      | Some e -> Entry.i_of e 
     in
+    let tlog_entries, should_roll,last_start =
+      match i_to_tlog_number with
+      | []                -> 0, false, Sn.zero
+      | (i0,_,true)  :: _ -> 0, true , i0
+      | (i0,_,false) :: _ ->
+         let tlog_entries = Sn.sub last_i i0 |> Sn.to_int in
+         let should_roll = tlog_entries + 1 >= tlog_max_entries in
+         tlog_entries, should_roll, i0
+    in 
+    Logger.debug_f_ "_init: tlog_entries:%i should_roll:%b" tlog_entries should_roll
+    >>= fun () ->
     Lwt.return (tlog_entries, tlog_size, tlog_number, i_to_tlog_number, should_roll)
       
   let make ?tlog_max_entries
@@ -293,7 +294,9 @@ module TlogMap = struct
     in
     let tlog_max_entries = with_default tlog_max_entries 100_000 in
     let tlog_max_size    = with_default tlog_max_size 32_000_000 in
-    _init tlog_dir tlx_dir node_id ~check_marker:true
+    _init
+      tlog_dir tlx_dir node_id ~check_marker:true
+      tlog_max_entries tlog_max_size
     >>= fun (tlog_entries, tlog_size,tlog_number,i_to_tlog_number, should_roll) ->
     
     let t = {node_id; tlog_dir;tlx_dir;tlog_max_entries; tlog_max_size;
@@ -303,7 +306,9 @@ module TlogMap = struct
     Lwt.return t
 
   let reinit t =
-    _init t.tlog_dir t.tlx_dir t.node_id ~check_marker:false 
+    _init
+      t.tlog_dir t.tlx_dir t.node_id ~check_marker:false
+      t.tlog_max_entries t.tlog_max_size
     >>= fun (tlog_entries, tlog_size, tlog_number,i_to_tlog_number,should_roll) ->
     t.tlog_size   <- tlog_size;
     t.tlog_number <- tlog_number;
@@ -372,14 +377,14 @@ module TlogMap = struct
       )
       
   let outer_of_i t i =
-    let rec find pn = function
-      | [] -> pn
+    let rec find = function
+      | [] -> 0
       | (i0,n0,_) :: rest ->
-         if i0 < i
-         then find n0 rest
-         else n0
+         if  i >= i0
+         then n0
+         else find rest
     in
-    find 0 t.i_to_tlog_number
+    find t.i_to_tlog_number
       
   let get_start_i t n =
     let rec find = function
@@ -392,10 +397,8 @@ module TlogMap = struct
     let r = find t.i_to_tlog_number in
     Logger.ign_debug_f_ "get_start_i %s %i => %s"  (show_map t) n (Sn.string_of r) ;
     r
-
-  
          
-  let is_first_of_new t i = Sn.rem i (Sn.of_int t.tlog_max_entries) = Sn.zero
+  
 
   let should_roll t = t.should_roll
  
@@ -405,6 +408,7 @@ module TlogMap = struct
     let () = t.tlog_size <- 0 in
     let () = t.tlog_entries <- 0 in
     let () = t.should_roll <- false in
+    let () = t.i_to_tlog_number <- (i,r,false) :: t.i_to_tlog_number in
     r
 
   let infimum t =
@@ -438,28 +442,37 @@ module TlogMap = struct
   let is_rollover_point t i =
     (* TODO: this gets called a zillion times in catchup...
      *)
-    Logger.ign_debug_f_ "is_rollover_point %s" (Sn.string_of i); 
+    
     let rec find = function
       | [] -> false
       | (i0,_,_ ) :: _ when i0 = i -> true
-      | (i0,_,_ ) :: _ when i0 > i -> false
+      | (i0,_,_ ) :: _ when i0 < i -> false
       | _ :: rest -> find rest
     in
-    find t.i_to_tlog_number
+    let r = find t.i_to_tlog_number in
+    Logger.ign_debug_f_ "is_rollover_point %s => %b" (Sn.string_of i) r;
+    r
+    
 
   let complete_file_to_deliver t i =
+    
     let rec find = function
       | [] -> None
-      | (i0,n,_)  :: (i1,_,_) :: _ when i0 = i -> Some (n,i1)
-      | (i0,_,_)  :: _ when i0 > i -> None
+      | (i1,_,_)  :: (i0,n,_) :: _ when i0 = i -> Some (n,i1)
+      | (i0,_,_)  :: _ when i0 < i -> None
       | _ :: rest -> find rest
     in
-    find t.i_to_tlog_number
+    let r = find t.i_to_tlog_number in
+    Logger.ign_debug_f_
+      "complete_file_to_deliver %s : %s => %s"
+      (Sn.string_of i) (show_map t)
+      (To_string.option (fun (n,i) -> Printf.sprintf ("(%i,%Li)") n i) r);
+    r
 
   let next_rollover t i =
     let rec find = function
       | [] -> None
-      | (i0,_,_) :: (i1,_,_) :: _ when i0 <= i && i < i1 -> Some i1
+      | (i0,_,_) :: (i1,_,_) :: _ when i1 <=i && i < i0 -> Some i0
       | _ :: rest -> find rest
     in
     let r = find t.i_to_tlog_number in
@@ -486,7 +499,6 @@ module TlogMap = struct
       let fn_start = get_start_i t (get_number fn) in
       let fn_next  = next_rollover t fn_start in
       let low_n = Sn.succ low in
-      (* 000.tlx starting from (1, 14001) *)
       let should_fold = 
         match fn_next with
         | None -> fn_start <= low_n
@@ -524,5 +536,8 @@ module TlogMap = struct
     let tlog_lag = (lag +npt - 1)/ npt in
     let tlogs_to_collapse = tlog_lag - tlogs_to_keep - 1 in
     tlogs_to_collapse
-
+    
+  let old_uncompressed t =
+    List.filter (fun (_,_,is_archive) -> not is_archive) t.i_to_tlog_number
+                
 end

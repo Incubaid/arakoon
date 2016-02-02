@@ -140,7 +140,7 @@ let _init_file fsync_dir tlog_map =
   Lwt_unix.LargeFile.fstat fd >>= fun stats ->
   let pos0 = stats.st_size in
   let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
-  Logger.debug_f_ "_init_file pos0 : %Li" pos0 >>= fun () ->
+  Logger.debug_f_ "_init_file %s pos0:%Li" fn pos0 >>= fun () ->
   let f = F.make oc fd fn c pos0 in
   Lwt.return f
 
@@ -284,13 +284,14 @@ class tlc2
         | None ->
           begin
             let outer = TlogMap.outer_of_i tlog_map i in
-            Logger.debug_f_ "prelude i:%s: outer=%i" (Sn.string_of i) outer>>= fun () ->
+            Logger.debug_f_ "prelude i:%s: outer=%i No File" (Sn.string_of i) outer>>= fun () ->
             begin
-              if (outer <> 0) && (TlogMap.is_first_of_new tlog_map i )
+              if outer <> 0 && (TlogMap.is_rollover_point tlog_map i)
               then
                 (* the first thing logged falls exactly into a new tlog,
-                   the compression job for the previous one thus is not yet picked up *)
-                self # _add_compression_job (pred outer)
+                   the compression job for the previous one(s) thus is not yet picked up *)
+                let need_compression = TlogMap.old_uncompressed tlog_map in
+                Lwt_list.iter_s (fun (_,n,_) -> self # _add_compression_job n) need_compression
               else
                 Lwt.return ()
             end >>= fun () ->
@@ -311,7 +312,7 @@ class tlc2
             let do_jump () =
               let old_outer = TlogMap.get_tlog_number tlog_map  in
               let new_outer = TlogMap.new_outer tlog_map i in
-              Logger.info_f_ "i= %s old_outer = %i => jump to %i"
+              Logger.info_f_ "should roll: i= %s old_outer = %i => jump to %i"
                              (Sn.string_of i)
                              old_outer 
                              new_outer
