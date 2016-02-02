@@ -160,7 +160,7 @@ let _make_close_marker node_id = "closed:" ^ node_id
 let _make_open_marker node_id =  "opened:" ^ node_id
 
 type validation_result = (Entry.t option * Index.index * int)
-exception TLCNotProperlyClosed of string
+exception TLCNotProperlyClosed of (string * string)
 
 let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
   Logger.debug_f_ "Tlog_map._validate_one %s" tlog_name >>= fun () ->
@@ -192,7 +192,7 @@ let _validate_one tlog_name node_id ~check_marker : validation_result Lwt.t =
                  let s = Some (_make_close_marker node_id) in
                  if Entry.check_marker e s
                  then !prev_entry
-                 else raise (TLCNotProperlyClosed (Entry.entry2s e))
+                 else raise (TLCNotProperlyClosed (tlog_name, Entry.entry2s e))
            in
            Lwt.return eo'
        end

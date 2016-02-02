@@ -623,7 +623,9 @@ let make_tlc2 ~compressor
   end
   >>= fun () ->
   Lwt.return col
+             
 let _truncate_tlog filename =
+  Logger.debug_f_ "_truncate %s" filename >>= fun () ->
   let skipper () _entry = Lwt.return () in
   let folder,extension,index = folder_for filename None in
   if extension <> ".tlog"

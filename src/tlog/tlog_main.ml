@@ -92,6 +92,8 @@ let strip_tlog filename =
   Lwt_extra.run t
 
 let _mark_tlog file_name node_name =
+  let section = Logger.Section.main in
+  Logger.debug_f_ "_mark_tlog %s %s" file_name node_name >>= fun () ->
   _last_entry file_name >>= fun last ->
   match last with
   | None -> Lwt.return 0

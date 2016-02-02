@@ -570,22 +570,16 @@ let _main_2 (type s)
              in
              let open Tlog_map in
              match exn with
-             | Tlog_map.TLCNotProperlyClosed _ ->
+             | Tlog_map.TLCNotProperlyClosed (fn,_) ->
                 begin
-                  Logger.warning_ ~exn "AUTOFIX: improperly closed tlog"
-                  >>= fun ()->
-                  TlogMap.make me.tlog_dir me.tlx_dir me.node_name >>= fun tlog_map ->
-                  TlogMap.get_last_tlog tlog_map
-                  >>= fun (_, fn) ->
+                  Logger.warning_ ~exn "AUTOFIX: improperly closed tlog" >>= fun ()->
                   clean_up_retry fn
                 end
              | Tlogcommon.TLogUnexpectedEndOfFile _ ->
                 begin
-                  Logger.warning_ ~exn "AUTOFIX: unexpected end of tlog"
-                  >>= fun () ->
-                  TlogMap.make me.tlog_dir me.tlx_dir me.node_name >>= fun tlog_map ->
-                  TlogMap.get_last_tlog tlog_map
-                  >>= fun (_, fn) ->
+                  Logger.warning_ ~exn "AUTOFIX: unexpected end of tlog" >>= fun () ->
+                  Tlog_map._get_tlog_names me.tlog_dir me.tlx_dir >>= fun tlog_names ->
+                  let fn = List.hd (List.rev tlog_names) |> Filename.concat me.tlog_dir in
                   Tlc2._truncate_tlog fn >>= fun ()->
                   clean_up_retry fn
                 end
@@ -952,9 +946,9 @@ let _main_2 (type s)
             Logger.fatal_f_ "[rc=%i] Store counter too low: %s" rc msg >>= fun () ->
             maybe_dump_crash_log () >>= fun () ->
             Lwt.return rc
-          | Tlog_map.TLCNotProperlyClosed msg ->
+          | Tlog_map.TLCNotProperlyClosed (fn, msg) ->
             let rc = 42 in
-            Logger.fatal_f_ "[rc=%i] tlog not properly closed %s" rc msg >>= fun () ->
+            Logger.fatal_f_ "[rc=%i] tlog %s not properly closed %s" rc fn msg >>= fun () ->
             Lwt.return rc
           | Node_cfg.InvalidTlogDir dir ->
             let rc = 43 in
