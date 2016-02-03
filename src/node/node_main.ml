@@ -524,9 +524,12 @@ let _main_2 (type s)
         let db_name = full_db_name me in
         let head_copied = ref false in
         let _open_tlc_and_store () =
+          Logger.debug_ "_open_tlc_and_store" >>= fun () ->
           Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
+          Logger.debug_ "validated directories" >>= fun () ->
           let snapshot_name = get_snapshot_name() in
           let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
+          Logger.debug_f_ "full_snapshot_path:%s" full_snapshot_path >>= fun () ->
           Lwt.catch
             (fun () ->
              S.copy_store2 full_snapshot_path db_name
@@ -589,6 +592,7 @@ let _main_2 (type s)
                 Lwt.fail exn
            end
          else
+           Logger.fatal_f_ ~exn "propagating" >>= fun () ->
            Lwt.fail exn
         )
       in
