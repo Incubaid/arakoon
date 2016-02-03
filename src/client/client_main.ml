@@ -213,7 +213,7 @@ let _cluster_and_node_cfg node_name' cfg_url =
   Node_cfg.retrieve_cfg cfg_url >>= fun cluster_cfg ->
   let _find cfgs =
     let rec loop = function
-      | [] -> failwith (node_name' ^ " is not known in config " ^ (Arakoon_url.to_string cfg_url))
+      | [] -> failwith (node_name' ^ " is not known in config " ^ (Arakoon_config_url.to_string cfg_url))
       | cfg :: rest ->
         if cfg.Node_cfg.node_name = node_name' then cfg
         else loop rest

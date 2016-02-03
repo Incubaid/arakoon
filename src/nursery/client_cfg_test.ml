@@ -48,7 +48,7 @@ let test_parsing () =
       Lwt_io.Output fn
       (fun oc -> Lwt_io.write oc contents)
     >>= fun () ->
-    ClientCfg.from_url "global" (Arakoon_url.File fn) >>= fun cfg ->
+    ClientCfg.from_url "global" (Arakoon_config_url.File fn) >>= fun cfg ->
     let sa0 = ClientCfg.get cfg "sturdy_0" in
     let r = OUnit.assert_equal sa0 (["127.0.0.1"],7080) in
     Lwt.return r

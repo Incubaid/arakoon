@@ -50,7 +50,7 @@ let retrieve_value peers path =
     )
 
 let retrieve_cfg (p:string -> 'a Lwt.t) = function
-  | Arakoon_url.File cfg_file ->
+  | Arakoon_config_url.File cfg_file ->
      Lwt_extra.read_file cfg_file >>= p
-  | Arakoon_url.Etcd (peers,path)->
+  | Arakoon_config_url.Etcd (peers,path)->
      retrieve_value peers path >>= p

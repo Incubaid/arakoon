@@ -54,6 +54,7 @@ let _make_cfg name n lease_period =
     tlx_dir = name;
     head_dir = name;
     log_dir = "none";
+    log_sinks = [];
     log_level = "DEBUG";
     log_config = Some "log_cfg";
     batched_transaction_config = Some "batched_transaction_config";

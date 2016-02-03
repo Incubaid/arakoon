@@ -18,7 +18,7 @@ limitations under the License.
 
 let section = Logger.Section.main
 
-let config_url = ref (Arakoon_url.make "cfg/arakoon.ini")
+let config_url = ref (Arakoon_config_url.make "cfg/arakoon.ini")
 
 let default_lease_period = 10
 let default_max_value_size = 8 * 1024 * 1024
@@ -129,6 +129,41 @@ module TLSConfig = struct
     end
 end
 
+module Log_sink = struct
+  type t =
+    | Redis of string * int * string
+    | File of string
+
+  let to_string = function
+    | Redis (host, port, key) -> Printf.sprintf "Redis(%s,%i,%s)" host port key
+    | File file -> Printf.sprintf "File(%s)" file
+
+  let make s =
+    let uri = Uri.of_string s in
+    let path = Uri.path uri in
+    match Uri.scheme uri with
+    | None
+    | Some "file" ->
+       let canonical =
+         if path.[0] = '/'
+         then path
+         else Filename.concat (Unix.getcwd()) path
+       in
+       File canonical
+    | Some "redis" ->
+       let host = match Uri.host uri with
+         | None -> failwith "host is required"
+         | Some h -> h
+       in
+       let port = match Uri.port uri with
+         | None -> 6379
+         | Some p -> p
+       in
+       Redis (host, port, path)
+    | Some protocol ->
+       failwith (Printf.sprintf "unknown protocol:%s" protocol)
+end
+
 module Node_cfg = struct
   open Lwt.Infix
   type t = {node_name:string;
@@ -140,6 +175,7 @@ module Node_cfg = struct
             tlx_dir:string;
             head_dir:string;
             log_dir:string;
+            log_sinks : Log_sink.t list;
             log_level:string;
             log_config:string option;
             batched_transaction_config:string option;
@@ -168,6 +204,7 @@ module Node_cfg = struct
            ; "home", string t.home
            ; "tlog_dir", string t.tlog_dir
            ; "log_dir", string t.log_dir
+           ; "log_sinks", list Log_sink.to_string t.log_sinks
            ; "tlx_dir", string t.tlx_dir
            ; "head_dir", string t.head_dir
            ; "log_level", string t.log_level
@@ -298,6 +335,7 @@ module Node_cfg = struct
         tlx_dir = home;
         head_dir = home;
         log_dir = ":None";
+        log_sinks = [];
         log_level = "DEBUG";
         log_config = Some "default_log_config";
         batched_transaction_config = Some "default_batched_transaction_config";
@@ -562,6 +600,16 @@ module Node_cfg = struct
       try get_string "log_dir"
       with _ -> home
     in
+    let log_sinks =
+      let default_sink = Printf.sprintf "%s/%s.log" log_dir node_name in
+      (try Ini.get
+             inifile node_name "log_sinks"
+             Ini.p_string_list
+             (Ini.default [ default_sink ])
+       with _ -> [ default_sink ])
+      |> List.map
+           (fun x -> Log_sink.File x)
+    in
     let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
     let get_string_option x = Ini.get inifile node_name x (Ini.p_option Ini.p_string) (Ini.default None) in
     let tls_cert = get_string_option "tls_cert"
@@ -592,6 +640,7 @@ module Node_cfg = struct
      tlx_dir;
      head_dir;
      log_dir;
+     log_sinks;
      log_level;
      log_config;
      batched_transaction_config;

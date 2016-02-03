@@ -64,7 +64,8 @@ RUN eval `${opam_env}` && \
         quickcheck \
         conf-libev \
         ocplib-endian \
-        depext
+        depext \
+        redis
 
 RUN echo "jenkins ALL=NOPASSWD: ALL" >/etc/sudoers.d/jenkins
 ENV LANG=C

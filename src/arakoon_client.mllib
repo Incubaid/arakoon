@@ -16,7 +16,7 @@ Routing
 Interval
 Ncfg
 Client_cfg
-Arakoon_url
+Arakoon_config_url
 Arakoon_etcd
 Ini
 Inifiles
