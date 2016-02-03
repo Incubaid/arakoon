@@ -523,7 +523,7 @@ def test_sabotage():
         
     except Exception,e:
         print e
-        assert_equals(False,True)
+        assert_true(False)
         
     print "done"
 
@@ -637,7 +637,8 @@ def test_missing_tlog():
     cluster = Common._getCluster()
     cfg = cluster.getNodeConfig(nn)
     node_tlf_dir  = cfg['tlf_dir']
-    tlx_full_path = '/'.join ([node_tlf_dir, "002.tlf"])
+    
+    tlx_full_path = '/'.join ([node_tlf_dir, "002.tlx"])
     logging.info("removing %s", tlx_full_path)
     os.remove(tlx_full_path)
     logging.info("cfg keys:%s", cfg.keys())
