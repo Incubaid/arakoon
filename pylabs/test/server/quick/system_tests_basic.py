@@ -281,7 +281,7 @@ def test_aSSert_scenario_1():
         client.aSSert('x','x')
     except X.arakoon_client.ArakoonException as ex:
         logging.error ( "Bad stuff happened: %s" % ex)
-        assert_equals(True,False)
+        assert_true(False)
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_scenario_2():
@@ -335,7 +335,7 @@ def test_aSSert_exists_scenario_1():
         client.aSSert_exists('x_e')
     except X.arakoon_client.ArakoonException as ex:
         logging.error ( "Bad stuff happened: %s" % ex)
-        assert_equals(True,False)
+        assert_true(False)
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_exists_scenario_2():
@@ -448,7 +448,7 @@ def test_replace():
     old3 = client.replace("xxx",None)
     assert_equals(old3,"yyy")
     e = client.exists("xxx")
-    assert_equals(e,False)
+    assert_false(e)
 
 
 @C.with_custom_setup( C.setup_3_nodes_forced_master , C.basic_teardown )
