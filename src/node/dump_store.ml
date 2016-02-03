@@ -77,7 +77,8 @@ let inject_as_head fn node_id cfg_url ~force ~in_place =
       | [] -> failwith (Printf.sprintf "unknown node: %S" node_id)
       | x :: _ -> x
     in
-    TlogMap.make node_cfg.tlog_dir node_cfg.tlx_dir node_id ~check_marker:false >>= fun tlog_map ->
+    TlogMap.make node_cfg.tlog_dir node_cfg.tlx_dir node_id ~check_marker:false
+    >>= fun (tlog_map,_,_) ->
     let head_dir = node_cfg.head_dir in
     let old_head_name = Filename.concat head_dir Tlc2.head_fname  in
 

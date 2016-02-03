@@ -162,13 +162,18 @@ let catchup_store ~stop (type s) me
       | None -> Sn.start
       | Some i -> Sn.succ i
   in
-  if Sn.compare start_i too_far_i > 0
+  let comp = Sn.compare start_i too_far_i in
+  if comp > 0
   then
     let msg = Printf.sprintf
                 "Store counter (%s) is ahead of tlog counter (%s). Aborting."
                 (Sn.string_of start_i) (Sn.string_of too_far_i) in
     Logger.error_ msg >>= fun () ->
     Lwt.fail (StoreAheadOfTlogs(start_i, too_far_i))
+  else if comp = 0
+  then
+    Logger.debug_f_ "catchup_store: start_i:%s == too_far_i:%s nothing to do"
+                    (Sn.string_of start_i) (Sn.string_of too_far_i)
   else
     begin
       Logger.debug_f_ "will replay starting from %s into store, too_far_i:%s"

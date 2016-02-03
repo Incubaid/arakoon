@@ -2,7 +2,10 @@ open Lwt.Infix
 open Tlogcommon
 open Tlogreader2
 
-let section = Logger.Section.main
+let section =
+  let s= Logger.Section.make "tlog_map" in
+  let () = Logger.Section.set_level s Logger.Debug in
+  s
 
 let tlog_regexp = Str.regexp "^[0-9]+\\.tlog$"
 let file_regexp = Str.regexp "^[0-9]+\\.tl\\(og\\|f\\|c\\|x\\)$"
@@ -168,7 +171,7 @@ let _validate_one
       ~(check_sabotage:bool)
     : validation_result Lwt.t
   =
-  Logger.debug_f_ "Tlog_map._validate_one %s" tlog_name >>= fun () ->
+  Logger.debug_f_ "_validate_one %s" tlog_name >>= fun () ->
   let e2s e = let i = Entry.i_of e in Printf.sprintf "(%s,_)" (Sn.string_of i) in
   let prev_entry = ref None in
   let new_index = Index.make tlog_name in
@@ -213,7 +216,6 @@ let _validate_one
      | Unix.Unix_error(Unix.ENOENT,_,_) ->
         let ext = extension_of tlog_name in
         let base = Filename.basename tlog_name in
-        Logger.debug_f_ "not found: %s. %s was removed?!" tlog_name base >>= fun () ->
         if (not check_sabotage) || (ext = ".tlog" && get_number base = 0)
         then Lwt.return (None, new_index, 0)
         else (* 
@@ -222,7 +224,8 @@ let _validate_one
          meaning rotation happened correctly.
          This means the marker can not be present.
          Let the node die; they should fix this manually.
-         *)
+              *)
+          Logger.fatal_f_ "not found: %s. %s was removed?!" tlog_name base >>= fun () ->
           Lwt.fail TLogSabotage
       | exn -> Lwt.fail exn
     )
@@ -299,7 +302,8 @@ module TlogMap = struct
     in 
     Logger.debug_f_ "_init: tlog_entries:%i should_roll:%b" tlog_entries should_roll
     >>= fun () ->
-    Lwt.return (tlog_entries, tlog_size, tlog_number, i_to_tlog_number, should_roll)
+    Lwt.return ((tlog_entries, tlog_size, tlog_number, i_to_tlog_number, should_roll),
+                last, index)
       
   let make ?tlog_max_entries
            ?tlog_max_size
@@ -316,19 +320,19 @@ module TlogMap = struct
     _init
       tlog_dir tlx_dir node_id ~check_marker ~check_sabotage:false
       tlog_max_entries tlog_max_size
-    >>= fun (tlog_entries, tlog_size,tlog_number,i_to_tlog_number, should_roll) ->
+    >>= fun ((tlog_entries, tlog_size,tlog_number,i_to_tlog_number, should_roll), last, index ) ->
     
     let t = {node_id; tlog_dir;tlx_dir;tlog_max_entries; tlog_max_size;
              tlog_entries; tlog_size; tlog_number; i_to_tlog_number;should_roll;
             }
     in
-    Lwt.return t
+    Lwt.return (t, last, index)
 
   let reinit t =
     _init
       t.tlog_dir t.tlx_dir t.node_id ~check_marker:false ~check_sabotage:false
       t.tlog_max_entries t.tlog_max_size
-    >>= fun (tlog_entries, tlog_size, tlog_number,i_to_tlog_number,should_roll) ->
+    >>= fun ((tlog_entries, tlog_size, tlog_number,i_to_tlog_number,should_roll),_,_) ->
     t.tlog_size   <- tlog_size;
     t.tlog_number <- tlog_number;
     t.i_to_tlog_number <- i_to_tlog_number;
@@ -439,24 +443,44 @@ module TlogMap = struct
       | h :: _ -> let n = Sn.of_int (get_number h) in
                   Sn.mul (Sn.of_int f) n
     in
-    Logger.debug_f_ "Tlc2.infimum=%s" (Sn.string_of v) >>= fun () ->
+    Logger.debug_f_ "infimum=%s" (Sn.string_of v) >>= fun () ->
     Lwt.return v
 
-  let remove_below t i =
-    get_tlog_names t >>= fun existing ->
-    let maybe_remove fn =
-      let n = get_number fn in
-      let fn_stop = Sn.of_int ((n+1) * t.tlog_max_entries) in
-      if fn_stop < i then
-        begin
-          let canonical = _get_full_path t.tlog_dir t.tlx_dir fn in
-          Logger.debug_f_ "Unlinking %s" canonical >>= fun () ->
-          File_system.unlink canonical
-        end
-      else
-        Lwt.return ()
+  let which_tlog_file t n =
+    let open Compression in
+    let options = [archive_name Snappy n;
+                   archive_name Bz2 n;
+                   file_name n]
     in
-    Lwt_list.iter_s maybe_remove existing
+    let canonicals = List.map (get_full_path t) options in
+    let rec loop = function
+      | []     -> Lwt.return None
+      | x::xs  -> File_system.exists x >>=
+                    (function
+                     | true -> Lwt.return (Some x)
+                     | false -> loop xs)
+    in
+    loop canonicals
+         
+  let remove_below t i =
+    Logger.debug_f_ "remove_below %s" (Sn.string_of i) >>= fun () ->
+    let rec find_start = function
+      | [] -> []
+      | (i0,n0,_) :: rest when i0 >= i -> rest
+      | _ :: rest -> find_start rest
+    in
+    let to_remove = find_start t.i_to_tlog_number in
+    
+    let remove (_,n,_) =
+      which_tlog_file  t n >>= function
+      | None -> Lwt.return_unit
+      | Some canonical ->
+         begin
+           Logger.debug_f_ "Unlinking %s" canonical >>= fun () ->
+           File_system.unlink canonical
+         end
+    in
+    Lwt_list.iter_s remove to_remove
 
   let is_rollover_point t i =
     (* TODO: this gets called a zillion times in catchup...

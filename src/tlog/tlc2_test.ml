@@ -302,7 +302,7 @@ let test_size_based_roll_over1 (dn, tlx_dir, (factory:factory)) =
   File_system.lwt_directory_list tlx_dir >>= fun tlx_entries ->
   OUnit.assert_equal 3 (List.length tlx_entries) ~printer;
 
-  TlogMap.make dn tlx_dir node_id ~check_marker:true >>= fun second_map ->
+  TlogMap.make dn tlx_dir node_id ~check_marker:true >>= fun (second_map,_,_) ->
   OUnit.assert_equal 3 (TlogMap.get_tlog_number second_map) ~printer;
   Lwt.return_unit
 

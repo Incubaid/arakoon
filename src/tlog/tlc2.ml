@@ -149,14 +149,15 @@ let _init_file fsync_dir tlog_map =
 class tlc2
         ?(compressor=Compression.Snappy)
         (head_dir:string) 
-        (last:Entry.t option) (index:Index.index)
+        (last:Entry.t option) (index:Index.index) (file:F.t option)
         (tlog_map: TlogMap.t)
         (node_id:string) ~(fsync:bool) ~(fsync_tlog_dir:bool)
+        
   =
 
   object(self: # tlog_collection)
-    val mutable _file = (None:F.t option)
-    val mutable _index = (None: Index.index)
+    val mutable _file = file
+    val mutable _index = index
     val mutable _previous_entry = last
     val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
     val mutable _compression_thread = None
@@ -464,25 +465,22 @@ class tlc2
               Logger.info_ ~exn "Exception while canceling compression thread")
       end >>= fun () ->
       Logger.debug_ "tlc2::closes () (part2)" >>= fun () ->
-      let last_file () =
-        match _file with
-          | None -> _init_file fsync_tlog_dir tlog_map 
-          | Some file -> Lwt.return file
-      in
-      last_file () >>= fun file ->
-      begin
-        match self # get_last() with
-          | None -> Lwt.return ()
-          | Some(v,i) ->
-            begin
+      match self # get_last () with
+      | None -> Logger.debug_f_ "... no last, we never logged anything=> no marker"
+      | Some(v,i) ->
+         begin
+           match _file with
+           | Some file ->
               let oc = F.oc_of file in
               let marker = Some (_make_close_marker node_id) in
               Tlogcommon.write_marker oc i v marker >>= fun () ->
               Logger.debug_f_ "wrote %S marker @i=%s for %S"
-                (Log_extra.string_option2s marker) (Sn.string_of i) node_id
-            end
-      end >>= fun () ->
-      F.close file
+                              (Log_extra.string_option2s marker) (Sn.string_of i) node_id
+              >>= fun () ->
+              F.close file 
+           | None -> Logger.fatal_f_ "how can this be?"
+         end
+      
 
     method get_tlog_from_i (i:Sn.t) : int = TlogMap.outer_of_i tlog_map i
 
@@ -495,23 +493,8 @@ class tlc2
       Lwt.return (List.length tlogs)
 
     method which_tlog_file (n:int) =
-      let open Compression in
-      let an0 = archive_name Snappy n
-      and an1 = archive_name Bz2 n
-      and fn = file_name n
-      in
-      let an0_c = TlogMap.get_full_path tlog_map an0
-      and an1_c = TlogMap.get_full_path tlog_map an1
-      and fn_c  = TlogMap.get_full_path tlog_map fn
-      in
-      let rec loop = function
-        | []     -> Lwt.return None
-        | x::xs  -> File_system.exists x >>=
-                      (function
-                        | true -> Lwt.return (Some x)
-                        | false -> loop xs)
-      in
-      loop [an0_c;an1_c;fn_c]
+      TlogMap.which_tlog_file tlog_map n
+
 
 
     method dump_tlog_file n oc =
@@ -578,39 +561,37 @@ let make_tlc2 ~compressor
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   TlogMap.make ?tlog_max_entries ?tlog_max_size
                tlog_dir tlf_dir node_id ~check_marker:true
-  >>= fun tlog_map ->
-  TlogMap.get_last_tlog tlog_map >>= fun (new_c, fn) ->
-  (* TODO: move index to tlogmap *)
-  _validate_one fn node_id ~check_marker:true ~check_sabotage:true >>= fun (last, index, pos) ->
-  Logger.debug_f_ "make_tlc2 index = %s" (Index.to_string index) >>= fun () ->
+  >>= fun (tlog_map , last, index )->
+  Logger.debug_f_ "make_tlc2 index = %s" (Index.to_string index)
+  >>= fun () ->
   let msg =
     match last with
       | None -> "None"
-      | Some e -> let i = Entry.i_of e in "Some" ^ (Sn.string_of i)
+      | Some e -> let i = Entry.i_of e in "Some " ^ (Sn.string_of i)
   in
   Logger.debug_f_ "post_validation: last_i=%s" msg >>= fun () ->
-  let col = new tlc2 head_dir last index tlog_map
-                ~compressor node_id ~fsync ~fsync_tlog_dir in
   (* rewrite last entry with ANOTHER marker so we can see we got here *)
   begin
     match last with
-      | None   -> Lwt.return ()
+      | None   -> Lwt.return None
       | Some e ->
-        Logger.debug_f_ "will write marker: new_c:%i \n%s" new_c (Tlogreader2.Index.to_string index)
-        >>= fun() ->
-        (* for some reason this will cause mayhem 'test_243' *)
-        let i = Entry.i_of e in
-        let v = Entry.v_of e in
-        let marker = Some (_make_open_marker node_id) in
-        _init_file fsync_tlog_dir tlog_map >>= fun file ->
-        let oc = F.oc_of file in
-        Tlogcommon.write_marker oc i v marker >>= fun () ->
-        F.close file >>= fun () ->
-        Logger.debug_f_ "wrote %S marker @i=%s for %S"
-          (Log_extra.string_option2s marker) (Sn.string_of i) node_id  >>= fun () ->
-        Lwt.return ()
-  end
-  >>= fun () ->
+         (* for some reason this will cause mayhem 'test_243' *)
+         let i = Entry.i_of e in
+         let v = Entry.v_of e in
+         let marker = Some (_make_open_marker node_id) in
+         _init_file fsync_tlog_dir tlog_map >>= fun file ->
+         let oc = F.oc_of file in
+         Tlogcommon.write_marker oc i v marker >>= fun () ->
+         Logger.debug_f_ "wrote %S marker @i=%s for %S"
+                         (Log_extra.string_option2s marker)
+                         (Sn.string_of i)
+                         node_id
+         >>= fun () ->
+         Lwt.return (Some file)
+  end >>= fun file ->
+  let col = new tlc2 head_dir last index
+                file tlog_map 
+                ~compressor node_id ~fsync ~fsync_tlog_dir in
   Lwt.return col
              
 let _truncate_tlog filename =
