@@ -48,11 +48,11 @@ def test_remote_collapse_witness_node():
         up2date = cli.expectProgressPossible()
     logging.info("catchup from collapsed node finished")
 
-@Common.with_custom_setup(Common.setup_2_nodes, Common.basic_teardown)
+@Common.with_custom_setup(Common.setup_2_nodes_mini, Common.basic_teardown)
 def test_remote_collapse():
     zero = Common.node_names[0]
     one = Common.node_names[1]
-    n = 298765
+    n = 29876
     Common.iterate_n_times(n, Common.simple_set)
     logging.info("did %i sets, now going into collapse scenario" % n)
     Common.collapse(zero,1)
@@ -69,6 +69,7 @@ def test_remote_collapse():
         counter = counter + 1
         up2date = cli.expectProgressPossible()
     logging.info("catchup from collapsed node finished")
+    
 
 @Common.with_custom_setup(Common.setup_2_nodes_forced_master, Common.basic_teardown)
 def test_local_collapse_witness_node():
@@ -92,11 +93,13 @@ def test_local_collapse_witness_node():
         up2date = cli.expectProgressPossible()
     logging.info("catchup from collapsed node finished")
 
-@Common.with_custom_setup(Common.setup_2_nodes, Common.basic_teardown)
+@Common.with_custom_setup(Common.setup_2_nodes_mini, Common.basic_teardown)
 def test_local_collapse():
+    print "starting test_local_collapse"
+    
     zero = Common.node_names[0]
     one = Common.node_names[1]
-    n = 298765
+    n = 29876
     Common.iterate_n_times(n, Common.simple_set)
     logging.info("did %i sets, now going into collapse scenario" % n)
     Common.local_collapse(zero,1)

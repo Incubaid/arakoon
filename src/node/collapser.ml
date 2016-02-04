@@ -210,8 +210,6 @@ let collapse_many
       tlogs_to_keep cb' (cb:int -> unit Lwt.t) slowdown =
 
   Logger.debug_f_ "collapse_many" >>= fun () ->
-  tlog_coll # get_tlog_count () >>= fun total_tlogs ->
-  Logger.debug_f_ "total_tlogs = %i; tlogs_to_keep=%i" total_tlogs tlogs_to_keep >>= fun () ->
   let (_,(head_location:string), _) = store_fs in
   let last_i = tlog_coll # get_last_i () in
   let get_head_i () =

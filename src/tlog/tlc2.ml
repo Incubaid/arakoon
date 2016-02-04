@@ -293,7 +293,7 @@ class tlc2
                 (* the first thing logged falls exactly into a new tlog,
                    the compression job for the previous one(s) thus is not yet picked up *)
                 let need_compression = TlogMap.old_uncompressed tlog_map in
-                Lwt_list.iter_s (fun (_,n,_) -> self # _add_compression_job n) need_compression
+                Lwt_list.iter_s (self # _add_compression_job) need_compression
               else
                 Lwt.return ()
             end >>= fun () ->

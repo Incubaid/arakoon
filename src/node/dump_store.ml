@@ -119,7 +119,7 @@ let inject_as_head fn node_id cfg_url ~force ~in_place =
     if not ok then failwith "new head is not an improvement";
     let bottom_n = match new_head_i with
       | None -> failwith "can't happen"
-      | Some i -> failwith "todo" (*Sn.to_int (Tlc2.get_file_number i)*)
+      | Some i -> TlogMap.outer_of_i tlog_map i
     in
     begin
       if (not in_place)

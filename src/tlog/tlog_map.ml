@@ -233,6 +233,9 @@ let _validate_one
 module TlogMap = struct
   type tlog_number = int
   type is_archive = bool
+  type item = { i:Sn.t ;
+                n: tlog_number;
+                  is_archive: is_archive}
   type t = {
       tlog_dir: string;
       tlx_dir : string;
@@ -243,14 +246,17 @@ module TlogMap = struct
       mutable tlog_entries : int;
       mutable tlog_number: tlog_number;
       
-      mutable i_to_tlog_number : (Sn.t * tlog_number * is_archive) list; (* sorted: most recent first *)
+      mutable i_to_tlog_number : item list; (* sorted: most recent first *)
       mutable should_roll: bool;
     }
              
   let show_map t =
-    To_string.list (fun (i,n,a) ->
-                       Printf.sprintf "(%s,%03i,%b)" (Sn.string_of i) n a
-                     ) t.i_to_tlog_number
+    To_string.list
+      (fun item ->
+        Printf.sprintf "{ i:%s; n:%03i; is_archive: %b}"
+                       (Sn.string_of item.i) item.n item.is_archive
+      )
+      t.i_to_tlog_number
                       
   let new_entry t s =
     t.tlog_size <- t.tlog_size + s;
@@ -282,8 +288,8 @@ module TlogMap = struct
         let n = get_number tlog_name in
         let canonical = _get_full_path tlog_dir tlx_dir tlog_name in
         first_i_of canonical >>= fun i ->
-        let b = is_archive tlog_name in
-       Lwt.return (i,n, b)
+        let is_archive = is_archive tlog_name in
+       Lwt.return {i;n;is_archive}
       ) tlog_names
     >>= fun i_to_tlog_number ->
     let last_i =
@@ -294,11 +300,11 @@ module TlogMap = struct
     let tlog_entries, should_roll,last_start =
       match i_to_tlog_number with
       | []                -> 0, false, Sn.zero
-      | (i0,_,true)  :: _ -> 0, true , i0
-      | (i0,_,false) :: _ ->
-         let tlog_entries = Sn.sub last_i i0 |> Sn.to_int in
+      | item :: _ when item.is_archive -> 0, true , item.i
+      | item :: _ ->
+         let tlog_entries = Sn.sub last_i item.i |> Sn.to_int in
          let should_roll = tlog_entries + 1 >= tlog_max_entries in
-         tlog_entries, should_roll, i0
+         tlog_entries, should_roll, item.i
     in 
     Logger.debug_f_ "_init: tlog_entries:%i should_roll:%b" tlog_entries should_roll
     >>= fun () ->
@@ -402,9 +408,9 @@ module TlogMap = struct
   let outer_of_i t i =
     let rec find = function
       | [] -> 0
-      | (i0,n0,_) :: rest ->
-         if  i >= i0
-         then n0
+      | item :: rest ->
+         if  i >= item.i
+         then item.n
          else find rest
     in
     find t.i_to_tlog_number
@@ -412,9 +418,9 @@ module TlogMap = struct
   let get_start_i t n =
     let rec find = function
       | [] -> Sn.zero (* TODO: maybe assert *)
-      | (i0,n0,_) :: rest ->
-         if n0 = n
-         then i0 else
+      | item :: rest ->
+         if item.n = n
+         then item.i else
            find rest
     in
     let r = find t.i_to_tlog_number in
@@ -426,13 +432,13 @@ module TlogMap = struct
   let should_roll t = t.should_roll
  
   let new_outer t i =
-    let r = t.tlog_number + 1 in
-    let () = t.tlog_number <- r in
+    let n = t.tlog_number + 1 in
+    let () = t.tlog_number <- n in
     let () = t.tlog_size <- 0 in
     let () = t.tlog_entries <- 0 in
     let () = t.should_roll <- false in
-    let () = t.i_to_tlog_number <- (i,r,false) :: t.i_to_tlog_number in
-    r
+    let () = t.i_to_tlog_number <- {i; n;is_archive = false} :: t.i_to_tlog_number in
+    n
 
   let infimum t =
     get_tlog_names t >>= fun names ->
@@ -463,16 +469,17 @@ module TlogMap = struct
     loop canonicals
          
   let remove_below t i =
-    Logger.debug_f_ "remove_below %s" (Sn.string_of i) >>= fun () ->
-    let rec find_start = function
+    Logger.debug_f_ "remove_below %s tlog_map:%s" (Sn.string_of i) (show_map t)
+    >>= fun () ->
+    let rec find_start acc = function
       | [] -> []
-      | (i0,n0,_) :: rest when i0 >= i -> rest
-      | _ :: rest -> find_start rest
+      | item :: rest when item.i >= i -> (List.rev acc)
+      | x :: rest -> find_start (x::acc) rest
     in
-    let to_remove = find_start t.i_to_tlog_number in
+    let to_remove = find_start [] (List.rev t.i_to_tlog_number) in
     
-    let remove (_,n,_) =
-      which_tlog_file  t n >>= function
+    let remove item  =
+      which_tlog_file  t item.n >>= function
       | None -> Lwt.return_unit
       | Some canonical ->
          begin
@@ -488,21 +495,20 @@ module TlogMap = struct
     
     let rec find = function
       | [] -> false
-      | (i0,_,_ ) :: _ when i0 = i -> true
-      | (i0,_,_ ) :: _ when i0 < i -> false
+      | item :: _ when item.i = i -> true
+      | item :: _ when item.i < i -> false
       | _ :: rest -> find rest
     in
     let r = find t.i_to_tlog_number in
     Logger.ign_debug_f_ "is_rollover_point %s => %b" (Sn.string_of i) r;
     r
     
-
   let complete_file_to_deliver t i =
     
     let rec find = function
       | [] -> None
-      | (i1,_,_)  :: (i0,n,_) :: _ when i0 = i -> Some (n,i1)
-      | (i0,_,_)  :: _ when i0 < i -> None
+      | item1 :: item0 :: _ when item0.i = i -> Some (item0.n,item1.i)
+      | item  :: _ when item.i < i -> None
       | _ :: rest -> find rest
     in
     let r = find t.i_to_tlog_number in
@@ -515,7 +521,7 @@ module TlogMap = struct
   let next_rollover t i =
     let rec find = function
       | [] -> None
-      | (i0,_,_) :: (i1,_,_) :: _ when i1 <=i && i < i0 -> Some i0
+      | item0 :: item1 :: _ when item0.i > i && i >= item1.i -> Some item0.i
       | _ :: rest -> find rest
     in
     let r = find t.i_to_tlog_number in
@@ -574,19 +580,28 @@ module TlogMap = struct
     Lwt.return ()
       
   let tlogs_to_collapse t head_i last_i tlogs_to_keep =
+    let () = Logger.ign_debug_f_
+               "tlogs_to_collapse head_i:%s last_i:%s tlogs_to_keep:%i tlog_map:%s"
+               (Sn.string_of head_i) (Sn.string_of last_i)
+               tlogs_to_keep (show_map t)
+    in
     
-    let collapsable = List.filter (fun (i,n,archive) -> i >= head_i) t.i_to_tlog_number in
+    let collapsable =
+      List.filter (fun item -> item.i >= head_i) t.i_to_tlog_number
+    in
+    let len = List.length collapsable in
+    let n_to_collapse = len - tlogs_to_keep -1 in
     let rec drop n = function
       | [] -> []
       | x :: rest ->
-         if n = 0
+         if n = 1
          then rest
          else drop (n-1) rest
     in
     let to_collapse_rev = drop tlogs_to_keep collapsable in
     let r = match to_collapse_rev with
     | [] -> None
-    | (i, n, archive) :: rest -> Some (List.length rest, i)
+    | item :: _ -> Some (n_to_collapse, item.i)
     in
     let () = Logger.ign_debug_f_
                "tlogs_to_collapse %s %s %i => %s"
@@ -598,6 +613,9 @@ module TlogMap = struct
     r
     
   let old_uncompressed t =
-    List.filter (fun (_,_,is_archive) -> not is_archive) t.i_to_tlog_number
+    List.fold_left
+      (fun acc item -> if item.is_archive then acc else item.n :: acc)
+      []
+      t.i_to_tlog_number |> List.rev 
                 
 end
