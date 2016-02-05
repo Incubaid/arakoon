@@ -576,7 +576,7 @@ module Node_cfg = struct
            (fun x -> Arakoon_log_sink.File x)
     in
     let crash_log_sinks =
-      let default = Printf.sprintf "%s/%s.debug" log_dir node_name in
+      let default = Printf.sprintf "%s/%s" log_dir node_name in
       (try Ini.get
              inifile node_name "crash_log_sinks"
              Ini.p_string_list

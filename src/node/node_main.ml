@@ -63,9 +63,11 @@ let _config_logging me get_cfgs =
 
   if not cfg.is_test
   then
-    Crash_logger.setup_log_sinks cfg.log_sinks cfg.crash_log_sinks >>= fun dumper ->
+    Arakoon_logger.setup_log_sinks cfg.log_sinks >>= fun () ->
     let dump_crash_log () =
-      dumper () >>= fun () ->
+      Lwt_list.iter_p
+        Crash_logger.dump_crash_log
+        cfg.crash_log_sinks >>= fun () ->
       Logger.info_ "Crash log dumped"
     in
     Lwt.return dump_crash_log
