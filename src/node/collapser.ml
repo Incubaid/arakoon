@@ -226,7 +226,7 @@ let collapse_many
   | Some (n, too_far_i) ->
     begin
       Logger.info_f_ "Going to collapse %d tlogs" n >>= fun () ->
-      cb' (n + 1) >>= fun () ->
+      cb' (n + 2) >>= fun () -> 
       Logger.debug_f_ "too_far_i = %s" (Sn.string_of too_far_i) >>= fun () ->
       collapse_until tlog_coll (module S) store_fs too_far_i cb slowdown >>= fun () ->
       get_head_i () >>= fun head_i ->

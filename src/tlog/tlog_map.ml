@@ -265,7 +265,7 @@ module TlogMap = struct
        || t.tlog_entries = t.tlog_max_entries
     then
       let () = t.should_roll <- true in
-      Logger.ign_debug_f_ "should roll over"
+      Logger.ign_info_f_ "should roll over"
 
 
   let get_tlog_number t= t.tlog_number
@@ -598,18 +598,23 @@ module TlogMap = struct
       List.filter (fun item -> item.i >= head_i) t.i_to_tlog_number
     in
     let len = List.length collapsable in
-    let n_to_collapse = len - tlogs_to_keep -1 in
+    let n_to_collapse = len - tlogs_to_keep  in
     let rec drop n = function
       | [] -> []
-      | x :: rest ->
+      | (_ :: rest ) as list ->
          if n = 1
-         then rest
+         then list
          else drop (n-1) rest
     in
     let to_collapse_rev = drop tlogs_to_keep collapsable in
     let r = match to_collapse_rev with
     | [] -> None
-    | item :: _ -> Some (n_to_collapse, item.i)
+    | item :: _ ->
+       (* 
+          +2 because before X goes to the store, 
+          you need to have seen X+1 and thus too_far = X+2 
+       *)
+       Some (n_to_collapse, Int64.add item.i 2L)
     in
     let () = Logger.ign_debug_f_
                "tlogs_to_collapse %s %s %i => %s"

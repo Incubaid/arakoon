@@ -132,6 +132,7 @@ class remote_nodestream ((ic,oc) as conn) =
     in
     let incoming ic =
       Llio.input_int ic >>= fun collapse_count ->
+      Logger.debug_f_ "collapse_count:%i" collapse_count >>= fun () ->
       let rec loop i =
         if i = 0
         then Lwt.return ()
@@ -139,12 +140,12 @@ class remote_nodestream ((ic,oc) as conn) =
           begin
             Llio.input_int ic >>= function
             | 0 ->
-              Llio.input_int64 ic >>= fun took ->
-              Logger.debug_f_ "collapsing one file took %Li" took >>= fun () ->
-              loop (i-1)
+               Llio.input_int64 ic >>= fun total ->
+               Logger.debug_f_ "%i:collapsed one file. (total = %Li)" i total >>= fun () ->
+               loop (i-1)
             | e ->
-              Llio.input_string ic >>= fun msg ->
-              Llio.lwt_failfmt "%s (EC: %d)" msg e
+               Llio.input_string ic >>= fun msg ->
+               Llio.lwt_failfmt "%s (EC: %d)" msg e
           end
       in
       loop collapse_count
