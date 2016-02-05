@@ -291,7 +291,12 @@ module TlogMap = struct
         let is_archive = is_archive tlog_name in
        Lwt.return {i;n;is_archive}
       ) tlog_names
-    >>= fun i_to_tlog_number ->
+    >>= fun i_to_tlog_number0 ->
+    let i_to_tlog_number =
+      if i_to_tlog_number0 = []
+      then [{i = 0L;n = 0;is_archive=false}]
+      else i_to_tlog_number0
+    in
     let last_i =
       match last with
       | None -> Sn.zero
@@ -471,12 +476,12 @@ module TlogMap = struct
   let remove_below t i =
     Logger.debug_f_ "remove_below %s tlog_map:%s" (Sn.string_of i) (show_map t)
     >>= fun () ->
-    let rec find_start acc = function
-      | [] -> []
-      | item :: rest when item.i >= i -> (List.rev acc)
-      | x :: rest -> find_start (x::acc) rest
+    let rec find_start to_remove_rev = function
+      | [] -> ([],[])
+      | item :: rest when item.i >= i -> (List.rev to_remove_rev), (item :: rest)
+      | x :: rest -> find_start (x::to_remove_rev) rest
     in
-    let to_remove = find_start [] (List.rev t.i_to_tlog_number) in
+    let to_remove,to_keep_rev = find_start [] (List.rev t.i_to_tlog_number) in
     
     let remove item  =
       which_tlog_file  t item.n >>= function
@@ -487,7 +492,10 @@ module TlogMap = struct
            File_system.unlink canonical
          end
     in
-    Lwt_list.iter_s remove to_remove
+    Lwt_list.iter_s remove to_remove >>= fun () ->
+    t.i_to_tlog_number <- List.rev to_keep_rev;
+    Logger.debug_f_ "after remove_below %s tlog_map:%s" (Sn.string_of i) (show_map t) >>= fun () ->
+    Lwt.return_unit
 
   let is_rollover_point t i =
     (* TODO: this gets called a zillion times in catchup...
