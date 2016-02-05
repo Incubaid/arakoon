@@ -113,12 +113,91 @@ let setup_crash_log crash_file_gen =
       (fun oc -> log_buffer oc circ_buf)
   in
 
-  let fake_close () = Lwt.return () in
+  (add_to_crash_log, dump_crash_log)
 
-  (add_to_crash_log, fake_close, dump_crash_log)
+let file_logger file_name =
+  let flags = [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_APPEND; Unix.O_NONBLOCK] in
+  Lwt_unix.openfile file_name flags 0o640 >>= fun fd ->
+  Lwt_unix.set_close_on_exec fd;
+  let mutex = Lwt_mutex.create () in
+  let lg_output line =
+    Lwt_mutex.with_lock
+      mutex
+      (fun () ->
+       let rec inner offset len =
+         Lwt_unix.write fd line offset len >>= fun written ->
+         if written = len
+         then Lwt.return_unit
+         else inner (offset + written) (len - written)
+       in
+       inner 0 (Bytes.length line) >>= fun () ->
+       Lwt_unix.write fd "\n" 0 1 >>= fun _ ->
+       Lwt.return_unit)
+  in
+  let close () = Lwt_unix.close fd in
+  Lwt.return (lg_output, close)
 
 
-let setup_default_logger file_log_path crash_log_prefix =
+let setup_log_sinks log_sinks crash_log_sinks =
+  Lwt_list.map_p
+    (let open Arakoon_log_sink in
+     function
+     | File file_name ->
+        file_logger file_name
+     | Redis (host, port, key) ->
+        Arakoon_redis.make_redis_logger
+          ~host ~port ~key
+        |> Lwt.return)
+    log_sinks >>= fun loggers ->
+  let hostname = Unix.gethostname () in
+  let component = "arakoon" in
+  let pid = Unix.getpid () in
+  let seqnum = ref 0 in
+  let logger = Lwt_log.make
+                 ~output:(fun section level lines ->
+                          let seqnum' = !seqnum in
+                          let () = incr seqnum in
+                          let ts = Unix.gettimeofday () in
+                          let logline =
+                            Printf.sprintf
+                              "%s - %s - %i/0 - %s - %i - %s - %s"
+                              (let open Unix in
+                               let tm = gmtime ts in
+                               Printf.sprintf
+                                 "%04d/%02d/%02d %02d:%02d:%02d %d"
+                                 (tm.tm_year + 1900)
+                                 (tm.tm_mon + 1)
+                                 tm.tm_mday
+                                 tm.tm_hour
+                                 tm.tm_min
+                                 tm.tm_sec
+                                 (int_of_float ((mod_float ts 1.) *. 1_000_000.))
+                              )
+                              hostname
+                              pid
+                              component
+                              seqnum'
+                              (Lwt_log.string_of_level level)
+                              (String.concat "\n" lines)
+                          in
+
+                          Lwt_list.iter_p
+                            (fun (lg_output, _) -> lg_output logline)
+                            loggers)
+                 ~close:(fun () ->
+                         Lwt_list.iter_p
+                           (fun (_, close) -> close ())
+                           loggers)
+  in
+  Lwt_log.default := logger;
+  Lwt.return (fun () ->
+              (* TODO this should dump the crash log *)
+              Lwt.return_unit)
+
+let setup_default_logger
+      file_log_path crash_log_prefix
+      (* log_sinks crash_log_sinks *)
+  =
   Lwt.catch
     (fun () ->
        Lwt_log.file
@@ -131,7 +210,7 @@ let setup_default_logger file_log_path crash_log_prefix =
        Lwt.fail (Failure text)
     )
   >>= fun file_logger ->
-  let (log_crash_msg, close_crash_log, dump_crash_log) =
+  let (log_crash_msg, dump_crash_log) =
     setup_crash_log crash_log_prefix in
 
   let add_log_msg section level msgs =
@@ -151,10 +230,7 @@ let setup_default_logger file_log_path crash_log_prefix =
       )
   in
 
-  let close_default_logger () =
-    Lwt_log.close file_logger >>= fun () ->
-    close_crash_log ()
-  in
+  let close_default_logger () = Lwt_log.close file_logger in
   let default_logger = Lwt_log.make ~output:add_log_msg ~close:close_default_logger in
   Lwt_log.default := default_logger;
   Lwt.return dump_crash_log

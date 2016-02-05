@@ -14,37 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-let make_redis_logger
-      ~host ~port
-      ~key ~hostname
-      ~component
-  =
+open Lwt.Infix
+
+let make_redis_logger ~host ~port ~key =
   let open Lwt_buffer in
   let buffer = Lwt_buffer.create_fixed_capacity 100 in
-  let seqnum = ref 0 in
   let stop = ref false in
-  let logger =
-    Lwt_log.make
-      ~output:(fun section level lines ->
-               let id = !seqnum in
-               let () = incr seqnum in
-               if Lwt_buffer.is_full buffer
-               then
-                 (* dropping a log message *)
-                 Lwt.return_unit
-               else
-                 Lwt_buffer.add
-                   (id, Unix.gettimeofday (),
-                    section, level,
-                    lines)
-                   buffer)
-      ~close:(fun () ->
-              stop := true;
-              Lwt.return_unit)
+  let lg_output line =
+    if Lwt_buffer.is_full buffer
+    then
+      (* dropping a log message *)
+      Lwt.return_unit
+    else
+      Lwt_buffer.add
+        line
+        buffer
+  in
+  let close () =
+    stop := true;
+    Lwt.return_unit
   in
   let redis_t () =
     let module R = Redis_lwt.Client in
-    let pid = Unix.getpid () in
     let rec outer () =
       Lwt.catch
         (fun () ->
@@ -53,36 +44,10 @@ let make_redis_logger
            (* TODO push multiple items in one go? *)
            if !stop
            then
-             Lwt.fail Canceled
+             Lwt.fail Lwt.Canceled
            else
              begin
-               Lwt_buffer.take buffer >>= fun (seqnum, ts,
-                                               section, level,
-                                               lines) ->
-
-               let logline =
-                 Printf.sprintf
-                   "%s - %s - %i/0 - %s - %i - %s - %s"
-                   (let open Unix in
-                    let tm = gmtime ts in
-                    Printf.sprintf
-                      "%04d/%02d/%02d %02d:%02d:%02d %d"
-                      (tm.tm_year + 1900)
-                      (tm.tm_mon + 1)
-                      tm.tm_mday
-                      tm.tm_hour
-                      tm.tm_min
-                      tm.tm_sec
-                      (int_of_float ((ts -. floor ts) *. 10_000.))
-                   )
-                   hostname
-                   pid
-                   component
-                   seqnum
-                   (Lwt_log.string_of_level level)
-                   (String.concat "; " lines)
-               in
-
+               Lwt_buffer.take buffer >>= fun logline ->
                R.rpush client key logline >>= fun _list_length ->
                inner ()
              end
@@ -96,4 +61,4 @@ let make_redis_logger
     outer ()
   in
   Lwt.ignore_result (redis_t ());
-  logger
+  lg_output, close

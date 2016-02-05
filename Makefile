@@ -62,6 +62,7 @@ install_client:
           _build/src/tools/llio.mli \
           _build/src/tools/llio.cmi \
           _build/src/tools/network.cmi \
+          _build/src/tools/lwt_buffer.cmi \
           _build/src/tools/lwt_extra.cmi \
           _build/src/tools/typed_ssl.mli \
           _build/src/tools/typed_ssl.cmi \

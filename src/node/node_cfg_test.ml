@@ -27,30 +27,6 @@ let test_correctness () =
   in
   Lwt_main.run t
 
-let test_log_sink () =
-  let sinks =
-    let open Log_sink in
-    [ File (Unix.getcwd () ^ "/x"), "x";
-      File "/tmp", "/tmp";
-      File "/tmp", "file:///tmp";
-      File (Unix.getcwd () ^ "/x/a"), "x/a";
-      File "/tmp/a", "/tmp/a";
-      File "/tmp/a", "file:///tmp/a";
-      Redis ("localhost", 628, "/key1"), "redis://localhost:628/key1";
-      Redis ("127.0.0.1", 6379, "//key2"), "redis://127.0.0.1//key2";
-    ]
-  in
-  List.iter
-    (fun (expected, url) ->
-     let actual = Log_sink.make url in
-     Printf.printf "url = %s, expected = %s, actual = %s\n"
-                   url
-                   (Log_sink.to_string expected)
-                   (Log_sink.to_string actual);
-     assert (actual = expected))
-    sinks
-
 let suite = "node_cfg" >::: [
       "correctness" >:: test_correctness;
-      "test_log_sink" >:: test_log_sink;
     ]
