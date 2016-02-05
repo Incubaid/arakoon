@@ -505,7 +505,7 @@ def test_sabotage():
                   #"%s.db.wal" % (node_id,), # should not exist after a `proper` close
                   ])
     for f in files:
-        print "removeing", f
+        print "removing", f
         X.removeFile(f)
     print "starting"
     cmd = clu._cmd('sturdy_0')
