@@ -102,6 +102,14 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                Lwt_unix.sleep period >>= fun () ->
                Lwt.return r
           in
+          let get_next_point i =
+              let next_r = tlog_coll # next_rollover i in
+              match next_r with
+                | None -> Sn.zero
+                | Some i -> i
+          in
+          let next_rollover_point = ref (get_next_point (Sn.pred start_i))
+          in
           let add_to_store entry =
             let i = Entry.i_of entry
             and value = Entry.v_of entry
@@ -120,13 +128,19 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                     begin
                       maybe_log pi >>= fun () ->
                       begin
-                        if tlog_coll # is_rollover_point pi
+                        if pi = !next_rollover_point
                         then
-
-                          cb (first_tlog + !processed) >>= fun () ->
-                          Lwt.return( processed := !processed + 1 )
+                          begin
+                            Logger.info_f_ "rollover_point pi:%Li next_rollover_point =%s"
+                                          pi (Sn.string_of !next_rollover_point)
+                            >>= fun () ->
+                            cb (first_tlog + !processed) >>= fun () ->
+                            let () = incr processed in
+                            let () = next_rollover_point := get_next_point (Sn.succ pi) in
+                            Lwt.return_unit
+                          end
                         else
-                          Lwt.return ()
+                          Lwt.return_unit
                       end
                       >>= fun () ->
                       slowdown (fun () -> S.safe_insert_value new_store pi pv) >>= fun _ ->

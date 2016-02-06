@@ -265,7 +265,7 @@ module TlogMap = struct
        || t.tlog_entries = t.tlog_max_entries
     then
       let () = t.should_roll <- true in
-      Logger.ign_info_f_ "should roll over"
+      Logger.ign_info_f_ "should roll over: tlog_entries=%i" (t.tlog_entries)
 
 
   let get_tlog_number t= t.tlog_number
@@ -498,7 +498,7 @@ module TlogMap = struct
     Lwt.return_unit
 
   let is_rollover_point t i =
-    (* TODO: this gets called a zillion times in catchup...
+    (* TODO: this gets called a zillion times in collapse...
      *)
     
     let rec find = function
