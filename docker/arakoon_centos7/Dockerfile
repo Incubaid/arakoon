@@ -59,7 +59,8 @@ RUN eval `${opam_env}` && \
         conf-libev \
         ocplib-endian \
         depext \
-        redis
+        redis \
+        uri
 
 
 RUN yum -y install autoconf help2man perl-Thread-Queue

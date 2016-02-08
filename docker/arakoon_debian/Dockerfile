@@ -65,7 +65,8 @@ RUN eval `${opam_env}` && \
         conf-libev \
         ocplib-endian \
         depext \
-        redis
+        redis \
+        uri
 
 RUN echo "jenkins ALL=NOPASSWD: ALL" >/etc/sudoers.d/jenkins
 ENV LANG=C
@@ -76,3 +77,10 @@ RUN curl -L  https://github.com/coreos/etcd/releases/download/v2.2.4/etcd-v2.2.4
 RUN tar xzvf etcd-v2.2.4-linux-amd64.tar.gz
 RUN cp ./etcd-v2.2.4-linux-amd64/etcd /usr/bin \
     && cp ./etcd-v2.2.4-linux-amd64/etcdctl /usr/bin
+
+# Install redis:
+RUN wget http://download.redis.io/releases/redis-3.0.7.tar.gz
+RUN tar xzvf redis-3.0.7.tar.gz
+RUN cd redis-3.0.7 && make
+RUN cp ./redis-3.0.7/src/redis-server /usr/bin
+RUN cp ./redis-3.0.7/src/redis-cli /usr/bin
