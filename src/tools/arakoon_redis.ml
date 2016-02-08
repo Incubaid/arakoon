@@ -57,7 +57,11 @@ let make_redis_logger ~host ~port ~key =
         (fun _ -> Lwt.return ()) >>= fun () ->
       if !stop
       then Lwt.return ()
-      else outer ()
+      else
+        begin
+          Lwt_unix.sleep 1. >>=
+          outer
+        end
     in
     outer ()
   in
