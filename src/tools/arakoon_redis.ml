@@ -39,8 +39,7 @@ let make_redis_logger ~host ~port ~key =
     let rec outer () =
       Lwt.catch
         (fun () ->
-         R.connect R.({ host ;port; }) >>= fun client ->
-         let rec inner () =
+         let rec inner client =
            (* TODO push multiple items in one go? *)
            if !stop
            then
@@ -49,10 +48,12 @@ let make_redis_logger ~host ~port ~key =
              begin
                Lwt_buffer.take buffer >>= fun logline ->
                R.rpush client key logline >>= fun _list_length ->
-               inner ()
+               inner client
              end
          in
-         inner ())
+         R.with_connection
+           R.({ host ;port; })
+           inner)
         (fun _ -> Lwt.return ()) >>= fun () ->
       if !stop
       then Lwt.return ()
