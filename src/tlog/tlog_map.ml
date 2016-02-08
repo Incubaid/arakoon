@@ -32,6 +32,13 @@ let is_archive filename =
   
 let first_i_of filename =
   let extension = extension_of filename in
+  let read_uncompress ic inflate =
+    Llio.input_string ic >>= fun compressed ->
+    let uncompressed = inflate compressed in
+    let buffer = Llio.make_buffer uncompressed 0 in
+    let i =  Sn.sn_from buffer in
+    Lwt.return i
+  in
   let reader = 
     match extension with
     | ".tlog" -> (fun ic -> Sn.input_sn ic )                   
@@ -39,22 +46,19 @@ let first_i_of filename =
        (fun ic ->
          Compression.read_format ic Compression.Snappy >>= fun ()->
          Sn.input_sn ic >>= fun _last_i ->
-         Llio.input_string ic >>= fun compressed ->
-         let uncompressed = Compression.uncompress_snappy compressed in
-         let buffer = Llio.make_buffer uncompressed 0 in
-         let i =  Sn.sn_from buffer in
-         Lwt.return i
+         read_uncompress ic Compression.uncompress_snappy 
        )
     | ".tlf"  ->
        (fun ic ->
          Compression.read_format ic Compression.Bz2 >>= fun ()->
          Sn.input_sn ic >>= fun _last_i ->
-         Llio.input_string ic >>= fun compressed ->
-         let uncompressed = Compression.uncompress_bz2 compressed in
-         let buffer = Llio.make_buffer uncompressed 0 in
-         let i =  Sn.sn_from buffer in
-         Lwt.return i)
-    | ".tlc"  -> failwith "todo: first_i_if .tlc"
+         read_uncompress ic Compression.uncompress_bz2
+       )
+    | ".tlc"  ->
+       (fun ic ->
+         Llio.input_int ic >>= fun _ ->
+         read_uncompress ic Compression.uncompress_bz2
+       )
     | x -> failwith (Printf.sprintf "not a tlog_file:%s" x)
   in
   Lwt_io.with_file ~mode:Lwt_io.input filename reader >>= fun i ->
@@ -498,9 +502,6 @@ module TlogMap = struct
     Lwt.return_unit
 
   let is_rollover_point t i =
-    (* TODO: this gets called a zillion times in collapse...
-     *)
-    
     let rec find = function
       | [] -> false
       | item :: _ when item.i = i -> true

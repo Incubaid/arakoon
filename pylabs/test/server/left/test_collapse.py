@@ -93,9 +93,10 @@ def test_local_collapse_witness_node():
     n = 29876
     Common.iterate_n_times(n, Common.simple_set)
     logging.info("did %i sets, now going into collapse scenario" % n)
+
     Common.local_collapse(witness,1)
     logging.info("collapsing done")
-    _check_tlog_dirs(witness,1)
+    
     
     Common.stopOne(master)
     Common.wipe(master)
