@@ -573,7 +573,7 @@ module Node_cfg = struct
              (Ini.default [ default_sink ])
        with _ -> [ default_sink ])
       |> List.map
-           (fun x -> Arakoon_log_sink.File x)
+           Arakoon_log_sink.make
     in
     let crash_log_sinks =
       let default = Printf.sprintf "%s/%s" log_dir node_name in
