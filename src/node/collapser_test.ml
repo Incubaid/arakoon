@@ -57,9 +57,10 @@ let _make_values tlc n =
 
 let test_collapse_until (dn, tlx_dir, head_dir) =
   let node_id = "node_name" in
-  TlogMap.make ~tlog_max_entries:1000 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   Logger.debug_f_ "dn=%s, tlf_dir=%s, head_dir=%s" dn tlx_dir head_dir >>= fun () ->
-  Tlc2.make_tlc2 ~compressor dn tlx_dir head_dir
+  Tlc2.make_tlc2 ~compressor
+                 ~tlog_max_entries:1000
+                 dn tlx_dir head_dir
                  ~fsync:false node_id ~fsync_tlog_dir:false
   >>= fun tlc ->
   _make_values tlc 1111 >>= fun () ->
