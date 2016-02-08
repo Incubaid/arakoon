@@ -944,16 +944,16 @@ def test_statistics():
                 assert_not_equals( timing["min"], 0.0,
                     "Wrong value for min timing of %s == 0.0" % k)
 
-def setup_redis_arakoon():
+def setup_redis_arakoon(home_dir):
     X.subprocess.call(["redis-cli"])
-    C.setup_n_nodes(C.cluster_id, node_names, False, C.data_base_dir,
-                    node_msg_base_port, node_client_base_port,
+    C.setup_n_nodes(C.cluster_id, node_names, home_dir,
                     nodes_extra =
                     {"arakoon_0": {"log_sinks":"redis://127.0.0.1/logs/arakoon_0"},
                      "arakoon_1": {"log_sinks":"redis://127.0.0.1/logs/arakoon_1"}})
 
-def redis_arakoon_teardown():
+def redis_arakoon_teardown(removeDirs):
     X.subprocess.call(["pkill", "redis-cli"])
+    C.basic_teardown(removeDirs)
 
 @C.with_custom_setup(setup_redis_arakoon, redis_arakoon_teardown)
 def test_redis_logging():
