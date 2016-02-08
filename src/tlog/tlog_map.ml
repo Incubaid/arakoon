@@ -1,3 +1,4 @@
+
 open Lwt.Infix
 open Tlogcommon
 open Tlogreader2
@@ -30,8 +31,11 @@ let is_archive filename =
   | ".tlx" | ".tlf" | ".tlc"-> true
   | _ -> false
   
-let first_i_of filename =
-  let extension = extension_of filename in
+let first_i_of ?extension_override filename =
+  let extension = match extension_override with
+    | None -> extension_of filename
+    | Some ext ->  ext
+  in
   let read_uncompress ic inflate =
     Llio.input_string ic >>= fun compressed ->
     let uncompressed = inflate compressed in
@@ -433,13 +437,15 @@ module TlogMap = struct
            find rest
     in
     let r = find t.i_to_tlog_number in
-    Logger.ign_debug_f_ "get_start_i %s %i => %s"  (show_map t) n (Sn.string_of r) ;
+    (* Logger.ign_debug_f_ "get_start_i %s %i => %s"  (show_map t) n (Sn.string_of r) ;*)
     r
          
   
 
   let should_roll t = t.should_roll
- 
+
+  let set_should_roll t = t.should_roll <- true
+                                             
   let new_outer t i =
     let n = t.tlog_number + 1 in
     let () = t.tlog_number <- n in
@@ -534,14 +540,14 @@ module TlogMap = struct
       | _ :: rest -> find rest
     in
     let r = find t.i_to_tlog_number in
-    let () =
+    (*let () =
       Logger.ign_debug_f_
         "next_rollover %s : %s => %s" (Sn.string_of i)
         (show_map t) (To_string.option Sn.string_of r)
-    in
+    in *)
     r
 
-  let iterate_tlog_dir t ~index start_i too_far_i f =
+  let iterate_tlog_dir t ~index start_i too_far_i f (cb: int -> unit Lwt.t) =
     let open Tlogcommon in
     let open Tlogreader2 in
     let tfs = Sn.string_of too_far_i in
@@ -580,9 +586,12 @@ module TlogMap = struct
            Logger.info_f_ "Completed replay of %s, took %f seconds, %i to go"
                           fn (Unix.gettimeofday () -. t1) (num_tlogs - cnt)
            >>= fun () ->
+           cb cnt >>= fun () ->
            Lwt.return (cnt+1, low')
       in
-      if should_fold then fold () else Lwt.return (cnt+1,low)
+      if should_fold
+      then fold ()
+      else Lwt.return (cnt+1,low)
     in
     Lwt_list.fold_left_s maybe_fold (1,start_i) tlog_names
     >>= fun _x ->

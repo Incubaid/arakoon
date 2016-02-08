@@ -354,10 +354,14 @@ class tlc2
 
 
 
-    method iterate (start_i:Sn.t) (too_far_i:Sn.t) (f:Entry.t -> unit Lwt.t) =
+    method iterate (start_i:Sn.t) (too_far_i:Sn.t)
+                   (f:Entry.t -> unit Lwt.t)
+                   (cb : int -> unit Lwt.t)
+      =
       let index = _index in
       Logger.debug_f_ "tlc2.iterate : index=%s" (Index.to_string index) >>= fun () ->
-      TlogMap.iterate_tlog_dir tlog_map ~index start_i too_far_i f
+      TlogMap.iterate_tlog_dir tlog_map ~index start_i too_far_i 
+                               f cb
 
 
     method get_infimum_i () = TlogMap.infimum tlog_map
@@ -507,7 +511,9 @@ class tlc2
       in
       Logger.debug_f_ "n = %03i => canonical=%s" n canonical >>= fun () ->
       let name = Filename.basename canonical in
+      let start_i = TlogMap.get_start_i tlog_map n in
       Llio.output_string oc name >>= fun () ->
+      Sn.output_sn oc start_i    >>= fun () ->
       File_system.stat canonical >>= fun stats ->
       let length = Int64.of_int(stats.Unix.st_size)
       (* why don't they use largefile ? *)
@@ -521,21 +527,30 @@ class tlc2
       >>= fun () ->
       Logger.debug_f_ "dumped:%s (%Li) bytes" canonical length
 
-    method save_tlog_file name length ic =
+    method save_tlog_file remote_name length ic =
       (* what with rotation (jump to new tlog), open streams, ...*)
       begin
         match _file with
         | None -> Lwt.return ()
-        | Some file -> F.close file >>= fun () -> _file <- None;Lwt.return ()
+        | Some file ->
+           F.close file >>= fun () -> _file <- None;
+           Lwt.return ()
       end 
       >>= fun () ->                                                               
-      let canon = TlogMap.get_full_path tlog_map name in
-      let tmp = canon ^ ".tmp" in
-      Logger.debug_f_ "save_tlog_file: %s" tmp >>= fun () ->
+      let full_name = TlogMap.get_full_path tlog_map remote_name in
+      let extension = Tlog_map.extension_of remote_name in
+      let tmp = full_name ^ ".tmp" in
+      Logger.info_f_ "save_tlog_file: remote_name: %s" tmp >>= fun () ->
       Lwt_io.with_file ~mode:Lwt_io.output tmp
                        (fun oc -> Llio.copy_stream ~length ~ic ~oc)
       >>= fun () ->
-      File_system.rename tmp canon
+      Tlog_map.first_i_of ~extension_override:extension tmp >>= fun first_i ->
+      let new_outer = TlogMap.new_outer tlog_map first_i in
+      let new_name = Printf.sprintf "%03i%s" new_outer extension in
+      let canon = TlogMap.get_full_path tlog_map new_name in
+      File_system.rename tmp canon >>= fun () ->
+      let () = TlogMap.set_should_roll tlog_map in
+      Lwt.return_unit
 
 
     method reinit () =

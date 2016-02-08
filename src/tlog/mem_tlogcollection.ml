@@ -53,7 +53,7 @@ class mem_tlog_collection _name =
         | Some e -> Some (Entry.v_of e, Entry.i_of e)
 
 
-    method iterate from_i too_far_i f =
+    method iterate from_i too_far_i f _cb =
       let data' =
         List.filter
           (fun entry ->

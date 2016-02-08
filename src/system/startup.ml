@@ -137,7 +137,8 @@ let _dump_tlc ~tlcs node =
     Logger.debug_f_ "%s:%s" (Sn.string_of i) (Value.value2s v)
   in
   Logger.debug_f_ "--- %s ---" node >>= fun () ->
-  tlc0 # iterate Sn.start 20L printer >>= fun () ->
+  let cb _ = Lwt.return_unit in
+  tlc0 # iterate Sn.start 20L printer cb >>= fun () ->
   Lwt.return ()
 
 

@@ -725,7 +725,7 @@ def test_close_on_sigterm():
         tail = lines[-40:]
         found = False
         for l in tail:
-            print l
+            print l.strip()
             if l.find("fatal") > 0 and l.find ("OK") >0:
                 found = True
                 break

@@ -143,7 +143,9 @@ let test_iterate5 (dn, _tlx_dir, (factory:factory)) =
     Logger.debug_f_ "test_iterate5: %s %s" (Sn.string_of i)
       (Value.value2s v)
   in
-  tlc # iterate start_i too_far_i f >>= fun () ->
+  let cb x = Logger.debug_f_ "rotation_point:%i" x in
+  tlc # iterate start_i too_far_i f cb
+  >>= fun () ->
   Lwt.return ()
 
 let test_iterate6 (dn, _tlx_dir, (factory:factory)) =
@@ -176,7 +178,7 @@ let test_iterate6 (dn, _tlx_dir, (factory:factory)) =
   let sum = ref 0 in
   let start_i = Sn.of_int 19 in
   let too_far_i = Sn.of_int 20 in
-  tlc # iterate start_i too_far_i
+  let f =
     (fun entry ->
        let i = Entry.i_of entry in
        let v = Entry.v_of entry in
@@ -184,6 +186,9 @@ let test_iterate6 (dn, _tlx_dir, (factory:factory)) =
        Logger.debug_f_ "i=%s : %s" (Sn.string_of i) (Value.value2s v)
        >>= fun () ->
        Lwt.return ())
+  in
+  let cb _ = Lwt.return_unit in
+  tlc # iterate start_i too_far_i f cb
   >>= fun () ->
   tlc # close () >>= fun () ->
   Logger.debug_f_ "sum =%i " !sum >>= fun () ->
@@ -215,12 +220,15 @@ let test_compression_bug (dn, tlx_dir, (factory:factory)) =
   OUnit.assert_bool "file should have size >0" (stat.st_size > 0);
   let entries = ref [] in
   factory ~tlog_max_entries dn node_id >>= fun tlc2 ->
-  tlc2 # iterate 0L (Sn.of_int n)
-    (fun entry ->
-       let i = Entry.i_of entry in
-       entries := i :: !entries;
-       Logger.debug_f_ "ENTRY: i=%Li" i)
-  >>= fun () ->
+  let f entry =
+    let i = Entry.i_of entry in
+    entries := i :: !entries;
+    Logger.debug_f_ "ENTRY: i=%Li" i
+  in
+  let cb _ = Lwt.return_unit in
+  
+  tlc2 # iterate 0L (Sn.of_int n) f cb >>= fun () ->
+
   OUnit.assert_equal
     ~printer:string_of_int
     ~msg:"tlog_collection has a hole" (n+2) (List.length !entries);

@@ -79,10 +79,11 @@ let replay_tlogs tlog_dir tlx_dir db_name end_i =
              let acc = ref None in
              let log_i pi = maybe_log_i start_i too_far_i pi in
              let f = Catchup.make_f ~stop:(ref false) (module S) db_name log_i acc store in
+             let cb _ = Lwt.return_unit in
              TlogMap.iterate_tlog_dir tlog_map ~index:None
                start_i
                too_far_i
-               f
+               f cb
              >>= fun () ->
              Catchup.epilogue (module S) db_name acc store >>= fun () ->
              S.close store

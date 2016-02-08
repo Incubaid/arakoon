@@ -152,12 +152,14 @@ let test_iterate (dn, tlx_dir, (factory: factory)) =
   let value = _make_set_v "xxx" "y" in
   _log_repeat tlc value 323 >>= fun () ->
   let sum = ref 0 in
-  tlc # iterate (Sn.of_int 125) (Sn.of_int 304)
-    (fun entry ->
+  let cb _ = Lwt.return_unit in
+  let f entry =
        let i = Entry.i_of entry in
        sum := !sum + (Int64.to_int i);
        Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
-       Lwt.return ())
+       Lwt.return ()
+  in
+  tlc # iterate (Sn.of_int 125) (Sn.of_int 304) f cb
   >>= fun () ->
   tlc # close () >>= fun () ->
   Logger.debug_f_ "sum =%i " !sum >>= fun () ->
@@ -172,12 +174,15 @@ let test_iterate2 (dn, tlx_dir, (factory:factory)) =
   let value = _make_set_v "test_iterate0" "xxx" in
   _log_repeat tlc value 3 >>= fun () ->
   let result = ref [] in
-  tlc # iterate (Sn.of_int 0) (Sn.of_int 1)
-    (fun entry ->
-       let i = Entry.i_of entry in
+  let f entry =
+    let i = Entry.i_of entry in
        result := i :: ! result;
        Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
-       Lwt.return ())
+       Lwt.return ()
+  in
+  let cb _ = Lwt.return_unit in
+  tlc # iterate (Sn.of_int 0) (Sn.of_int 1) f cb
+    
   >>= fun () ->
   OUnit.assert_equal ~printer:string_of_int 1 (List.length !result);
   tlc # close () >>= fun () ->
@@ -191,13 +196,14 @@ let test_iterate3 (dn, tlx_dir, (factory:factory)) =
   let value = _make_set_v "test_iterate3" "xxx" in
   _log_repeat tlc value 120 >>= fun () ->
   let result = ref [] in
-  tlc # iterate (Sn.of_int 99) (Sn.of_int 101)
-    (fun entry ->
-       let i = Entry.i_of entry in
-       Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
-       let () = result := i :: !result in
-       Lwt.return ()
-    )
+  let f entry =
+    let i = Entry.i_of entry in
+    Logger.debug_f_ "i=%s" (Sn.string_of i) >>= fun () ->
+    let () = result := i :: !result in
+    Lwt.return ()
+  in
+  let cb _ = Lwt.return_unit in
+  tlc # iterate (Sn.of_int 99) (Sn.of_int 101) f cb
   >>= fun () ->
   OUnit.assert_equal (List.mem (Sn.of_int 99) !result) true;
   tlc # close () >>= fun () ->

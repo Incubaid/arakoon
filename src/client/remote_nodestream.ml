@@ -57,7 +57,7 @@ class remote_nodestream ((ic,oc) as conn) =
     ~head_saved_cb
     =
     let outgoing buf =
-      command_to buf LAST_ENTRIES2;
+      command_to buf LAST_ENTRIES3;
       Sn.sn_to buf i
     in
     let incoming ic =
@@ -83,19 +83,12 @@ class remote_nodestream ((ic,oc) as conn) =
             end
         end
       in
-      let _should_reinit = ref false in
       let rec loop_parts () =
         Llio.input_int ic >>= function
         | (-2) -> Logger.info_f_ "loop_parts done"
         | 1 ->
           begin
             Logger.debug_f_ "loop_entries" >>= fun () ->
-            begin
-              if !_should_reinit
-              then tlog_coll # reinit()
-              else Lwt.return ()
-            end
-            >>= fun () ->
             loop_entries () >>= fun () ->
             loop_parts ()
           end
@@ -109,11 +102,11 @@ class remote_nodestream ((ic,oc) as conn) =
           end
         | 3 ->
            begin
-             let () = _should_reinit := true in
              Logger.debug_f_ "save_file" >>= fun () ->
              Llio.input_string ic >>= fun name ->
-             Llio.input_int64 ic >>= fun length ->
-             Logger.info_f_ "got %s (%Li bytes)" name length >>= fun () ->
+             Sn.input_sn ic       >>= fun start_i ->
+             Llio.input_int64 ic  >>= fun length ->
+             Logger.info_f_ "retrieving %s (%Li bytes)" name length >>= fun () ->
              tlog_coll # save_tlog_file name length ic >>= fun () ->
              loop_parts ()
            end
@@ -132,7 +125,7 @@ class remote_nodestream ((ic,oc) as conn) =
     in
     let incoming ic =
       Llio.input_int ic >>= fun collapse_count ->
-      Logger.debug_f_ "collapse_count:%i" collapse_count >>= fun () ->
+      Logger.info_f_ "collapse_count:%i" collapse_count >>= fun () ->
       let rec loop i =
         if i = 0
         then Lwt.return ()
@@ -142,6 +135,7 @@ class remote_nodestream ((ic,oc) as conn) =
             | 0 ->
                Llio.input_int64 ic >>= fun total ->
                Logger.debug_f_ "%i:collapsed one file. (total = %Li)" i total >>= fun () ->
+                                    
                loop (i-1)
             | e ->
                Llio.input_string ic >>= fun msg ->

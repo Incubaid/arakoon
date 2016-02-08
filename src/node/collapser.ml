@@ -56,10 +56,8 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
   Lwt.finalize (
     fun () ->
       tlog_coll # get_infimum_i () >>= fun min_i ->
-      let first_tlog = tlog_coll # get_tlog_from_i  min_i in
       let store_i = S.consensus_i new_store in
       let tfs = Sn.string_of too_far_i in
-      let processed = ref 0 in
       let start_i =
         begin
           match store_i with
@@ -102,7 +100,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                Lwt_unix.sleep period >>= fun () ->
                Lwt.return r
           in
-          let get_next_point i =
+          (* let get_next_point i =
               let next_r = tlog_coll # next_rollover i in
               match next_r with
                 | None -> Sn.zero
@@ -110,6 +108,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
           in
           let next_rollover_point = ref (get_next_point (Sn.pred start_i))
           in
+           *)
           let add_to_store entry =
             let i = Entry.i_of entry
             and value = Entry.v_of entry
@@ -126,22 +125,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                 | Some (pi,pv) ->
                   if pi < i then
                     begin
-                      maybe_log pi >>= fun () ->
-                      begin
-                        if pi = !next_rollover_point
-                        then
-                          begin
-                            Logger.info_f_ "rollover_point pi:%Li next_rollover_point =%s"
-                                          pi (Sn.string_of !next_rollover_point)
-                            >>= fun () ->
-                            cb (first_tlog + !processed) >>= fun () ->
-                            let () = incr processed in
-                            let () = next_rollover_point := get_next_point (Sn.succ pi) in
-                            Lwt.return_unit
-                          end
-                        else
-                          Lwt.return_unit
-                      end
+                      maybe_log pi 
                       >>= fun () ->
                       slowdown (fun () -> S.safe_insert_value new_store pi pv) >>= fun _ ->
                       let () = acc := Some(i,value) in
@@ -157,7 +141,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
           in
           Logger.debug_f_ "collapse_until: start_i=%s" (Sn.string_of start_i)
           >>= fun () ->
-          tlog_coll # iterate start_i too_far_i add_to_store
+          tlog_coll # iterate start_i too_far_i add_to_store cb
           >>= fun () ->
           let m_si = S.consensus_i new_store in
           let si =

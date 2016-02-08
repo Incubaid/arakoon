@@ -137,10 +137,10 @@ let teardown () =
   Logger.debug_ "end of teardown"
 
 let _tic filler_function n name verify_store =
-  let open Tlog_map in
   let node_id = "node_name" in
-  TlogMap.make ~tlog_max_entries:101 _dir_name _tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
-  Tlc2.make_tlc2 ~compressor:Compression.Snappy  _dir_name _tlx_dir _tlx_dir
+  Tlc2.make_tlc2 ~compressor:Compression.Snappy
+                 ~tlog_max_entries:101
+                 _dir_name _tlx_dir _tlx_dir
                  ~fsync:false node_id ~fsync_tlog_dir:true >>= fun tlog_coll ->
   filler_function tlog_coll n >>= fun () ->
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
