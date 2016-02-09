@@ -687,10 +687,6 @@ def setup_n_nodes_base(c_id, node_names, force_master,
         cluster.addLocalNode(nodeName)
         cluster.createDirs(nodeName)
 
-        if nodes_extra and nodes_extra[nodeName]:
-            for k,v in nodes_extra.items():
-                config.set(nodeName, k, v)
-
     cluster.disableFsync()
 
     if force_master:
@@ -704,6 +700,9 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     for i in range (n):
         nodeName = node_names[ i ]
         config.set(nodeName, '__tainted_fsync_tlog_dir', 'false')
+        if nodes_extra and nodes_extra.get(nodeName):
+            for k,v in nodes_extra[nodeName].items():
+                config.set(nodeName, k, v)
 
     #
     #

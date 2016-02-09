@@ -945,14 +945,14 @@ def test_statistics():
                     "Wrong value for min timing of %s == 0.0" % k)
 
 def setup_redis_arakoon(home_dir):
-    X.subprocess.call(["redis-cli"])
-    C.setup_n_nodes(C.cluster_id, node_names, home_dir,
+    proc = subprocess.Popen(["redis-server"], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
+    C.setup_n_nodes(3, False, home_dir,
                     nodes_extra =
-                    {"arakoon_0": {"log_sinks":"redis://127.0.0.1/logs/arakoon_0"},
-                     "arakoon_1": {"log_sinks":"redis://127.0.0.1/logs/arakoon_1"}})
+                    {"sturdy_0": {"log_sinks":"redis://127.0.0.1/logs/sturdy_0"},
+                     "sturdy_1": {"log_sinks":"redis://127.0.0.1/logs/sturdy_1"}})
 
 def redis_arakoon_teardown(removeDirs):
-    X.subprocess.call(["pkill", "redis-cli"])
+    X.subprocess.call(["pkill", "redis-server"])
     C.basic_teardown(removeDirs)
 
 @C.with_custom_setup(setup_redis_arakoon, redis_arakoon_teardown)
@@ -960,6 +960,8 @@ def test_redis_logging():
     cli = C.get_client()
     key = "my-very-unique-key-which-should-be-in-there"
     cli.set(key,"X")
-    cmd = ["nohup", "redis-cli", "lrange", "/logs/arakoon/arakoon_0", "0", "100000", "&"]
+    time.sleep(1)
+    cmd = ["redis-cli", "lrange", "/logs/sturdy_0", "0", "100000"]
     stdout = subprocess.check_output(cmd)
+    print "redis-cli output: ", stdout
     assert(stdout.find(key) > 0)
