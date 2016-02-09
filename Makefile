@@ -32,17 +32,17 @@ install_server:
 install_client:
 	mkdir -p $(OCAML_LIBDIR)
 	$(OCAML_FIND) install arakoon_client -destdir $(OCAML_LIBDIR) META \
-	  _build/src/arakoon_client.cma \
-	  _build/src/arakoon_client.cmxa \
-	  _build/src/arakoon_client.cmxs \
-	  _build/src/client/stamp.cmi \
-	  _build/src/client/arakoon_exc.mli \
-	  _build/src/client/arakoon_exc.cmi \
+          _build/src/arakoon_client.cma \
+          _build/src/arakoon_client.cmxa \
+          _build/src/arakoon_client.cmxs \
+          _build/src/client/stamp.cmi \
+          _build/src/client/arakoon_exc.mli \
+          _build/src/client/arakoon_exc.cmi \
           _build/src/client/arakoon_client_config.cmi \
-	  _build/src/client/arakoon_client.mli \
-	  _build/src/client/arakoon_client.cmi \
-	  _build/src/client/arakoon_remote_client.mli \
-	  _build/src/client/arakoon_remote_client.cmi \
+          _build/src/client/arakoon_client.mli \
+          _build/src/client/arakoon_client.cmi \
+          _build/src/client/arakoon_remote_client.mli \
+          _build/src/client/arakoon_remote_client.cmi \
           _build/src/client/protocol_common.cmi \
           _build/src/client/client_helper.cmi \
           _build/src/inifiles/inifiles.mli \
@@ -62,6 +62,7 @@ install_client:
           _build/src/tools/arakoon_log_sink.cmi \
           _build/src/tools/crash_logger.cmi \
           _build/src/tools/arakoon_redis.cmi \
+          _build/src/tools/arakoon_logger.cmi \
           _build/src/tools/llio.mli \
           _build/src/tools/llio.cmi \
           _build/src/tools/network.cmi \
@@ -70,8 +71,8 @@ install_client:
           _build/src/tools/typed_ssl.mli \
           _build/src/tools/typed_ssl.cmi \
           _build/src/tools/unix_fd.cmi \
-	  _build/src/tools/arakoon_etcd.cmi \
-	  _build/src/tools/arakoon_config_url.cmi \
+          _build/src/tools/arakoon_etcd.cmi \
+          _build/src/tools/arakoon_config_url.cmi \
           _build/src/tools/tcp_keepalive_sockopt_stubs.o \
           _build/src/tools/tcp_keepalive.cmi \
           _build/src/arakoon_client.a

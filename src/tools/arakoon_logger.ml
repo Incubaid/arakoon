@@ -38,6 +38,31 @@ let file_logger file_name =
   let close () = Lwt_unix.close fd in
   Lwt.return (lg_output, close)
 
+let format_message
+      ~hostname ~pid ~component
+      ~ts ~seqnum
+      ~section ~level ~lines
+  =
+  Printf.sprintf
+    "%s - %s - %i/0 - %s - %i - %s - %s"
+    (let open Unix in
+     let tm = gmtime ts in
+     Printf.sprintf
+       "%04d/%02d/%02d %02d:%02d:%02d %d"
+       (tm.tm_year + 1900)
+       (tm.tm_mon + 1)
+       tm.tm_mday
+       tm.tm_hour
+       tm.tm_min
+       tm.tm_sec
+       (int_of_float ((mod_float ts 1.) *. 1_000_000.))
+    )
+    hostname
+    pid
+    component
+    seqnum
+    (Lwt_log.string_of_level level)
+    (String.concat "\n" lines)
 
 let setup_log_sinks log_sinks =
   Lwt_list.map_p
@@ -60,26 +85,10 @@ let setup_log_sinks log_sinks =
                           let () = incr seqnum in
                           let ts = Unix.gettimeofday () in
                           let logline =
-                            Printf.sprintf
-                              "%s - %s - %i/0 - %s - %i - %s - %s"
-                              (let open Unix in
-                               let tm = gmtime ts in
-                               Printf.sprintf
-                                 "%04d/%02d/%02d %02d:%02d:%02d %d"
-                                 (tm.tm_year + 1900)
-                                 (tm.tm_mon + 1)
-                                 tm.tm_mday
-                                 tm.tm_hour
-                                 tm.tm_min
-                                 tm.tm_sec
-                                 (int_of_float ((mod_float ts 1.) *. 1_000_000.))
-                              )
-                              hostname
-                              pid
-                              component
-                              seqnum'
-                              (Lwt_log.string_of_level level)
-                              (String.concat "\n" lines)
+                            format_message
+                              ~hostname ~pid ~component
+                              ~ts ~seqnum:seqnum'
+                              ~section ~level ~lines
                           in
 
                           Lwt_list.iter_p

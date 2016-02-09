@@ -27,6 +27,7 @@ Simple_store
 Logger
 Arakoon_log_sink
 Arakoon_redis
+Arakoon_logger
 Crash_logger
 Ring_buffer
 Plugin_helper
