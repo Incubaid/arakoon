@@ -61,6 +61,7 @@ install_client:
           _build/src/tools/ini.cmi \
           _build/src/tools/arakoon_log_sink.cmi \
           _build/src/tools/crash_logger.cmi \
+          _build/src/tools/arakoon_redis.cmi \
           _build/src/tools/llio.mli \
           _build/src/tools/llio.cmi \
           _build/src/tools/network.cmi \
