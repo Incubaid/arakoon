@@ -59,16 +59,26 @@ let format_message
   Printf.sprintf
     "%s - %s - %i/0 - %s - %i - %s - %s"
     (let open Unix in
-     let tm = gmtime ts in
+     let tm = Core.Time_internal.to_tm ts in
+     let offset =
+       Core.Time.utc_offset ~zone:Core.Time.Zone.local ts
+       |> Core.Span.to_parts
+     in
      Printf.sprintf
-       "%04d/%02d/%02d %02d:%02d:%02d %d"
+       "%04d/%02d/%02d %02d:%02d:%02d %d %c%02d%02d"
        (tm.tm_year + 1900)
        (tm.tm_mon + 1)
        tm.tm_mday
        tm.tm_hour
        tm.tm_min
        tm.tm_sec
-       (int_of_float ((mod_float ts 1.) *. 1_000_000.))
+       (int_of_float ((mod_float (Core.Time.to_float ts) 1.) *. 1_000_000.))
+       (let open Core.Std.Float in
+        match offset.Core.Span.Parts.sign with
+        | Sign.Neg -> '-'
+        | Sign.Pos | Sign.Zero -> '+')
+       offset.Core.Span.Parts.hr
+       offset.Core.Span.Parts.min
     )
     hostname
     pid
@@ -98,7 +108,7 @@ let setup_log_sinks log_sinks =
                  ~output:(fun section level lines ->
                           let seqnum' = !seqnum in
                           let () = incr seqnum in
-                          let ts = Unix.gettimeofday () in
+                          let ts = Core.Time.now () in
                           let logline =
                             format_message
                               ~hostname ~pid ~component

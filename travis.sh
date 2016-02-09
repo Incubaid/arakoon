@@ -10,8 +10,9 @@ OPAM_DEPENDS="ssl.0.5.2 \
               snappy \
               quickcheck \
               ocplib-endian \
-              redis \
-              uri
+              redis.0.2.3 \
+              uri.1.9.1 \
+              core.113.00.00
 "
 
 export OPAMYES=1
