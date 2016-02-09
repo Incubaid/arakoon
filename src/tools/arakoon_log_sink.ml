@@ -17,10 +17,12 @@ limitations under the License.
 type t =
   | Redis of string * int * string
   | File of string
+  | Console
 
 let to_string = function
   | Redis (host, port, key) -> Printf.sprintf "Redis(%s,%i,%s)" host port key
   | File file -> Printf.sprintf "File(%s)" file
+  | Console -> "Console"
 
 let make s =
   let uri = Uri.of_string s in
@@ -44,5 +46,7 @@ let make s =
        | Some p -> p
      in
      Redis (host, port, path)
+  | Some "console" ->
+     Console
   | Some protocol ->
      failwith (Printf.sprintf "unknown protocol:%s" protocol)

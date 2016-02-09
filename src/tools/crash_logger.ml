@@ -98,12 +98,12 @@ let dump_crash_log crash_log_sink =
                       e.Entry.payload
   in
 
-  let log_buffer oc buffer =
+  let log_buffer oc =
     let go = R.fold ~f:(fun acc e -> fun () ->
                                      acc () >>= fun () ->
                                      log_entry oc e)
                     ~acc:(fun () -> Lwt.return_unit)
-                    buffer
+                    circ_buf
     in
     go ()
   in
@@ -113,7 +113,7 @@ let dump_crash_log crash_log_sink =
   | File file_name ->
      Lwt_io.with_file
        ~mode:Lwt_io.output (Printf.sprintf "%s.debug.%f" file_name (Unix.time ()))
-       (fun oc -> log_buffer oc circ_buf)
+       (fun oc -> log_buffer oc)
   | Redis (host, port, key) ->
      let key = Printf.sprintf "%s.debug.%f" key (Unix.time ()) in
      let module Re = Redis_lwt.Client in
@@ -129,3 +129,5 @@ let dump_crash_log crash_log_sink =
        ~acc:(fun () -> Lwt.return_unit)
        circ_buf
        ()
+  | Console ->
+     log_buffer Lwt_io.stdout

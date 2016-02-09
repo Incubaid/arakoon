@@ -25,6 +25,7 @@ let test_log_sink () =
       File "/tmp/a", "file:///tmp/a";
       Redis ("localhost", 628, "/key1"), "redis://localhost:628/key1";
       Redis ("127.0.0.1", 6379, "//key2"), "redis://127.0.0.1//key2";
+      Console, "console:";
     ]
   in
   List.iter

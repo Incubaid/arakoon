@@ -38,6 +38,19 @@ let file_logger file_name =
   let close () = Lwt_unix.close fd in
   Lwt.return (lg_output, close)
 
+let console_logger =
+  let mutex = Lwt_mutex.create () in
+  let lg_output line =
+    Lwt_mutex.with_lock
+      mutex
+      (fun () ->
+       Lwt_io.write Lwt_io.stdout line >>= fun () ->
+       Lwt_io.write_char Lwt_io.stdout '\n')
+  in
+  let close () = Lwt.return_unit in
+  lg_output, close
+
+
 let format_message
       ~hostname ~pid ~component
       ~ts ~seqnum
@@ -73,7 +86,9 @@ let setup_log_sinks log_sinks =
      | Redis (host, port, key) ->
         Arakoon_redis.make_redis_logger
           ~host ~port ~key
-        |> Lwt.return)
+        |> Lwt.return
+     | Console ->
+        Lwt.return console_logger)
     log_sinks >>= fun loggers ->
   let hostname = Unix.gethostname () in
   let component = "arakoon" in
