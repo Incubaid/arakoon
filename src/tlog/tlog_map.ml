@@ -443,14 +443,16 @@ module TlogMap = struct
       
   let get_start_i t n =
     let rec find = function
-      | [] -> Sn.zero (* TODO: maybe assert *)
+      | [] -> None
       | item :: rest ->
          if item.n = n
-         then item.i else
-           find rest
+         then Some item.i
+         else find rest
     in
     let r = find t.i_to_tlog_number in
-    (* Logger.ign_debug_f_ "get_start_i %s %i => %s"  (show_map t) n (Sn.string_of r) ;*)
+    (* Logger.ign_debug_f_ "get_start_i %s %i => %s"  (show_map t) n 
+                                                      (To_string.option Sn.string_of r) ;
+     *)
     r
          
   
@@ -567,44 +569,45 @@ module TlogMap = struct
     Logger.debug_f_ "TlogMap.iterate_tlog_dir start_i:%s too_far_i:%s ~index:%s"
                     (Sn.string_of start_i) tfs (Index.to_string index)
     >>= fun () ->
-    get_tlog_names t >>= fun tlog_names ->
+    get_tlog_names t >>= fun tlog_names -> (* TODO: we probably shouldn't look at the fs *) 
     let acc_entry (_i0:Sn.t) entry =
       f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i
     in
     let num_tlogs = List.length tlog_names in
     let maybe_fold (cnt,low) fn =
       let fn_start = get_start_i t (get_number fn) in
-      let fn_next  = next_rollover t fn_start in
-      let low_n = Sn.succ low in
-      let should_fold = 
-        match fn_next with
-        | None -> fn_start <= low_n
-        | Some next -> fn_start <= low_n && low_n < next
-      in
-      Logger.debug_f_ "maybe_fold %s low:%s" fn (Sn.string_of low) >>= fun () ->
-      Logger.debug_f_ "fn: fn_start:%s <= low_n:%s fn_next:%s => %b"
-                      (Sn.string_of fn_start) (Sn.string_of low_n)
-                      (To_string.option Sn.string_of fn_next)
-                      should_fold
-      >>= fun () ->
       
-      let fold () =
-        Logger.debug_f_ "fold over: %s: [%s,...) "
-                           fn (Sn.string_of fn_start) 
-           >>= fun () ->
-           let first = fn_start in
-           Logger.info_f_ "Replaying tlog file: %s (%d/%d)" fn cnt num_tlogs  >>= fun () ->
-           let t1 = Unix.gettimeofday () in
-           fold_read t fn ~index low (Some too_far_i) ~first low acc_entry >>= fun low' ->
-           Logger.info_f_ "Completed replay of %s, took %f seconds, %i to go"
-                          fn (Unix.gettimeofday () -. t1) (num_tlogs - cnt)
-           >>= fun () ->
-           cb cnt >>= fun () ->
-           Lwt.return (cnt+1, low')
-      in
-      if should_fold
-      then fold ()
-      else Lwt.return (cnt+1,low)
+      let low_n = Sn.succ low in
+      match fn_start with
+      | Some fn_start ->
+         begin
+           let fn_next  = next_rollover t fn_start in
+           let should_fold =
+             match fn_next with
+             | None -> fn_start <= low_n
+             | Some next -> fn_start <= low_n && low_n < next
+           in
+           if should_fold
+           then
+             begin
+               Logger.debug_f_ "fold over: %s: [%s,...) "
+                               fn (Sn.string_of fn_start) 
+               >>= fun () ->
+               let first = fn_start in
+               Logger.info_f_ "Replaying tlog file: %s (%d/%d)" fn cnt num_tlogs  >>= fun () ->
+               let t1 = Unix.gettimeofday () in
+               fold_read t fn ~index low (Some too_far_i) ~first low acc_entry >>= fun low' ->
+               Logger.info_f_ "Completed replay of %s, took %f seconds, %i to go"
+                              fn (Unix.gettimeofday () -. t1) (num_tlogs - cnt)
+               >>= fun () ->
+               cb cnt >>= fun () ->
+               Lwt.return (cnt+1, low')
+             end
+           else
+             Lwt.return (cnt +1, low)
+         end
+      | None -> (* it's a file that's not in the map *)
+         Lwt.return (cnt +1, low)
     in
     Lwt_list.fold_left_s maybe_fold (1,start_i) tlog_names
     >>= fun _x ->

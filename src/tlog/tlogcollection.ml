@@ -59,7 +59,7 @@ class type tlog_collection =
   method get_tlog_count: unit -> int Lwt.t
   method remove_below : Sn.t -> unit Lwt.t
                                      
-  method get_start_i : int -> Sn.t
+  method get_start_i : int -> Sn.t option
   method get_last_i: unit -> Sn.t
   method is_rollover_point: Sn.t -> bool
   method next_rollover: Sn.t -> Sn.t option

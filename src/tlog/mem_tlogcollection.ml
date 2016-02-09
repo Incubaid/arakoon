@@ -84,7 +84,7 @@ class mem_tlog_collection _name =
     method get_head_name () = failwith "get_head_name not implemented"
 
     method get_tlog_from_i _ = 0
-    method get_start_i n = Sn.zero
+    method get_start_i n = Some Sn.zero
     method is_rollover_point _ = failwith "is_rollover_point not supported"
     method next_rollover _ = Some Int64.max_int
 

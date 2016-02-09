@@ -694,7 +694,9 @@ struct
               begin
                 self # wait_for_tlog_release keep_bottom_n >>= fun () ->
                 let keep_i = tlog_collection # get_start_i keep_bottom_n in
-                tlog_collection # remove_below keep_i
+                match keep_i with
+                | None        -> Lwt.return ()
+                | Some keep_i -> tlog_collection # remove_below keep_i
               end
             else
               Lwt.return ()

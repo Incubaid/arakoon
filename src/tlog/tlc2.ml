@@ -488,7 +488,7 @@ class tlc2
 
     method get_tlog_from_i (i:Sn.t) : int = TlogMap.outer_of_i tlog_map i
 
-    method get_start_i (n:int) : Sn.t = TlogMap.get_start_i tlog_map n
+    method get_start_i (n:int) : Sn.t option = TlogMap.get_start_i tlog_map n
     method is_rollover_point i = TlogMap.is_rollover_point tlog_map i
     method next_rollover i     = TlogMap.next_rollover tlog_map i
                                                        
@@ -512,20 +512,25 @@ class tlc2
       Logger.debug_f_ "n = %03i => canonical=%s" n canonical >>= fun () ->
       let name = Filename.basename canonical in
       let start_i = TlogMap.get_start_i tlog_map n in
-      Llio.output_string oc name >>= fun () ->
-      Sn.output_sn oc start_i    >>= fun () ->
-      File_system.stat canonical >>= fun stats ->
-      let length = Int64.of_int(stats.Unix.st_size)
-      (* why don't they use largefile ? *)
-      in
-      Logger.info_f_ "dumping %S (%Li bytes)" canonical length >>= fun () ->
-      Lwt_io.with_file ~mode:Lwt_io.input canonical
-        (fun ic ->
-           Llio.output_int64 oc length >>= fun () ->
-           Llio.copy_stream ~length ~ic ~oc
-        )
-      >>= fun () ->
-      Logger.debug_f_ "dumped:%s (%Li) bytes" canonical length
+      match start_i with
+      | None -> failwith (Printf.sprintf "tlogcollection doesn't know tlog:%i" n)
+      | Some start_i ->
+         begin
+           Llio.output_string oc name >>= fun () ->
+           Sn.output_sn oc start_i    >>= fun () ->
+           File_system.stat canonical >>= fun stats ->
+           let length = Int64.of_int(stats.Unix.st_size)
+                                    (* why don't they use largefile ? *)
+           in
+           Logger.info_f_ "dumping %S (%Li bytes)" canonical length >>= fun () ->
+           Lwt_io.with_file ~mode:Lwt_io.input canonical
+                            (fun ic ->
+                              Llio.output_int64 oc length >>= fun () ->
+                              Llio.copy_stream ~length ~ic ~oc
+                            )
+           >>= fun () ->
+           Logger.debug_f_ "dumped:%s (%Li) bytes" canonical length
+         end
 
     method save_tlog_file first_i remote_name length ic =
       (* what with rotation (jump to new tlog), open streams, ...*)
