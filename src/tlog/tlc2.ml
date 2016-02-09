@@ -406,8 +406,11 @@ class tlc2
         tmp
         hf_name
         (fun oc ->
-          Llio.copy_stream ~length ~ic ~oc) >>= fun () ->
-
+          Llio.copy_stream ~length ~ic ~oc) 
+      >>= fun () ->
+      self # _maybe_close_current_file ()
+      >>= fun () ->                                                               
+      let () = TlogMap.set_should_roll tlog_map in
       Logger.info_ "done: save_head"
 
 
@@ -532,15 +535,17 @@ class tlc2
            Logger.debug_f_ "dumped:%s (%Li) bytes" canonical length
          end
 
+    method private _maybe_close_current_file () =
+      match _file with
+      | None -> Lwt.return ()
+      | Some file ->
+         F.close file >>= fun () ->
+         _file <- None;
+         Lwt.return_unit
+
     method save_tlog_file first_i remote_name length ic =
       (* what with rotation (jump to new tlog), open streams, ...*)
-      begin
-        match _file with
-        | None -> Lwt.return ()
-        | Some file ->
-           F.close file >>= fun () -> _file <- None;
-           Lwt.return ()
-      end 
+      self # _maybe_close_current_file ()
       >>= fun () ->                                                               
       let full_name = TlogMap.get_full_path tlog_map remote_name in
       let extension = Tlog_map.extension_of remote_name in
