@@ -146,26 +146,34 @@ let test_repeated_collapse (dn,tlx_dir, head_dir) =
   Logger.debug_f_"post collapse: count=%i" !count >>= fun () ->
   OUnit.assert_equal 0 !count ~printer:string_of_int ~msg:"count should be zero";
   _make_values tlc 520 1040 >>= fun () ->
-  Lwt_unix.sleep 10.0 >>= fun () ->
+  Lwt_unix.sleep 2.0 >>= fun () -> (* just to make debugging less messy *)
   Collapser.collapse_many tlc (module S) store_methods 1 cb' cb collapse_slowdown >>= fun () ->
   Logger.debug_f_"post collapse: count=%i" !count >>= fun () ->
   OUnit.assert_equal 0 !count ~printer:string_of_int ~msg:"count should be zero";
   tlc # close ~wait_for_compression:true () >>= fun () ->
   Lwt.return()
   
-let setup () =
-  Logger.info_ "Collapser_test.setup" >>= fun () ->
-  let test_dn = "/tmp/collapser" 
-  and _tlx_dir = "/tmp/collapser_tlx"
-  and _head_dir = "/tmp/collapser_head"
-  in
-  let _ = Sys.command (Printf.sprintf "rm -rf '%s'" test_dn) in
-  let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _tlx_dir) in 
-  let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _head_dir) in
-  File_system.mkdir test_dn 0o755 >>= fun () ->
-  File_system.mkdir _tlx_dir 0o755 >>= fun () ->
-  File_system.mkdir _head_dir 0o755 >>= fun () ->
-  Lwt.return (test_dn, _tlx_dir, _head_dir)
+let setup =
+  let c = ref 0 in
+  (fun () ->
+    Logger.info_f_ "Collapser_test.setup_%i" !c >>= fun () ->
+    let root =
+      let w = try Sys.getenv "WORKSPACE"  with _ -> "" in
+      w ^ "/tmp"
+    in
+    let test_dn  =  Printf.sprintf "%s/collapser_%i"      root !c 
+    and _tlx_dir =  Printf.sprintf "%s/collapser_tlx_%i"  root !c 
+    and _head_dir = Printf.sprintf "%s/collapser_head_%i" root !c
+    in
+    let () = incr c in
+    let _ = Sys.command (Printf.sprintf "rm -rf '%s'" test_dn) in
+    let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _tlx_dir) in 
+    let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _head_dir) in
+    let _ = Sys.command (Printf.sprintf "mkdir -p '%s'" root) in
+    File_system.mkdir test_dn 0o755 >>= fun () ->
+    File_system.mkdir _tlx_dir 0o755 >>= fun () ->
+    File_system.mkdir _head_dir 0o755 >>= fun () ->
+    Lwt.return (test_dn, _tlx_dir, _head_dir))
 
 
 let teardown (dn, tlx_dir, head_dir) =
