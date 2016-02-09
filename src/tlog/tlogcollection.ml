@@ -49,7 +49,10 @@ class type tlog_collection =
   method complete_file_to_deliver: Sn.t -> (int * Sn.t) option
                                                
   method dump_tlog_file : int -> Lwt_io.output_channel -> unit Lwt.t
-  method save_tlog_file : string -> int64 -> Lwt_io.input_channel -> unit Lwt.t
+  method save_tlog_file : Sn.t
+                          -> string -> int64
+                          -> Lwt_io.input_channel
+                          -> unit Lwt.t
   method reinit : unit -> unit Lwt.t 
   method get_head_name : unit -> string
   method get_tlog_from_i : Sn.t -> int

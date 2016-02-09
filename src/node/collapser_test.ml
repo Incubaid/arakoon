@@ -117,6 +117,7 @@ let test_collapse_many (dn, tlx_dir, head_dir) =
   Lwt.return ()
 
 let test_repeated_collapse (dn,tlx_dir, head_dir) =
+  Logger.info_f_ "---------- test_repeated_collapse ----------" >>= fun () ->
   let node_id = "node_name" in
   Logger.debug_f_ "test_collapse_many dn=%s, tlx_dir=%s, head_dir=%s" dn tlx_dir head_dir
   >>= fun () ->
@@ -139,13 +140,14 @@ let test_repeated_collapse (dn,tlx_dir, head_dir) =
   
   let store_methods = (Batched_store.Local_store.copy_store2, head_location, 0.0) in
   File_system.unlink head_location >>= fun () ->
-
-  _make_values tlc 0 520 >>= fun () ->
+  let n_entries = 520 in
+  _make_values tlc 0 n_entries >>= fun () ->
   let collapse_slowdown = None in
   Collapser.collapse_many tlc (module S) store_methods 1 cb' cb collapse_slowdown >>= fun () ->
   Logger.debug_f_"post collapse: count=%i" !count >>= fun () ->
   OUnit.assert_equal 0 !count ~printer:string_of_int ~msg:"count should be zero";
-  _make_values tlc 520 1040 >>= fun () ->
+  Logger.debug_f_ "adding %i more entries" n_entries >>= fun () ->
+  _make_values tlc n_entries (2 * n_entries) >>= fun () ->
   Lwt_unix.sleep 2.0 >>= fun () -> (* just to make debugging less messy *)
   Collapser.collapse_many tlc (module S) store_methods 1 cb' cb collapse_slowdown >>= fun () ->
   Logger.debug_f_"post collapse: count=%i" !count >>= fun () ->
@@ -156,6 +158,7 @@ let test_repeated_collapse (dn,tlx_dir, head_dir) =
 let setup =
   let c = ref 0 in
   (fun () ->
+    let () = incr c in
     Logger.info_f_ "Collapser_test.setup_%i" !c >>= fun () ->
     let root =
       let w = try Sys.getenv "WORKSPACE"  with _ -> "" in
@@ -165,7 +168,6 @@ let setup =
     and _tlx_dir =  Printf.sprintf "%s/collapser_tlx_%i"  root !c 
     and _head_dir = Printf.sprintf "%s/collapser_head_%i" root !c
     in
-    let () = incr c in
     let _ = Sys.command (Printf.sprintf "rm -rf '%s'" test_dn) in
     let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _tlx_dir) in 
     let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _head_dir) in

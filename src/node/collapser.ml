@@ -100,15 +100,6 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                Lwt_unix.sleep period >>= fun () ->
                Lwt.return r
           in
-          (* let get_next_point i =
-              let next_r = tlog_coll # next_rollover i in
-              match next_r with
-                | None -> Sn.zero
-                | Some i -> i
-          in
-          let next_rollover_point = ref (get_next_point (Sn.pred start_i))
-          in
-           *)
           let add_to_store entry =
             let i = Entry.i_of entry
             and value = Entry.v_of entry

@@ -527,7 +527,7 @@ class tlc2
       >>= fun () ->
       Logger.debug_f_ "dumped:%s (%Li) bytes" canonical length
 
-    method save_tlog_file remote_name length ic =
+    method save_tlog_file first_i remote_name length ic =
       (* what with rotation (jump to new tlog), open streams, ...*)
       begin
         match _file with
@@ -540,11 +540,15 @@ class tlc2
       let full_name = TlogMap.get_full_path tlog_map remote_name in
       let extension = Tlog_map.extension_of remote_name in
       let tmp = full_name ^ ".tmp" in
-      Logger.info_f_ "save_tlog_file: remote_name: %s" tmp >>= fun () ->
+      
+      Logger.info_f_
+        "save_tlog_file: first_i:%s remote_name:%s in %s"
+        (Sn.string_of first_i) remote_name tmp
+      >>= fun () ->
+      
       Lwt_io.with_file ~mode:Lwt_io.output tmp
                        (fun oc -> Llio.copy_stream ~length ~ic ~oc)
       >>= fun () ->
-      Tlog_map.first_i_of ~extension_override:extension tmp >>= fun first_i ->
       let new_outer = TlogMap.new_outer tlog_map first_i in
       let new_name = Printf.sprintf "%03i%s" new_outer extension in
       let canon = TlogMap.get_full_path tlog_map new_name in

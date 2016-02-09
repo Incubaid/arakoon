@@ -106,8 +106,10 @@ class remote_nodestream ((ic,oc) as conn) =
              Llio.input_string ic >>= fun name ->
              Sn.input_sn ic       >>= fun start_i ->
              Llio.input_int64 ic  >>= fun length ->
-             Logger.info_f_ "retrieving %s (%Li bytes)" name length >>= fun () ->
-             tlog_coll # save_tlog_file name length ic >>= fun () ->
+             Logger.info_f_ "retrieving start_i:%s (name:%s, %Li bytes)"
+                            (Sn.string_of start_i) name length
+             >>= fun () ->
+             tlog_coll # save_tlog_file start_i name length ic >>= fun () ->
              loop_parts ()
            end
         | x  -> Llio.lwt_failfmt "don't know what %i means" x
