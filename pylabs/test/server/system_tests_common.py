@@ -726,6 +726,7 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     lease = int(lease_duration)
     logging.info( "Setting lease expiration to %d" % lease)
     cluster.setMasterLease( lease )
+    return cluster
 
 
 def setup_n_nodes ( n, force_master, home_dir,
@@ -762,6 +763,10 @@ def setup_2_nodes_forced_master_mini (home_dir):
     extra = {'tlog_max_entries':'1000'}
     setup_n_nodes( 2, True, home_dir, extra)
 
+def setup_3_nodes_forced_master_mini (home_dir):
+    extra = {'tlog_max_entries':'1000'}
+    setup_n_nodes( 3, True, home_dir, extra)
+    
 def setup_2_nodes_forced_master_normal_slaves (home_dir):
     setup_n_nodes( 2, True, home_dir)
 

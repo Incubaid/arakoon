@@ -41,7 +41,7 @@ def test_272():
         raise Exception ("benchmark should not have finished yet.")
 
     for i in range(100):
-        Common.rotate_log(node, 1, False)
+        Common.rotate_log(node, 5, False)
         time.sleep(0.2)
         Common.assert_running_nodes(1)
         rc = bench.returncode
