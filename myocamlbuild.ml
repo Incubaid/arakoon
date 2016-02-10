@@ -7,6 +7,8 @@ let dependencies = [ "lwt";
                      "bz2";
                      "quickcheck";
                      "ocplib-endian";
+                     "redis";
+                     "uri";
                    ]
 
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)

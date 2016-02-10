@@ -18,7 +18,7 @@ limitations under the License.
 
 let section = Logger.Section.main
 
-let config_url = ref (Arakoon_url.make "cfg/arakoon.ini")
+let config_url = ref (Arakoon_config_url.make "cfg/arakoon.ini")
 
 let default_lease_period = 10
 let default_max_value_size = 8 * 1024 * 1024
@@ -139,7 +139,8 @@ module Node_cfg = struct
             tlog_dir:string;
             tlx_dir:string;
             head_dir:string;
-            log_dir:string;
+            log_sinks : Arakoon_log_sink.t list;
+            crash_log_sinks : Arakoon_log_sink.t list;
             log_level:string;
             log_config:string option;
             batched_transaction_config:string option;
@@ -167,7 +168,8 @@ module Node_cfg = struct
            ; "messaging_port", int t.messaging_port
            ; "home", string t.home
            ; "tlog_dir", string t.tlog_dir
-           ; "log_dir", string t.log_dir
+           ; "log_sinks", list Arakoon_log_sink.to_string t.log_sinks
+           ; "crash_log_sinks", list Arakoon_log_sink.to_string t.crash_log_sinks
            ; "tlx_dir", string t.tlx_dir
            ; "head_dir", string t.head_dir
            ; "log_level", string t.log_level
@@ -299,7 +301,8 @@ module Node_cfg = struct
         tlog_dir = home;
         tlx_dir = home;
         head_dir = home;
-        log_dir = ":None";
+        log_sinks = [];
+        crash_log_sinks = [];
         log_level = "DEBUG";
         log_config = Some "default_log_config";
         batched_transaction_config = Some "default_batched_transaction_config";
@@ -570,6 +573,26 @@ module Node_cfg = struct
       try get_string "log_dir"
       with _ -> home
     in
+    let log_sinks =
+      let default_sink = Printf.sprintf "%s/%s.log" log_dir node_name in
+      (try Ini.get
+             inifile node_name "log_sinks"
+             Ini.p_string_list
+             (Ini.default [ default_sink ])
+       with _ -> [ default_sink ])
+      |> List.map
+           Arakoon_log_sink.make
+    in
+    let crash_log_sinks =
+      let default = Printf.sprintf "%s/%s" log_dir node_name in
+      (try Ini.get
+             inifile node_name "crash_log_sinks"
+             Ini.p_string_list
+             (Ini.default [ default ])
+       with _ -> [ default ])
+      |> List.map
+           (fun x -> Arakoon_log_sink.File x)
+    in
     let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
     let get_string_option x = Ini.get inifile node_name x (Ini.p_option Ini.p_string) (Ini.default None) in
     let tls_cert = get_string_option "tls_cert"
@@ -599,7 +622,8 @@ module Node_cfg = struct
      tlog_dir;
      tlx_dir;
      head_dir;
-     log_dir;
+     log_sinks;
+     crash_log_sinks;
      log_level;
      log_config;
      batched_transaction_config;

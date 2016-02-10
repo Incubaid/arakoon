@@ -314,7 +314,7 @@ let main () =
      "run system tests (you need a running installation)");
     ("--version", set_laction ShowVersion, "shows version");
     (* ("-port", Arg.Set_int port, "specifies server port"); *)
-    ("-config", Arg.String (fun s -> config_url := Arakoon_url.make s),
+    ("-config", Arg.String (fun s -> config_url := Arakoon_config_url.make s),
      "specifies config url (if protocol is absent, 'file' is assumed; default = cfg/arakoon.ini )");
     ("-autofix", Arg.Set autofix, "attempt to autofix (option to -node)");
     ("-catchup-only", Arg.Set catchup_only,

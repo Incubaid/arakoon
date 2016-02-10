@@ -60,22 +60,19 @@ let _config_logging me get_cfgs =
   let () = set_level Client_protocol.section log_config.client_protocol in
   let () = set_level Multi_paxos.section log_config.paxos in
   let () = set_level Tcp_messaging.section log_config.tcp_messaging in
-  let log_dir = cfg.log_dir in
-  let node_name = cfg.node_name in
-  let common_prefix = log_dir ^ "/" ^ node_name in
-  let log_file_name = common_prefix ^ ".log" in
-  let get_crash_file_name () =
-    Printf.sprintf "%s.debug.%f" common_prefix (Unix.time()) in
+
   if not cfg.is_test
   then
-    begin
-      Crash_logger.setup_default_logger log_file_name get_crash_file_name
-      >>= fun logger -> Lwt.return (Some logger)
-    end
+    Arakoon_logger.setup_log_sinks cfg.log_sinks >>= fun () ->
+    let dump_crash_log () =
+      Lwt_list.iter_p
+        Crash_logger.dump_crash_log
+        cfg.crash_log_sinks >>= fun () ->
+      Logger.info_ "Crash log dumped"
+    in
+    Lwt.return dump_crash_log
   else
-    begin
-      Lwt.return None
-    end
+    Lwt.return (fun () -> Logger.info_ "No crash_log defined")
 
 let _config_batched_transactions node_cfg cluster_cfg =
   let get_optional o default = match o with
@@ -388,11 +385,7 @@ let _main_2 (type s)
   make_config () >>= fun cluster_cfg ->
   let cfgs = cluster_cfg.cfgs in
   let me, others = Node_cfg.Node_cfg.split name cfgs in
-  _config_logging me.node_name make_config >>= fun dump_crash_log ->
-  let maybe_dump_crash_log () =
-    match dump_crash_log with
-    | None -> Logger.info_ "No crash_log defined"
-    | Some f -> f () >>= fun () -> Logger.info_ "Crash log dumped" in
+  _config_logging me.node_name make_config >>= fun maybe_dump_crash_log ->
   let _ = Lwt_unix.on_signal Sys.sigusr2 (fun _ ->
       let handle () =
         Lwt_unix.sleep 0.001 >>= fun () ->

@@ -16,7 +16,7 @@ Routing
 Interval
 Ncfg
 Client_cfg
-Arakoon_url
+Arakoon_config_url
 Arakoon_etcd
 Ini
 Inifiles
@@ -25,6 +25,9 @@ Inilexer
 Client_log
 Simple_store
 Logger
+Arakoon_log_sink
+Arakoon_redis
+Arakoon_logger
 Crash_logger
 Ring_buffer
 Plugin_helper
@@ -35,3 +38,4 @@ Network
 Typed_ssl
 Unix_fd
 Tcp_keepalive
+Lwt_buffer

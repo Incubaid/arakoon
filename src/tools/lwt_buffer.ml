@@ -42,7 +42,7 @@ module Lwt_buffer = struct
     let capacity = Some i in
     create ~capacity ()
 
-  let _is_full t =
+  let is_full t =
     match t.capacity with
       | None -> false
       | Some c -> Queue.length t.q = c
@@ -55,7 +55,7 @@ module Lwt_buffer = struct
            let () = Lwt_condition.signal t.empty () in
            Lwt.return ()
          in
-         if _is_full t
+         if is_full t
          then
            if t.leaky
            then Lwt.return () (* Logger.debug "leaky buffer reached capacity: dropping" *)
@@ -78,6 +78,14 @@ module Lwt_buffer = struct
     let e = Queue.take t.q in
     let () = Lwt_condition.signal t.full () in
     Lwt.return e
+
+  let take_no_wait t =
+    if Queue.is_empty t.q
+    then None
+    else
+      let item = Queue.take t.q in
+      let () = Lwt_condition.signal t.full () in
+      Some item
 
   let harvest t =
     Lwt_mutex.with_lock t.empty_m

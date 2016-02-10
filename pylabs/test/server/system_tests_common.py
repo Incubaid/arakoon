@@ -647,7 +647,8 @@ def build_node_dir_names ( nodeName, base_dir = None ):
 
 def setup_n_nodes_base(c_id, node_names, force_master,
                        base_dir, base_msg_port, base_client_port,
-                       extra = None, witness_nodes = False, useIPV6=False,
+                       extra = None, nodes_extra = None,
+                       witness_nodes = False, useIPV6=False,
                        slowCollapser = False):
 
     X.subprocess.check_call("sudo /sbin/iptables -F".split(' ') )
@@ -699,6 +700,9 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     for i in range (n):
         nodeName = node_names[ i ]
         config.set(nodeName, '__tainted_fsync_tlog_dir', 'false')
+        if nodes_extra and nodes_extra.get(nodeName):
+            for k,v in nodes_extra[nodeName].items():
+                config.set(nodeName, k, v)
 
     #
     #
@@ -724,14 +728,15 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     cluster.setMasterLease( lease )
 
 
-def setup_n_nodes ( n, force_master, home_dir , extra = None,
+def setup_n_nodes ( n, force_master, home_dir,
+                    extra = None, nodes_extra = None,
                     witness_nodes = False, useIPV6 = False,
                     slowCollapser = False):
 
     setup_n_nodes_base(cluster_id, node_names[0:n], force_master, data_base_dir,
                        node_msg_base_port, node_client_base_port,
-                       extra = extra, witness_nodes = witness_nodes,
-                       useIPV6 = useIPV6,
+                       extra = extra, nodes_extra = nodes_extra,
+                       witness_nodes = witness_nodes, useIPV6 = useIPV6,
                        slowCollapser = slowCollapser)
 
     logging.info( "Starting cluster" )

@@ -103,8 +103,7 @@ let _compress_tlog
           let compress_and_write last_i buffer =
             let contents = Buffer.contents buffer in
             let t0 = Unix.gettimeofday () in
-            Lwt_preemptive.detach (fun () -> compress contents) ()
-            >>= fun output ->
+            let output = compress contents in
             begin
               if !cancel
               then Lwt.fail Canceled

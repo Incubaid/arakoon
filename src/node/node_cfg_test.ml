@@ -27,6 +27,6 @@ let test_correctness () =
   in
   Lwt_main.run t
 
-
-
-let suite = "node_cfg" >::: ["correctness" >:: test_correctness]
+let suite = "node_cfg" >::: [
+      "correctness" >:: test_correctness;
+    ]
