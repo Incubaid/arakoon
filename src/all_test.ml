@@ -59,8 +59,6 @@ let crc32c_tests = "crc32c" >::: [Crc32c_test.suite]
 
 let nursery = "nursery" >::: [
     Routing_test.suite;
-    Client_cfg_test.suite;
-    Node_cfg_test.suite;
   ]
 
 let system = "system" >::: [
@@ -87,5 +85,8 @@ let suite = "universe" >::: [
     system;
     nursery;
     store;
+    Client_cfg_test.suite;
+    Node_cfg_test.suite;
     Std.List.Test.suite;
+    Arakoon_log_sink_test.suite;
   ]

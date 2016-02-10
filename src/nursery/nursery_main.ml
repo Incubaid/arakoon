@@ -91,8 +91,8 @@ let _get_keeper_config_generic fetcher url=
 let get_keeper_config cfg_url =
   let fetcher =
     match cfg_url with
-    | Arakoon_url.File f             -> (fun () -> Lwt_extra.read_file f)
-    | Arakoon_url.Etcd (peers, path) -> (fun () -> Arakoon_etcd.retrieve_value peers path)
+    | Arakoon_config_url.File f             -> (fun () -> Lwt_extra.read_file f)
+    | Arakoon_config_url.Etcd (peers, path) -> (fun () -> Arakoon_etcd.retrieve_value peers path)
   in
   _get_keeper_config_generic fetcher cfg_url
 
