@@ -103,7 +103,7 @@ let format_message
     component
     seqnum
     (Lwt_log.string_of_level level)
-    (String.concat "\n" lines)
+    (String.concat "; " lines)
 
 let reopen_loggers = ref (fun () -> Lwt.return ())
 

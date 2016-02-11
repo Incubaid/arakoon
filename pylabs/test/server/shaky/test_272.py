@@ -39,7 +39,7 @@ def test_272():
     bench = subprocess.Popen([Common.CONFIG.binary_full_path,
                               '-config', path ,'--benchmark',
                               '-scenario','master, set, set_tx, get',
-                              '-max_n', '20000'], stdout=f,stderr=f)
+                              '-max_n', '60000'], stdout=f,stderr=f)
     time.sleep(10.0) # give it time to get up to speed
     rc = bench.returncode
     if rc <> None:
@@ -80,11 +80,14 @@ def test_272():
         with open(fn,'r') as f:
             lines = f.readlines()
             for line in lines:
-                parts =  line.split('-')
-                if len(parts) > 5:
+                try:
+                    parts =  line.split(" - ")
                     s = parts[4]
                     seqn_next = int(s)
                     assert_equals(seqn_next, seqn + 1,
                                   msg = "%s:sequence numbers do not follow: %s;%s" % (fn, seqn , seqn_next))
                     seqn = seqn_next
+                except Exception as ex:
+                    logging.info("Error while parsing line %s" % line)
+                    raise ex
     logging.info("last seqn:%i" % seqn)
