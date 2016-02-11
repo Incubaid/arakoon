@@ -514,14 +514,15 @@ class tlc2
       in
       Logger.debug_f_ "n = %03i => canonical=%s" n canonical >>= fun () ->
       let name = Filename.basename canonical in
+      let extension = extension_of name in
       let start_i = TlogMap.get_start_i tlog_map n in
       match start_i with
       | None -> failwith (Printf.sprintf "tlogcollection doesn't know tlog:%i" n)
       | Some start_i ->
          begin
-           Llio.output_string oc name >>= fun () ->
-           Sn.output_sn oc start_i    >>= fun () ->
-           File_system.stat canonical >>= fun stats ->
+           Llio.output_string oc extension >>= fun () ->
+           Sn.output_sn oc start_i         >>= fun () ->
+           File_system.stat canonical      >>= fun stats ->
            let length = Int64.of_int(stats.Unix.st_size)
                                     (* why don't they use largefile ? *)
            in
@@ -543,25 +544,23 @@ class tlc2
          _file <- None;
          Lwt.return_unit
 
-    method save_tlog_file first_i remote_name length ic =
+    method save_tlog_file first_i extension length ic =
       (* what with rotation (jump to new tlog), open streams, ...*)
       self # _maybe_close_current_file ()
-      >>= fun () ->                                                               
-      let full_name = TlogMap.get_full_path tlog_map remote_name in
-      let extension = Tlog_map.extension_of remote_name in
-      let tmp = full_name ^ ".tmp" in
+      >>= fun () ->
+      let new_outer = TlogMap.new_outer tlog_map first_i in
+      let new_name = Printf.sprintf "%03i%s" new_outer extension in
+      let canon = TlogMap.get_full_path tlog_map new_name in
+      let tmp = canon ^ ".tmp" in
       
       Logger.info_f_
-        "save_tlog_file: first_i:%s remote_name:%s in %s"
-        (Sn.string_of first_i) remote_name tmp
+        "save_tlog_file: first_i:%s extension:%s in %s"
+        (Sn.string_of first_i) extension tmp
       >>= fun () ->
       
       Lwt_io.with_file ~mode:Lwt_io.output tmp
                        (fun oc -> Llio.copy_stream ~length ~ic ~oc)
       >>= fun () ->
-      let new_outer = TlogMap.new_outer tlog_map first_i in
-      let new_name = Printf.sprintf "%03i%s" new_outer extension in
-      let canon = TlogMap.get_full_path tlog_map new_name in
       File_system.rename tmp canon >>= fun () ->
       let () = TlogMap.set_should_roll tlog_map in
       Lwt.return_unit
