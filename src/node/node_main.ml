@@ -26,12 +26,7 @@ open Statistics
 let section = Logger.Section.main
 
 
-let _config_logging me get_cfgs =
-  get_cfgs () >>= fun cluster_cfg ->
-  let cfg =
-    try List.find (fun c -> c.node_name = me) cluster_cfg.cfgs
-    with Not_found -> failwith ("Could not find config for node " ^ me )
-  in
+let _config_log_levels me cluster_cfg cfg =
   let log_config =
     match cfg.log_config with
       | None -> Node_cfg.Node_cfg.get_default_log_config ()
@@ -60,7 +55,15 @@ let _config_logging me get_cfgs =
   let () = set_level Client_protocol.section log_config.client_protocol in
   let () = set_level Multi_paxos.section log_config.paxos in
   let () = set_level Tcp_messaging.section log_config.tcp_messaging in
+  Lwt.return ()
 
+let _config_logging me get_cfgs =
+  get_cfgs () >>= fun cluster_cfg ->
+  let cfg =
+    try List.find (fun c -> c.node_name = me) cluster_cfg.cfgs
+    with Not_found -> failwith ("Could not find config for node " ^ me )
+  in
+  _config_log_levels me cluster_cfg cfg >>= fun () ->
   if not cfg.is_test
   then
     Arakoon_logger.setup_log_sinks cfg.log_sinks >>= fun () ->
@@ -148,13 +151,16 @@ let _config_service ?ssl_context ~tcp_keepalive cfg stop backend =
   let uber_service () = Lwt_list.iter_p (fun f -> f ()) services in
   uber_service
 
-let _log_rotate cfg i get_cfgs =
+let _log_rotate me i get_cfgs =
   Logger.warning_f_ "received USR1 (%i) going to close/reopen log file" i
   >>= fun () ->
-  let logger = !Lwt_log.default in
-  _config_logging cfg get_cfgs >>= fun _ ->
-  Lwt_log.close logger >>= fun () ->
-  Lwt.return ()
+  get_cfgs () >>= fun cluster_cfg ->
+  let cfg =
+    try List.find (fun c -> c.node_name = me) cluster_cfg.cfgs
+    with Not_found -> failwith ("Could not find config for node " ^ me )
+  in
+  _config_log_levels me cluster_cfg cfg >>= fun () ->
+  !Arakoon_logger.reopen_loggers ()
 
 let log_prelude cluster_cfg =
   Logger.info_ "--- NODE STARTED ---" >>= fun () ->
