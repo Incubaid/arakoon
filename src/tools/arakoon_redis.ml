@@ -19,7 +19,6 @@ open Lwt.Infix
 let make_redis_logger ~host ~port ~key =
   let open Lwt_buffer in
   let buffer = Lwt_buffer.create_fixed_capacity 100 in
-  let stop = ref false in
   let lg_output line =
     if Lwt_buffer.is_full buffer
     then
@@ -30,10 +29,7 @@ let make_redis_logger ~host ~port ~key =
         line
         buffer
   in
-  let close () =
-    stop := true;
-    Lwt.return_unit
-  in
+  let reopen () = Lwt.return_unit in
   let redis_t () =
     let module R = Redis_lwt.Client in
     let rec outer () =
@@ -41,29 +37,18 @@ let make_redis_logger ~host ~port ~key =
         (fun () ->
          let rec inner client =
            (* TODO push multiple items in one go? *)
-           if !stop
-           then
-             Lwt.fail Lwt.Canceled
-           else
-             begin
-               Lwt_buffer.take buffer >>= fun logline ->
-               R.rpush client key logline >>= fun _list_length ->
-               inner client
-             end
+           Lwt_buffer.take buffer >>= fun logline ->
+           R.rpush client key logline >>= fun _list_length ->
+           inner client
          in
          R.with_connection
            R.({ host ;port; })
            inner)
         (fun _ -> Lwt.return ()) >>= fun () ->
-      if !stop
-      then Lwt.return ()
-      else
-        begin
-          Lwt_unix.sleep 1. >>=
-          outer
-        end
+      Lwt_unix.sleep 1. >>= fun () ->
+      outer ()
     in
     outer ()
   in
   Lwt.ignore_result (redis_t ());
-  lg_output, close
+  lg_output, reopen

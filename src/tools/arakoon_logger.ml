@@ -18,13 +18,22 @@ open Lwt.Infix
 
 let file_logger file_name =
   let flags = [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_APPEND; Unix.O_NONBLOCK] in
-  Lwt_unix.openfile file_name flags 0o640 >>= fun fd ->
-  Lwt_unix.set_close_on_exec fd;
+  let fd_ref = ref None in
+  let get_fd () =
+    match !fd_ref with
+    | None ->
+       Lwt_unix.openfile file_name flags 0o640 >>= fun fd ->
+       fd_ref := Some fd;
+       Lwt.return fd
+    | Some fd ->
+       Lwt.return fd
+  in
   let mutex = Lwt_mutex.create () in
   let lg_output line =
     Lwt_mutex.with_lock
       mutex
       (fun () ->
+       get_fd () >>= fun fd ->
        let rec inner offset len =
          Lwt_unix.write fd line offset len >>= fun written ->
          if written = len
@@ -35,8 +44,17 @@ let file_logger file_name =
        Lwt_unix.write fd "\n" 0 1 >>= fun _ ->
        Lwt.return_unit)
   in
-  let close () = Lwt_unix.close fd in
-  Lwt.return (lg_output, close)
+  let reopen () =
+    Lwt_mutex.with_lock
+      mutex
+      (fun () ->
+       match !fd_ref with
+       | None -> Lwt.return_unit
+       | Some fd ->
+          fd_ref := None;
+          Lwt_unix.close fd)
+  in
+  Lwt.return (lg_output, reopen)
 
 let console_logger =
   let mutex = Lwt_mutex.create () in
@@ -47,8 +65,8 @@ let console_logger =
        Lwt_io.write Lwt_io.stdout line >>= fun () ->
        Lwt_io.write_char Lwt_io.stdout '\n')
   in
-  let close () = Lwt.return_unit in
-  lg_output, close
+  let reopen () = Lwt.return_unit in
+  lg_output, reopen
 
 
 let format_message
@@ -87,6 +105,8 @@ let format_message
     (Lwt_log.string_of_level level)
     (String.concat "\n" lines)
 
+let reopen_loggers = ref (fun () -> Lwt.return ())
+
 let setup_log_sinks log_sinks =
   Lwt_list.map_p
     (let open Arakoon_log_sink in
@@ -119,10 +139,12 @@ let setup_log_sinks log_sinks =
                           Lwt_list.iter_p
                             (fun (lg_output, _) -> lg_output logline)
                             loggers)
-                 ~close:(fun () ->
-                         Lwt_list.iter_p
-                           (fun (_, close) -> close ())
-                           loggers)
+                 ~close:(fun () -> Lwt.return ())
   in
+  reopen_loggers :=
+    (fun () ->
+     Lwt_list.iter_p
+       (fun (_, reopen) -> reopen ())
+       loggers);
   Lwt_log.default := logger;
   Lwt.return ()
