@@ -85,7 +85,7 @@ class mem_tlog_collection _name =
 
     method get_tlog_from_i _ = 0
     method get_start_i n = Some Sn.zero
-    method is_rollover_point _ = failwith "is_rollover_point not supported"
+    method is_rollover_point _ = false
     method next_rollover _ = Some Int64.max_int
 
     method log_value_explicit i (v:Value.t) ~sync marker =
@@ -100,7 +100,7 @@ class mem_tlog_collection _name =
         Lwt.return ()
 
     method remove_below _i = Lwt.return ()
-    method complete_file_to_deliver = failwith "complete_tlog_file_to_deliver not supported"
+    method complete_file_to_deliver _ = None
   end
 
 let make_mem_tlog_collection

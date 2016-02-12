@@ -295,13 +295,15 @@ let ahead_master_loses_role () =
     }
   in
   let get_cfgs () = cluster_cfg |> Lwt.return in
+  
   let v0 = Value.create_master_value ~lease_start:0. node0 in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let v2 = Value.create_client_value [Update.Set("invalidkey", "shouldnotbepresent")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
-
+  let dump_tlogs () = Lwt_list.iter_s (_dump_tlc ~tlcs) [node0;node1;node2]
+  in
   let t_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0] node0 () in
   let t_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 () in
   let run_previous_master = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1;v2] node2 in
@@ -309,7 +311,16 @@ let ahead_master_loses_role () =
   Lwt.ignore_result t_node0;
   Lwt.ignore_result t_node1;
   (* sleep a bit so the previous 2 slaves can make progress *)
-  Lwt_unix.sleep ((float lease_period) *. 1.5) >>= fun () ->
+  Lwt_unix.sleep ((float lease_period) *. 3.0) >>= fun () ->
+  Lwt.catch
+    (fun () -> Client_main.find_master cluster_cfg ~tls:None >>= fun master ->
+               Lwt.return_unit)
+    (fun exn ->
+      Logger.fatal_f_ ~exn "NO MASTER" >>= fun () ->
+      dump_tlogs () >>= fun () ->
+      Lwt.fail exn
+    )
+  >>= fun () ->
   let t_previous_master = run_previous_master () in
   Lwt.ignore_result t_previous_master;
   (* allow previous master to catch up with the others *)
@@ -325,7 +336,7 @@ let ahead_master_loses_role () =
     OUnit.assert_bool (Printf.sprintf "value for '%s' should not be in store" key) (not exists);
     Lwt.return ()
   in
-  Lwt_list.iter_s (_dump_tlc ~tlcs)   [node0;node1;node2]>>= fun () ->
+  dump_tlogs () >>= fun () ->
   Lwt_list.iter_s check_store [node0;node1;node2]
 
 
