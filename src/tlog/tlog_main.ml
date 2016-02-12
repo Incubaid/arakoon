@@ -27,7 +27,7 @@ let dump_tlog filename ~values=
     Lwt_io.printlf "%s:%s%s" (Sn.string_of i)
       (Value.value2s v ~values) ms
   in
-  let folder,_,index = Tlc2.folder_for filename None in
+  let folder,_,index = Tlog_map.folder_for filename None in
 
   let t () =
     begin
@@ -53,7 +53,7 @@ let _last_entry filename =
     let () = last := Some entry in
     Lwt_io.printlf "%s:%Li" (Sn.string_of i) p
   in
-  let folder,_,index = Tlc2.folder_for filename None in
+  let folder,_,index = Tlog_map.folder_for filename None in
   let do_it ic =
     let lowerI = Sn.start in
     let higherI = None
@@ -92,6 +92,8 @@ let strip_tlog filename =
   Lwt_extra.run t
 
 let _mark_tlog file_name node_name =
+  let section = Logger.Section.main in
+  Logger.debug_f_ "_mark_tlog %s %s" file_name node_name >>= fun () ->
   _last_entry file_name >>= fun last ->
   match last with
   | None -> Lwt.return 0

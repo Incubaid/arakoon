@@ -83,6 +83,7 @@ type client_command =
   | GET_TXID
   | COPY_DB_TO_HEAD
   | USER_HOOK
+  | LAST_ENTRIES3
 
 
 let code2int = [
@@ -133,6 +134,7 @@ let code2int = [
   GET_TXID                , 0x43l;
   COPY_DB_TO_HEAD         , 0x44l;
   USER_HOOK               , 0x45l;
+  LAST_ENTRIES3           , 0x46l;
 ]
 
 let int2code =

@@ -35,15 +35,18 @@ def test_272():
     cluster = Common._getCluster()
     path = cluster._getConfigFileName() + ".cfg"
     logging.info('path=%s', path)
+
     f = open("./outputFile","wb")
     bench = subprocess.Popen([Common.CONFIG.binary_full_path,
                               '-config', path ,'--benchmark',
                               '-scenario','master, set, set_tx, get',
                               '-max_n', '60000'], stdout=f,stderr=f)
+
     time.sleep(10.0) # give it time to get up to speed
     rc = bench.returncode
     if rc <> None:
         raise Exception ("benchmark should not have finished yet.")
+
 
     cfg = Common.getConfig(node)
     log_dir = cfg['log_dir']
@@ -58,6 +61,7 @@ def test_272():
         print "%s => %s" % (log_file, new_file)
         os.rename (log_file, new_file)
         Common.send_signal(node,signal.SIGUSR1)
+
         time.sleep(0.2)
         Common.assert_running_nodes(1)
         rc = bench.returncode

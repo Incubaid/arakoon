@@ -18,6 +18,7 @@ open Lwt
 open Routing
 open Node_cfg.Node_cfg
 open Interval
+open Tlog_map
 
 module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
@@ -76,8 +77,8 @@ let inject_as_head fn node_id cfg_url ~force ~in_place =
       | [] -> failwith (Printf.sprintf "unknown node: %S" node_id)
       | x :: _ -> x
     in
-    let tlog_dir = node_cfg.tlog_dir in
-    let tlx_dir = node_cfg.tlx_dir in
+    TlogMap.make node_cfg.tlog_dir node_cfg.tlx_dir node_id ~check_marker:false
+    >>= fun (tlog_map,_,_) ->
     let head_dir = node_cfg.head_dir in
     let old_head_name = Filename.concat head_dir Tlc2.head_fname  in
 
@@ -118,7 +119,7 @@ let inject_as_head fn node_id cfg_url ~force ~in_place =
     if not ok then failwith "new head is not an improvement";
     let bottom_n = match new_head_i with
       | None -> failwith "can't happen"
-      | Some i -> Sn.to_int (Tlc2.get_file_number i)
+      | Some i -> TlogMap.outer_of_i tlog_map i
     in
     begin
       if (not in_place)
@@ -134,11 +135,11 @@ let inject_as_head fn node_id cfg_url ~force ~in_place =
     >>= fun () ->
     Lwt_io.printlf "# [OK]">>= fun () ->
     Lwt_io.printlf "# remove superfluous .tlx files" >>= fun () ->
-    Tlc2.get_tlog_names tlog_dir tlx_dir >>= fun tlns ->
-    let old_tlns = List.filter (fun tln -> let n = Tlc2.get_number tln in n < bottom_n) tlns in
+    TlogMap.get_tlog_names tlog_map >>= fun tlns ->
+    let old_tlns = List.filter (fun tln -> let n = Tlog_map.get_number tln in n < bottom_n) tlns in
     Lwt_list.iter_s
       (fun old_tln ->
-         let canonical = Tlc2.get_full_path tlog_dir tlx_dir old_tln in
+         let canonical = TlogMap.get_full_path tlog_map old_tln in
          Lwt_io.printlf "rm %s" canonical >>= fun () ->
          File_system.unlink canonical
       ) old_tlns >>= fun () ->

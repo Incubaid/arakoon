@@ -90,8 +90,7 @@ let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_i
       tlog_coll # log_value_explicit i value ~sync:false None >>= fun _ ->
       stop_fuse stop
     in
-
-    client # iterate current_i f tlog_coll ~head_saved_cb
+    client # iterate current_i f tlog_coll ~head_saved_cb 
   in
 
   Lwt.catch
@@ -163,13 +162,18 @@ let catchup_store ~stop (type s) me
       | None -> Sn.start
       | Some i -> Sn.succ i
   in
-  if Sn.compare start_i too_far_i > 0
+  let comp = Sn.compare start_i too_far_i in
+  if comp > 0
   then
     let msg = Printf.sprintf
                 "Store counter (%s) is ahead of tlog counter (%s). Aborting."
                 (Sn.string_of start_i) (Sn.string_of too_far_i) in
     Logger.error_ msg >>= fun () ->
     Lwt.fail (StoreAheadOfTlogs(start_i, too_far_i))
+  else if comp = 0
+  then
+    Logger.debug_f_ "catchup_store: start_i:%s == too_far_i:%s nothing to do"
+                    (Sn.string_of start_i) (Sn.string_of too_far_i)
   else
     begin
       Logger.debug_f_ "will replay starting from %s into store, too_far_i:%s"
@@ -191,7 +195,10 @@ let catchup_store ~stop (type s) me
           Lwt.return ()
       in
       let f = make_f ~stop (module S) me maybe_log_progress acc store in
-      tlog_coll # iterate start_i too_far_i f >>= fun () ->
+      let cb _ = Lwt.return_unit in
+      tlog_coll # iterate start_i too_far_i
+                f cb
+      >>= fun () ->
       epilogue (module S) me acc store >>= fun () ->
       let store_i' = S.consensus_i store in
       Logger.info_f_ "catchup_store completed, store is @ %s"
@@ -210,22 +217,9 @@ let catchup_store ~stop (type s) me
               Printf.sprintf
                 "Catchup store failed. Store counter is too low: %s < %s"
                 (Sn.string_of si) (Sn.string_of pred_too_far_i)
-            and n_entries = Sn.of_int !Tlogcommon.tlogEntriesPerFile in
-            if Sn.rem si n_entries = Sn.pred n_entries
-            then
-              let ssi = Sn.succ si in
-              tlog_coll # which_tlog_file ssi >>= function
-              | None ->
-                let n = tlog_coll # get_tlog_from_i ssi in
-                let ni = Sn.to_int n in
-                Lwt.return
-                  (Printf.sprintf
-                     "%s (found tlog nor archive for %3i)" msg ni)
-              | Some _ -> Lwt.return msg
-            else
-              Lwt.return msg
+            in
+            Lwt.fail (StoreCounterTooLow msg)
           end
-          >>= fun msg -> Lwt.fail (StoreCounterTooLow msg)
         else
           Lwt.return ()
       end
@@ -245,7 +239,10 @@ let catchup
   catchup_store ~stop me dbt (Sn.succ until_i) >>= fun () ->
   Logger.info_ "CATCHUP end"
 
-let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((module S : Store.STORE with type t = s), store, tlog_coll) =
+let verify_n_catchup_store
+      (type s) ~stop me ?(apply_last_tlog_value=false)
+      ((module S : Store.STORE with type t = s), store, tlog_coll)
+  =
   let current_i = tlog_coll # get_last_i () in
   let too_far_i =
     if apply_last_tlog_value
@@ -255,23 +252,25 @@ let verify_n_catchup_store (type s) ~stop me ?(apply_last_tlog_value=false) ((mo
       current_i in
   let io_s = Log_extra.option2s Sn.string_of  in
   let si_o = S.consensus_i store in
-  Logger.info_f_ "verify_n_catchup_store; too_far_i=%s current_i=%s si_o:%s"
-    (Sn.string_of too_far_i) (Sn.string_of current_i) (io_s si_o) >>= fun () ->
-   match too_far_i, si_o with
-    | i, None when i <= 0L -> Lwt.return ()
-    | i, Some j when i = j -> Lwt.return ()
-    | i, Some j when i > j ->
-      catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
-    | _, None ->
-      catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
-    | _,_ ->
-      let msg = Printf.sprintf
-        "too_far_i:%s, si_o:%s should not happen: tlogs have been removed?"
-        (Sn.string_of too_far_i) (io_s si_o)
-      in
-      Logger.fatal_ msg >>= fun () ->
-      let maybe a = function | None -> a | Some b -> b in
-      Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, too_far_i))
+
+  Logger.info_f_
+    "verify_n_catchup_store; too_far_i=%s current_i=%s si_o:%s"
+    (Sn.string_of too_far_i) (Sn.string_of current_i) (io_s si_o)
+  >>= fun () ->
+
+  match too_far_i, si_o with
+  | i, None when i <= 0L -> Lwt.return ()
+  | i, Some j when i = j -> Lwt.return ()
+  | i, Some j when i > j -> catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
+  | _, None              -> catchup_store ~stop me ((module S),store,tlog_coll) too_far_i
+  | _,_ ->
+     let msg = Printf.sprintf
+                 "too_far_i:%s, si_o:%s should not happen: tlogs have been removed?"
+                 (Sn.string_of too_far_i) (io_s si_o)
+     in
+     Logger.fatal_ msg >>= fun () ->
+     let maybe a = function | None -> a | Some b -> b in
+     Lwt.fail (StoreAheadOfTlogs(maybe (-1L) si_o, too_far_i))
 
 let last_entries
       (type s) (module S : Store.STORE with type t = s)
@@ -279,73 +278,7 @@ let last_entries
       (tlog_collection:Tlogcollection.tlog_collection)
       (start_i:Sn.t) (oc:Lwt_io.output_channel)
   =
-  (* This one is kept (for how long?)
-     for x-version clusters during upgrades
-  *)
-  Logger.warning_f_ "DEPRECATED : last_entries " >>= fun () ->
-  Logger.debug_f_ "last_entries %s" (Sn.string_of start_i) >>= fun () ->
-  let consensus_i = S.consensus_i store in
-  begin
-    match consensus_i with
-      | None -> Lwt.return ()
-      | Some ci ->
-        begin
-          tlog_collection # get_infimum_i () >>= fun inf_i ->
-          let too_far_i = Sn.succ ci in
-          Logger.debug_f_
-            "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
-            (Sn.string_of too_far_i)
-          >>= fun () ->
-          begin
-            if start_i < inf_i
-            then
-              begin
-                Llio.output_int oc 2 >>= fun () ->
-                tlog_collection # dump_head oc
-              end
-            else
-              Lwt.return start_i
-          end
-          >>= fun start_i2->
-
-
-          let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
-          let rec loop_parts (start_i2:Sn.t) =
-            if Sn.rem start_i2 step = Sn.start &&
-               Sn.add start_i2 step < too_far_i
-            then
-              begin
-                Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
-                >>= fun () ->
-                Llio.output_int oc 3 >>= fun () ->
-                tlog_collection # dump_tlog_file start_i2 oc
-                >>= fun start_i2' ->
-                loop_parts start_i2'
-              end
-            else
-              Lwt.return start_i2
-          in
-          loop_parts start_i2
-          >>= fun start_i3 ->
-          Llio.output_int oc 1 >>= fun () ->
-          let f entry =
-            let i = Entry.i_of entry
-            and v = Entry.v_of entry
-            in
-            Tlogcommon.write_entry oc i v >>= fun _total_size ->
-            Lwt.return ()
-          in
-          Lwt.catch
-            (fun () -> tlog_collection # iterate start_i3 too_far_i f)
-            (function
-              | Tlogcommon.TLogUnexpectedEndOfFile _ -> Lwt.return ()
-              | ex -> Lwt.fail ex) >>= fun () ->
-          Sn.output_sn oc (-1L)
-        end
-  end
-  >>= fun () ->
-  Logger.info_f_ "done with_last_entries"
-
+  Lwt.fail_with "no longer supported"
 
 let last_entries2
       (type s) (module S : Store.STORE with type t = s)
@@ -355,25 +288,93 @@ let last_entries2
   =
   Logger.debug_f_ "last_entries2 %s" (Sn.string_of start_i) >>= fun () ->
   let consensus_i = S.consensus_i store in
+  (* This version is kept for mixed setups were non-flexible nodes
+     are catching up from flexible ones 
+   *)
+  begin
+    match consensus_i with
+    | None -> Lwt.return ()
+    | Some ci ->
+       begin
+         let stream_entries start_i too_far_i =
+           Logger.debug_f_ "stream_entries :%s %s" (Sn.string_of start_i) (Sn.string_of too_far_i)
+           >>= fun () ->
+           let _write_entry entry =
+             let i = Entry.i_of entry
+             and v = Entry.v_of entry
+             in
+             Logger.debug_f_ "write_entry:%s" (Sn.string_of i) >>= fun () ->
+             Tlogcommon.write_entry oc i v >>= fun _total_size ->
+             Lwt.return_unit
+           in
+           let _cb _ = Lwt.return_unit in
+           Llio.output_int oc 1 >>= fun () ->
+           Lwt.catch
+             (fun () -> tlog_collection # iterate start_i too_far_i _write_entry _cb)
+             (function
+              | Tlogcommon.TLogUnexpectedEndOfFile _ -> Lwt.return ()
+              | ex -> Lwt.fail ex)
+           >>= fun () ->
+           Sn.output_sn oc (-1L)
+         in
+         let too_far_i = Sn.succ ci in
+         let maybe_dump_head () =
+           tlog_collection # get_infimum_i () >>= fun inf_i ->
+           Logger.debug_f_
+             "inf_i:%s too_far_i:%s" (Sn.string_of inf_i)
+             (Sn.string_of too_far_i)
+           >>= fun () ->
+           begin
+             if start_i < inf_i
+             then
+               begin
+                 Llio.output_int oc 2 >>= fun () ->
+                 tlog_collection # dump_head oc
+               end
+             else
+               Lwt.return start_i
+           end
+         in
+         begin
+           maybe_dump_head () >>= fun start_i2->
+           stream_entries start_i2 too_far_i
+         end
+         >>= fun () ->
+         Sn.output_sn oc (-2L) >>= fun () ->
+         Logger.info_f_ "done with_last_entries2"
+       end
+  end
+         
+let last_entries3
+      (type s) (module S : Store.STORE with type t = s)
+      store
+      (tlog_collection:Tlogcollection.tlog_collection)
+      (start_i:Sn.t) (oc:Lwt_io.output_channel)
+  =
+  Logger.debug_f_ "last_entries3 %s" (Sn.string_of start_i) >>= fun () ->
+  let consensus_i = S.consensus_i store in
 
   begin
     match consensus_i with
       | None -> Lwt.return ()
       | Some ci ->
-
-        let step = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
-
-        let stream_entries start_i too_far_i =
+         let stream_entries start_i too_far_i =
+           Logger.debug_f_ "stream_entries :%s %s" (Sn.string_of start_i) (Sn.string_of too_far_i)
+           >>= fun () ->
           let _write_entry entry =
             let i = Entry.i_of entry
             and v = Entry.v_of entry
             in
+            Logger.debug_f_ "write_entry:%s" (Sn.string_of i) >>= fun () ->
             Tlogcommon.write_entry oc i v >>= fun _total_size ->
             Lwt.return_unit
           in
+          let _cb _ = Lwt.return_unit in
           Llio.output_int oc 1 >>= fun () ->
           Lwt.catch
-            (fun () -> tlog_collection # iterate start_i too_far_i _write_entry)
+            (fun () -> tlog_collection # iterate start_i too_far_i
+                                       _write_entry _cb
+            )
             (function
               | Tlogcommon.TLogUnexpectedEndOfFile _ -> Lwt.return ()
               | ex -> Lwt.fail ex)
@@ -382,19 +383,18 @@ let last_entries2
         in
         let too_far_i = Sn.succ ci in
         let rec loop_files (start_i2:Sn.t) =
-          if Sn.rem start_i2 step = Sn.start &&
-             Sn.add start_i2 step < too_far_i
-          then
-            begin
-              Logger.debug_f_ "start_i2=%Li < %Li" start_i2 too_far_i
+          Logger.debug_f_ "loop_files start_i2:%s" (start_i2 |> Sn.string_of) >>= fun () ->
+          match tlog_collection # complete_file_to_deliver start_i2 with
+          | None -> Lwt.return start_i2
+          | Some (tlog_number, start_i2') ->
+             begin
+               Logger.debug_f_ "start_i2=%Li < %Li (outputting %03i) start_i2'=%Li"
+                               start_i2 too_far_i tlog_number start_i2'
               >>= fun () ->
               Llio.output_int oc 3 >>= fun () ->
-              tlog_collection # dump_tlog_file start_i2 oc
-              >>= fun start_i2' ->
+              tlog_collection # dump_tlog_file tlog_number oc >>= fun () ->
               loop_files start_i2'
             end
-          else
-            Lwt.return start_i2
         in
         let maybe_dump_head () =
           tlog_collection # get_infimum_i () >>= fun inf_i ->
@@ -418,22 +418,22 @@ let last_entries2
 
           (* maybe stream a bit *)
           begin
-            let (-:) = Sn.sub
-            and (+:) = Sn.add
-            and (/:) = Sn.rem and ( *: ) = Sn.mul
-            in
-            let next_rotation =
-              ((start_i2 +: (step -: 1L)) /: step) *: step
-            in
-            Logger.debug_f_ "next_rotation = %Li" next_rotation >>= fun () ->
-            (if start_i2 < next_rotation && next_rotation < too_far_i
-             then
-               begin
-                 stream_entries start_i2 next_rotation >>= fun () ->
-                 Lwt.return next_rotation
-               end
-             else Lwt.return start_i2
-            )
+            if tlog_collection # is_rollover_point start_i2
+            then
+              Lwt.return start_i2
+            else
+              match tlog_collection # next_rollover start_i2 with
+              | None -> Lwt.return start_i2
+              | Some next_rollover ->
+                 Logger.debug_f_ "next_rollover = %Li" next_rollover >>= fun () ->
+                 (if next_rollover < too_far_i
+                  then
+                    begin
+                      stream_entries start_i2 next_rollover >>= fun () ->
+                      Lwt.return next_rollover
+                    end
+                  else Lwt.return start_i2
+                 )
           end
           >>= fun start_i3 ->
           (* push out files *)

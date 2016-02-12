@@ -9,6 +9,7 @@ let dependencies = [ "lwt";
                      "ocplib-endian";
                      "redis";
                      "uri";
+                     "core";
                    ]
 
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)
@@ -57,7 +58,7 @@ let list_dependencies () =
   let pkgs = List.map query dependencies in
   let lines = List.map (fun (pkg, version, descr) ->
     let tabs = if String.length pkg < 8 then "\t\t" else "\t" in
-    Printf.sprintf "%s%s%s\t%s" pkg tabs version descr)
+    Printf.sprintf "%s%s%12s\t%s" pkg tabs version descr)
     pkgs
   in
   String.concat "\n" lines

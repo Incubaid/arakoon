@@ -86,7 +86,6 @@ let show_version ()=
     Printf.printf "compiled: %S\n" compile_time;
     Printf.printf "machine: %S\n" machine;
     Printf.printf "compiler_version : %S\n" compiler_version;
-    Printf.printf "tlogEntriesPerFile: %i\n" !Tlogcommon.tlogEntriesPerFile;
     Printf.printf "dependencies:\n%s\n" dependencies in
   ()
 
@@ -440,7 +439,7 @@ let main () =
     | StripTlog -> Tlog_main.strip_tlog !filename
     | MakeTlog -> Tlog_main.make_tlog !filename !counter
     | MarkTlog -> Tlog_main.mark_tlog !filename !key
-    | CloseTlog -> Tlog_main.mark_tlog !filename (Tlc2._make_close_marker !node_id)
+    | CloseTlog -> Tlog_main.mark_tlog !filename (Tlog_map._make_close_marker !node_id)
     | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !tlf_dir !filename !end_i
     | DumpStore -> Dump_store.dump_store !filename
     | TruncateTlog -> Tlc2.truncate_tlog !filename
@@ -518,7 +517,11 @@ let main () =
               !node_id !daemonize !catchup_only !autofix
           in
           (* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
-          Lwt_main.run main_t
+          try
+            Lwt_main.run main_t
+          with Failure msg ->
+            (* don't bubble stacktrace: the msg is the explaination we need *)
+            Printf.eprintf "problem: %s\n%!" msg; 66
         end
       | TestNode ->
         begin

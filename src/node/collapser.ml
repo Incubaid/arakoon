@@ -19,6 +19,7 @@ limitations under the License.
 open Lwt
 type 'a store_maker= ?read_only:bool -> string -> 'a Lwt.t
 open Tlogcommon
+open Tlog_map
 
 let section = Logger.Section.main
 
@@ -30,7 +31,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
      (throttling:float)
     )
     (too_far_i:Sn.t)
-    (cb: Sn.t -> unit Lwt.t)
+    (cb: int -> unit Lwt.t)
     (slowdown : float option)=
 
   let new_location = head_location ^ ".clone" in
@@ -55,11 +56,8 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
   Lwt.finalize (
     fun () ->
       tlog_coll # get_infimum_i () >>= fun min_i ->
-      let first_tlog = (Sn.to_int min_i) /  !Tlogcommon.tlogEntriesPerFile in
       let store_i = S.consensus_i new_store in
       let tfs = Sn.string_of too_far_i in
-      let tlog_entries_per_file = Sn.of_int (!Tlogcommon.tlogEntriesPerFile) in
-      let processed = ref 0 in
       let start_i =
         begin
           match store_i with
@@ -118,16 +116,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                 | Some (pi,pv) ->
                   if pi < i then
                     begin
-                      maybe_log pi >>= fun () ->
-                      begin
-                        if Sn.rem pi tlog_entries_per_file = 0L
-                        then
-
-                          cb (Sn.of_int (first_tlog + !processed)) >>= fun () ->
-                          Lwt.return( processed := !processed + 1 )
-                        else
-                          Lwt.return ()
-                      end
+                      maybe_log pi 
                       >>= fun () ->
                       slowdown (fun () -> S.safe_insert_value new_store pi pv) >>= fun _ ->
                       let () = acc := Some(i,value) in
@@ -143,7 +132,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
           in
           Logger.debug_f_ "collapse_until: start_i=%s" (Sn.string_of start_i)
           >>= fun () ->
-          tlog_coll # iterate start_i too_far_i add_to_store
+          tlog_coll # iterate start_i too_far_i add_to_store cb
           >>= fun () ->
           let m_si = S.consensus_i new_store in
           let si =
@@ -207,11 +196,9 @@ let collapse_many
       (type s) tlog_coll
       (module S : Store.STORE with type t = s)
       (store_fs: 'b * string * float)
-      tlogs_to_keep cb' cb slowdown =
+      tlogs_to_keep cb' (cb:int -> unit Lwt.t) slowdown =
 
   Logger.debug_f_ "collapse_many" >>= fun () ->
-  tlog_coll # get_tlog_count () >>= fun total_tlogs ->
-  Logger.debug_f_ "total_tlogs = %i; tlogs_to_keep=%i" total_tlogs tlogs_to_keep >>= fun () ->
   let (_,(head_location:string), _) = store_fs in
   let last_i = tlog_coll # get_last_i () in
   let get_head_i () =
@@ -222,26 +209,18 @@ let collapse_many
     Lwt.return head_i
   in
   get_head_i () >>= fun head_i ->
-  let lag = Sn.to_int (Sn.sub last_i head_i) in
-  let npt = !Tlogcommon.tlogEntriesPerFile in
-  let tlog_lag = (lag +npt - 1)/ npt in
-  let tlogs_to_collapse = tlog_lag - tlogs_to_keep - 1 in
-  Logger.debug_f_ "tlog_lag = %i; tlogs_to_collapse = %i" tlog_lag tlogs_to_collapse >>= fun () ->
-  if tlogs_to_collapse <= 0
-  then
-    Logger.info_f_ "Nothing to collapse..." >>= fun () ->
-    cb' 0
-  else
+  let todo = tlog_coll # tlogs_to_collapse ~head_i ~last_i ~tlogs_to_keep in
+  match todo with
+  | None -> Logger.info_f_ "Nothing to collapse..." >>= fun () -> cb' 0
+  | Some (n, too_far_i) ->
     begin
-      Logger.info_f_ "Going to collapse %d tlogs" tlogs_to_collapse >>= fun () ->
-      cb' (tlogs_to_collapse+1) >>= fun () ->
-      let g_too_far_i = Sn.add (Sn.of_int 2) (Sn.add head_i (Sn.of_int (tlogs_to_collapse * npt))) in
-      (* +2 because before X goes to the store, you need to have seen X+1 and thus too_far = X+2 *)
-      Logger.debug_f_ "g_too_far_i = %s" (Sn.string_of g_too_far_i) >>= fun () ->
-      collapse_until tlog_coll (module S) store_fs g_too_far_i cb slowdown >>= fun () ->
+      Logger.info_f_ "Going to collapse %d tlogs" n >>= fun () ->
+      cb' (n + 2) >>= fun () -> 
+      Logger.debug_f_ "too_far_i = %s" (Sn.string_of too_far_i) >>= fun () ->
+      collapse_until tlog_coll (module S) store_fs too_far_i cb slowdown >>= fun () ->
       get_head_i () >>= fun head_i ->
       tlog_coll # remove_below head_i >>= fun () ->
-      cb (Sn.div g_too_far_i (Sn.of_int !Tlogcommon.tlogEntriesPerFile))
+      cb n
     end
 
 let collapse_out_of_band cfg name tlogs_to_keep =
@@ -250,11 +229,6 @@ let collapse_out_of_band cfg name tlogs_to_keep =
 
   let me, _ = split name cfg.cfgs in
   let head_location = Filename.concat me.head_dir Tlc2.head_fname in
-
-  let () = match cfg.overwrite_tlog_entries with
-    | None -> ()
-    | Some i ->  Tlogcommon.tlogEntriesPerFile := i
-  in
 
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   S.make_store
@@ -275,8 +249,7 @@ let collapse_out_of_band cfg name tlogs_to_keep =
      me.head_copy_throttling)
     tlogs_to_keep
     (fun sn -> Lwt_log.debug_f "sn' = %i" sn)
-    (fun sn -> Lwt_log.debug_f "sn = %Li" sn)
+    (fun n -> Lwt_log.debug_f "n = %i" n)
     me.collapse_slowdown
   >>= fun () ->
   Lwt.return ()
-
