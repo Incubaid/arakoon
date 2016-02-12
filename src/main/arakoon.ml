@@ -555,8 +555,12 @@ let main () =
 
   let exit_code =
     match !action with
-      | LocalAction la -> do_local ~tls la
-      | ServerAction sa -> do_server sa
+    | LocalAction la ->
+       List.iter
+         (fun s -> Sys.set_signal s Sys.Signal_ignore)
+         [ Sys.sigusr1; Sys.sigusr2 ];
+       do_local ~tls la
+    | ServerAction sa -> do_server sa
   in
   (* let () = Printf.printf "[rc=%i]\n" rc in *)
   let () =
