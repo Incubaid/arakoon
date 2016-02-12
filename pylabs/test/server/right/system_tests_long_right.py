@@ -87,12 +87,12 @@ def test_20_clients_1000_sets() :
     arakoon.ArakoonProtocol.ARA_CFG_TIMEOUT = 60.0
     Common.create_and_wait_for_threads ( 20, 1000, Common.simple_set, 200.0 )
 
-@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
+@Common.with_custom_setup( Common.setup_3_nodes_mini, Common.basic_teardown)
 def test_tlog_rollover():
-    Common.iterate_n_times( 150000, Common.simple_set )
+    Common.iterate_n_times( 15000, Common.simple_set )
     Common.stop_all()
     Common.start_all()
-    Common.iterate_n_times( 150000, Common.simple_set )
+    Common.iterate_n_times( 15000, Common.simple_set )
 
 @Common.with_custom_setup( Common.setup_2_nodes, Common.basic_teardown)
 def test_catchup_while_collapsing():
