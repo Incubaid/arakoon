@@ -66,7 +66,7 @@ RUN eval `${opam_env}` && \
 
 RUN yum -y install autoconf help2man perl-Thread-Queue
 
-RUN yum -y install sudo
+RUN yum -y install sudo iproute
 #
 # Disable "ssh hostname sudo <cmd>", because it will show the password in clear.
 #         You have to run "ssh -t hostname sudo <cmd>".
