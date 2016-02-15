@@ -25,7 +25,6 @@ from nose.tools import *
 from Compat import X
 
 CONFIG = C.CONFIG
-from arakoon.ArakoonProtocol import AtLeast
 
 try:
     assert_in
@@ -478,13 +477,15 @@ def test_consistency():
     client.set('x','X')
     client.set('z','Z')
     m = client.get_txid()
-    logging.debug("m = %s", m)
+    logging.debug("m = %s,class:%s", m, m.__class__)
     assert_equals(str(m).find("AtLeast"),0)
     time.sleep(5)
     client.setConsistency(m)
     v = client.get('x')
     assert_equals(v,'X')
-    m2 = AtLeast(1000)
+
+    
+    m2 = X.arakoon_client.AtLeast(1000)
     client.setConsistency(m2)
     try:
         v2 = client.get('z')
