@@ -295,6 +295,7 @@ ARA_CMD_CURRENT_STATE            = 0x00000032 | ARA_CMD_MAG
 ARA_CMD_REPLACE                  = 0x00000033 | ARA_CMD_MAG
 ARA_CMD_NOP                      = 0x00000041 | ARA_CMD_MAG
 ARA_CMD_GET_TXID                 = 0x00000043 | ARA_CMD_MAG
+ARA_CMD_COLLAPSE                 = 0x00000014 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -762,6 +763,12 @@ class ArakoonProtocol :
         return retVal
 
     @staticmethod
+    def encodeCollapse(n):
+        retVal = _packInt(ARA_CMD_COLLAPSE)
+        retVal += _packInt(n)
+        return retVal
+    
+    @staticmethod
     def _evaluateErrorCode( con ):
         errorCode = _recvInt ( con )
         # """ ArakoonException( "Received invalid response from the server" )"""
@@ -792,6 +799,7 @@ class ArakoonProtocol :
         if errorCode != ARA_ERR_SUCCESS:
             raise ArakoonException( "EC=%d. %s" % (errorCode, errorMsg) )
 
+    
     @staticmethod
     def decodeInt64Result( con ) :
         ArakoonProtocol._evaluateErrorCode( con )
