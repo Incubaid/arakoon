@@ -23,6 +23,13 @@ let parse_url url =
   let peers = [host,port] in
   peers, path
 
+exception ProcessFailure of Unix.process_status
+
+let verify_process_status p =
+  p # status >>= function
+  | Unix.WEXITED 0 -> Lwt.return_unit
+  | s -> Lwt.fail (ProcessFailure s)
+
 let retrieve_value peers path =
   (*
     curl -X GET "http://127.0.0.1.:5000/v2/keys/path_to/asd/055a61c0_0"
@@ -39,9 +46,14 @@ let retrieve_value peers path =
   let cmd_s = String.concat " " cmd in
   Lwt_log.info_f  "ETCD: %s" cmd_s >>= fun () ->
   let command = Lwt_process.shell cmd_s in
-  Lwt_process.pread command >>= fun value ->
-  (* etcdctl adds a '\n' after the value, cut it off *)
-  String.sub value 0 (String.length value - 1) |> Lwt.return
+
+  Lwt_process.with_process_in
+    command
+    (fun p ->
+     Lwt_io.read (p # stdout) >>= fun value ->
+     verify_process_status p >>= fun () ->
+     (* etcdctl adds a '\n' after the value, cut it off *)
+     String.sub value 0 (String.length value - 1) |> Lwt.return)
 
 let store_value peers path value =
   let peers_s = String.concat "," (List.map (fun (h,p) -> Printf.sprintf "%s:%i" h p) peers) in
@@ -51,4 +63,10 @@ let store_value peers path value =
                path;
               |]
   in
-  Lwt_process.pwrite ("", cmd) value
+  Lwt_log.info_f  "ETCD: %s" (Array.to_list cmd |> String.concat " ") >>= fun () ->
+  Lwt_process.with_process_out
+    ("", cmd)
+    (fun p ->
+     Lwt_io.write (p # stdin) value >>= fun () ->
+     Lwt_io.close (p # stdin) >>= fun () ->
+     verify_process_status p)
