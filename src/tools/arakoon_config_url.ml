@@ -52,3 +52,9 @@ let make string =
      in
      Etcd (peers, path)
   | _ -> failwith (Printf.sprintf "unknown protocol:%s" protocol)
+
+let retrieve = function
+  | File f ->
+     Lwt_extra.read_file f
+  | Etcd (peers, path) ->
+     Arakoon_etcd.retrieve_value peers path

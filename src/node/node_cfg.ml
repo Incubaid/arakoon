@@ -771,7 +771,7 @@ module Node_cfg = struct
             };
         }
       in
-      cluster_cfg |> Lwt.return
+      cluster_cfg
 
   let node_name t = t.node_name
 
@@ -781,7 +781,7 @@ module Node_cfg = struct
 
   let get_master t = t.master
 
-  let retrieve_cfg url = Arakoon_etcd.retrieve_cfg _retrieve_cfg_from_txt url
+  let retrieve_cfg url = Arakoon_config_url.retrieve url >|= _retrieve_cfg_from_txt
 
   let retrieve_client_cfg url = retrieve_cfg url >>= fun cfg -> Lwt.return (to_client_cfg cfg)
 

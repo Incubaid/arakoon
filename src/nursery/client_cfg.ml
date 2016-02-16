@@ -87,8 +87,6 @@ module ClientCfg = struct
     let inifile = new Inifiles.inifile txt in
     from_ini section inifile
 
-  let _from_txt_lwt section txt =_from_txt section txt |> Lwt.return
-
-  let from_url section url = Arakoon_etcd.retrieve_cfg (_from_txt_lwt section) url
+  let from_url section url = Arakoon_config_url.retrieve url >|= (_from_txt section)
 
 end
