@@ -17,6 +17,7 @@ limitations under the License.
 
 
 from .. import system_tests_common as Common
+from Compat import X
 import logging
 import time
 import subprocess
@@ -59,10 +60,14 @@ def test_272():
     for i in xrange(100):
         new_file = target(i)
         print "%s => %s" % (log_file, new_file)
+        count = 0
+        while not X.fileExists(log_file) and count < 10:
+            print "%s does not exist" % log_file
+            time.sleep(0.2)
+            count += 1
+            
         os.rename (log_file, new_file)
         Common.send_signal(node,signal.SIGUSR1)
-
-        time.sleep(0.2)
         Common.assert_running_nodes(1)
         rc = bench.returncode
         if rc <> None:

@@ -19,14 +19,18 @@ VAR = 'ARAKOON_PYTHON_CLIENT'
 if os.environ.has_key(VAR) and os.environ[VAR] == 'pyrakoon':
     logging.info("opting for pyrakoon")
     print "pyrakoon"
+    # TODO: This is ugly as hell...
     from pyrakoon import compat
+    from pyrakoon.protocol.admin import CollapseTlogs
     arakoon_client = compat
+    arakoon_admin  = compat
 else:
     logging.info("opting for normal client")
     print "arakoon"
     from arakoon import Arakoon
+    import arakoon.arakoon_admin
     arakoon_client = Arakoon
-
+    arakoon_admin = arakoon.arakoon_admin
 
 """
 cluster_id = 'sturdy'
@@ -227,3 +231,4 @@ def which_compat():
 
 X = which_compat()
 X.arakoon_client = arakoon_client
+X.arakoon_admin  = arakoon_admin

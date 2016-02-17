@@ -421,6 +421,7 @@ def test_drop_master_witness_slave():
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown )
 def test_3_nodes_2_slaves_down ():
+    pass
     """ make sure the 'set' operation fails when 2 slaves are down, (eta: 63s) """
     cli = Common.get_client()
     cli.nop()
@@ -430,7 +431,8 @@ def test_3_nodes_2_slaves_down ():
     for slave in slaves:
         Common.stopOne( slave )
 
-    assert_raises( ArakoonSockNotReadable, cli.set, 'k', 'v' )
+    
+    assert_raises( X.arakoon_client.ArakoonSockNotReadable, cli.set, 'k', 'v' )
 
     cli.dropConnections()
 
