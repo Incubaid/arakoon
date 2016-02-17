@@ -134,7 +134,7 @@ def test_local_collapse_witness_node():
 
 @Common.with_custom_setup(Common.setup_2_nodes_mini, Common.basic_teardown)
 def test_local_collapse():
-    print "starting test_local_collapse"
+    logging.info("starting test_local_collapse")
     
     zero = Common.node_names[0]
     one = Common.node_names[1]
@@ -148,7 +148,7 @@ def test_local_collapse():
     Common.wipe(one)
     Common.startOne(one)
     cli = Common.get_client()
-    print cli.__class__
+    logging.info("cli class:%s", cli.__class__)
     assert_false(cli.expectProgressPossible())
     up2date = False
     counter = 0
