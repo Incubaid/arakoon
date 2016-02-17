@@ -1032,17 +1032,18 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
         pass
 
 def retrying_set_get_and_delete( client, key, value ):
+    valids = (X.arakoon_client.ArakoonSockNotReadable,
+              X.arakoon_client.ArakoonSockReadNoBytes,
+              X.arakoon_client.ArakoonSockRecvError,
+              X.arakoon_client.ArakoonSockRecvClosed,
+              X.arakoon_client.ArakoonSockSendError,
+              X.arakoon_client.ArakoonNotConnected,
+              X.arakoon_client.ArakoonNodeNotMaster,
+              X.arakoon_client.ArakoonNodeNoLongerMaster,
+              )
     def validate_ex ( ex, tryCnt ):
         ex_msg = "%s" % ex
-        valids = (X.arakoon_client.ArakoonSockNotReadable,
-                  X.arakoon_client.ArakoonSockReadNoBytes,
-                  X.arakoon_client.ArakoonSockRecvError,
-                  X.arakoon_client.ArakoonSockRecvClosed,
-                  X.arakoon_client.ArakoonSockSendError,
-                  X.arakoon_client.ArakoonNotConnected,
-                  X.arakoon_client.ArakoonNodeNotMaster,
-                  X.arakoon_client.ArakoonNodeNoLongerMaster,
-              )
+        
         validEx = isinstance(ex, valids)
         if validEx:
             logging.debug( "Ignoring exception: %s", ex_msg )
