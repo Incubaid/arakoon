@@ -74,8 +74,7 @@ let test_get_set () =
          "la la";
          "la\r\n la";
          "la ' \\ \' \" \n \" la";
-         (* can't set the empty string when using the cli? *)
-         (* ""; *)
+         "";
        ]
      in
      Lwt_list.iter_s

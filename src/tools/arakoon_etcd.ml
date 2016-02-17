@@ -37,18 +37,15 @@ let retrieve_value peers path =
     etcdctl --peers=127.0.0.1:5000 get path_to/asd/055a61c0_0
    *)
   let peers_s = String.concat "," (List.map (fun (h,p) -> Printf.sprintf "%s:%i" h p) peers) in
-  let cmd = ["etcdctl";
-             "--peers=" ^ peers_s;
-             "get";
-             path
-            ]
+  let cmd = [| "etcdctl";
+               "--peers=" ^ peers_s;
+               "get";
+               path;
+              |]
   in
-  let cmd_s = String.concat " " cmd in
-  Lwt_log.info_f  "ETCD: %s" cmd_s >>= fun () ->
-  let command = Lwt_process.shell cmd_s in
-
+  Lwt_log.info_f  "ETCD: %s" (Array.to_list cmd |> String.concat " ") >>= fun () ->
   Lwt_process.with_process_in
-    command
+    ("", cmd)
     (fun p ->
      Lwt_io.read (p # stdout) >>= fun value ->
      verify_process_status p >>= fun () ->
@@ -61,12 +58,10 @@ let store_value peers path value =
                "--peers=" ^ peers_s;
                "set";
                path;
+               value;
               |]
   in
   Lwt_log.info_f  "ETCD: %s" (Array.to_list cmd |> String.concat " ") >>= fun () ->
-  Lwt_process.with_process_out
+  Lwt_process.with_process_none
     ("", cmd)
-    (fun p ->
-     Lwt_io.write (p # stdin) value >>= fun () ->
-     Lwt_io.close (p # stdin) >>= fun () ->
-     verify_process_status p)
+    (fun p -> verify_process_status p)
