@@ -23,17 +23,7 @@ if os.environ.has_key(VAR) and os.environ[VAR] == 'pyrakoon':
     from pyrakoon import compat
     from pyrakoon.protocol.admin import CollapseTlogs
     arakoon_client = compat
-    
-    class ArakoonAdmin(compat.ArakoonClient):
-
-        def collapse(self, node_id, n):
-            message = CollapseTlogs(n)
-            self._client._process(message, node_id = node_id)
-
-    class dummy:
-        pass            
-    arakoon_admin = dummy()
-    arakoon_admin.ArakoonAdmin = ArakoonAdmin
+    arakoon_admin  = compat
 else:
     logging.info("opting for normal client")
     print "arakoon"
