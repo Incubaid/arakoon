@@ -66,12 +66,16 @@ let stop_fuse stop =
 let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
   =
   let current_i = tlog_coll # get_last_i () in
-  Logger.info_f_ "catchup_tlog %s" (Sn.string_of current_i) >>= fun () ->
-  let mr_cfg = List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
-                 other_configs in
-  let mr_addresses = Node_cfg.client_addresses mr_cfg
-  and mr_name = Node_cfg.node_name mr_cfg in
-  Logger.info_f_ "getting last_entries from %s" mr_name >>= fun () ->
+  Logger.info_f_ "catchup_tlog %s from %s " (Sn.string_of current_i) mr_name >>= fun () ->
+  let mr_addresses =
+    try
+      let mr_cfg =
+      List.find (fun cfg -> Node_cfg.node_name cfg = mr_name)
+                other_configs
+    in
+    Some (Node_cfg.client_addresses mr_cfg)
+    with Not_found -> None
+  in
   let head_saved_cb hfn =
     Logger.info_f_ "head_saved_cb %s" hfn >>= fun () ->
     head_saved_epilogue hfn tlog_coll >>= fun () ->
@@ -95,8 +99,12 @@ let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_i
 
   Lwt.catch
     (fun () ->
-      _with_client_connection  ~tls_ctx ~tcp_keepalive mr_addresses copy_tlog >>= fun () ->
-      Logger.info_f_ "catchup_tlog completed"
+      match mr_addresses with
+      | Some mr_addresses ->
+         _with_client_connection  ~tls_ctx ~tcp_keepalive mr_addresses copy_tlog >>= fun () ->
+         Logger.info_f_ "catchup_tlog completed"
+      | None ->
+         Logger.warning_f_ "catchup tlog from unknown node:%S is config up to date?" mr_name
     )
     (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")
   >>= fun () ->
