@@ -442,7 +442,7 @@ def test_block_master_ports () :
         new_cli = arakoon.Arakoon.ArakoonClient(
             arakoon.Arakoon.ArakoonClientConfig(CONFIG.cluster_id,
                                                 cli_cfg_only_master ) )
-        NT.assert_raises( X.arakoon_client.ArakoonNoMaster, new_cli.whoMaster )
+        NT.assert_raises( arakoon.ArakoonExceptions.ArakoonNoMaster, new_cli.whoMaster )
         new_cli.dropConnections()
 
         return new_master_id
