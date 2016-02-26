@@ -209,7 +209,7 @@ let main () =
   and tls_version = ref "1.0"
   and force = ref false
   and in_place = ref false
-  and archive_type = ref ".tlf"
+  and archive_type = ref ".tlx"
   and left = ref None
   and linc = ref true
   and right = ref None
@@ -279,7 +279,7 @@ let main () =
                                   Arg.Set_string filename],
      "<filename> : compress a tlog file");
     ("-archive", Arg.Set_string archive_type,
-     "either '.tlf' or '.tls'");
+     "either '.tlf' or '.tlf'");
     ("--uncompress-tlog", Arg.Tuple[set_laction UncompressTlog;
                                     Arg.Set_string filename],
      "<filename> : uncompress a tlog file");

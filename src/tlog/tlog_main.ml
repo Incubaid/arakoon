@@ -128,13 +128,15 @@ let make_tlog tlog_name (i:int) =
 
 
 let compress_tlog tlu archive_type=
-  let compressor =
-    match archive_type with
-    | ".tls" | "tls" -> Compression.Snappy
-    | _ -> Compression.Bz2
-  in
   let failwith x =
     Printf.ksprintf failwith x in
+  let compressor =
+    match archive_type with
+    | ".tlx"  -> Compression.Snappy
+    | ".tlf"  -> Compression.Bz2
+    | _ -> failwith "invalid archive_type:%s" archive_type
+  in
+  
   let () = if not (Sys.file_exists tlu) then failwith "Input file %s does not exist" tlu in
   let tlx = Tlc2.to_archive_name compressor tlu in
   let () = if Sys.file_exists tlx then failwith "Can't compress %s as %s already exists" tlu tlx in

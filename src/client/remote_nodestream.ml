@@ -88,7 +88,7 @@ class remote_nodestream ((ic,oc) as conn) =
         | (-2) -> Logger.info_f_ "loop_parts done"
         | 1 ->
           begin
-            Logger.debug_f_ "loop_entries" >>= fun () ->
+            Logger.info_f_ "loop_entries" >>= fun () ->
             loop_entries () >>= fun () ->
             loop_parts ()
           end
