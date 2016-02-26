@@ -303,15 +303,25 @@ module TlogMap = struct
     let full_path = _get_full_path tlog_dir tlx_dir (file_name tlog_number) in
     _validate_one full_path node_id ~check_marker ~check_sabotage
     >>= fun (last, index, tlog_size) ->
-    Lwt_list.rev_map_s
-      (fun tlog_name ->
+    Lwt_list.fold_left_s
+      (fun (acc,prev)  tlog_name ->
         let n = get_number tlog_name in
         let canonical = _get_full_path tlog_dir tlx_dir tlog_name in
         first_i_of canonical >>= fun i ->
+        (if i > prev
+        then Lwt.return_unit
+        else Lwt.fail_with
+               (Printf.sprintf "%S starts with %s, which ain't higher than %s"
+                               canonical
+                               (Sn.string_of i) (Sn.string_of prev)
+               )
+        ) >>= fun () ->                  
         let is_archive = is_archive tlog_name in
-       Lwt.return {i;n;is_archive}
-      ) tlog_names
-    >>= fun i_to_tlog_number0 ->
+        let acc' = {i;n;is_archive}:: acc in
+        let prev' = i in
+       Lwt.return (acc',prev')
+      ) ([],-1L) tlog_names
+    >>= fun (i_to_tlog_number0,_) ->
     let i_to_tlog_number =
       if i_to_tlog_number0 = []
       then [{i = 0L;n = 0;is_archive=false}]
@@ -472,14 +482,17 @@ module TlogMap = struct
 
   let infimum t =
     get_tlog_names t >>= fun names ->
-    let f = t.tlog_max_entries in
     let v =
       match names with
-      | [] -> Sn.of_int (-f)
-      | h :: _ -> let n = Sn.of_int (get_number h) in
-                  Sn.mul (Sn.of_int f) n
+      | [] -> Sn.zero
+      | name :: _ ->
+         let n = get_number name in
+         match get_start_i t n with
+         | None -> (* somebody added older tlog files behind our back ?!*)
+            Sn.zero
+         | Some i -> i
     in
-    Logger.debug_f_ "infimum=%s" (Sn.string_of v) >>= fun () ->
+    Logger.info_f_ "infimum=%s" (Sn.string_of v) >>= fun () ->
     Lwt.return v
 
   let which_tlog_file t n =

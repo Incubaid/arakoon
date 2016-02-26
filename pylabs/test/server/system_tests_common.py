@@ -763,6 +763,13 @@ def setup_2_nodes_forced_master_mini (home_dir):
     extra = {'tlog_max_entries':'1000'}
     setup_n_nodes( 2, True, home_dir, extra)
 
+def setup_3_nodes_forced_master_mini_rollover_on_size(home_dir):
+    extra = {'tlog_max_entries': '100_000',
+             'tlog_max_size'   : '64000'
+            }
+    
+    setup_n_nodes( 3, True, home_dir, extra)
+    
 def setup_3_nodes_forced_master_mini (home_dir):
     extra = {'tlog_max_entries':'1000'}
     setup_n_nodes( 3, True, home_dir, extra)
