@@ -229,11 +229,11 @@ module List = struct
   @param key Key to look-up
   @param default Optional default value if key isn't found
   @param f Update function *)
-  let alter ~list ~key ?default f =
+  let alter ?(equals=(=)) ~list ~key ?default f =
     let rec loop found acc = function
       | [] -> (found, acc)
       | ((k, v) as p :: r) ->
-          if k = key
+          if equals k key
             then match f v with
               | None -> loop true acc r
               | Some v' -> loop true ((k, v') :: acc) r

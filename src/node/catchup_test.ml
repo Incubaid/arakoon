@@ -39,7 +39,7 @@ let _fill tlog_coll n =
         and v = Printf.sprintf "value%i" i in
         let u = Update.Set (k,v) in
         let value = Value.create_client_value [u] sync in
-        tlog_coll # log_value (Sn.of_int i) value >>= fun () ->
+        tlog_coll # log_value (Sn.of_int i) value >>= fun _total_size ->
         _loop (i+1)
       end
   in
@@ -61,8 +61,8 @@ let _fill2 tlog_coll n =
         let value = Value.create_client_value [u] sync in
         let value2 = Value.create_client_value [u2] sync in
         let sni = Sn.of_int i in
-        tlog_coll # log_value  sni value  >>= fun () ->
-        tlog_coll # log_value  sni value2 >>= fun () ->
+        tlog_coll # log_value  sni value  >>= fun _ ->
+        tlog_coll # log_value  sni value2 >>= fun _ ->
         _loop (i+1)
       end
   in
@@ -87,8 +87,8 @@ let _fill3 tlog_coll n =
         let value = Value.create_client_value [u; u3] sync in
         let value2 = Value.create_client_value [u2; u3] sync in
         let sni = Sn.of_int i in
-        tlog_coll # log_value sni value  >>= fun () ->
-        tlog_coll # log_value sni value2 >>= fun () ->
+        tlog_coll # log_value sni value  >>= fun _ ->
+        tlog_coll # log_value sni value2 >>= fun _ ->
         _loop (i+1)
       end
   in
@@ -137,9 +137,11 @@ let teardown () =
   Logger.debug_ "end of teardown"
 
 let _tic filler_function n name verify_store =
-  Tlogcommon.tlogEntriesPerFile := 101;
-  Tlc2.make_tlc2 ~compressor:Compression.Snappy  _dir_name _tlx_dir _tlx_dir
-                 ~fsync:false "node_name" ~fsync_tlog_dir:true >>= fun tlog_coll ->
+  let node_id = "node_name" in
+  Tlc2.make_tlc2 ~compressor:Compression.Snappy
+                 ~tlog_max_entries:101
+                 _dir_name _tlx_dir _tlx_dir
+                 ~fsync:false node_id ~fsync_tlog_dir:true >>= fun tlog_coll ->
   filler_function tlog_coll n >>= fun () ->
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
   S.make_store ~lcnum:1024 ~ncnum:512 db_name >>= fun store ->

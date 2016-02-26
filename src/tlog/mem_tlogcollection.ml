@@ -53,7 +53,7 @@ class mem_tlog_collection _name =
         | Some e -> Some (Entry.v_of e, Entry.i_of e)
 
 
-    method iterate from_i too_far_i f =
+    method iterate from_i too_far_i f _cb =
       let data' =
         List.filter
           (fun entry ->
@@ -66,15 +66,13 @@ class mem_tlog_collection _name =
 
     method dump_tlog_file _start_i _oc = failwith "dump_tlog_file not supported"
 
-    method save_tlog_file _name _length _ic = failwith "save_tlog_file not supported"
+    method save_tlog_file _start_i _name _length _ic = failwith "save_tlog_file not supported"
 
+    method reinit () = Lwt.return ()
     method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
-    method log_value_explicit i (v:Value.t) ~sync marker =
-      let entry = Entry.make i v 0L marker in
-      let () = data <- entry::data in
-      let () = last_entry <- (Some entry) in
-      Lwt.return ()
+    method tlogs_to_collapse ~head_i ~last_i ~tlogs_to_keep =
+      failwith "tlogs_to_collapse not supported"
 
     method log_value i v = self #log_value_explicit i v ~sync:false None
 
@@ -85,18 +83,28 @@ class mem_tlog_collection _name =
 
     method get_head_name () = failwith "get_head_name not implemented"
 
-    method get_tlog_from_i _ = Sn.start
+    method get_tlog_from_i _ = 0
+    method get_start_i n = Some Sn.zero
+    method is_rollover_point _ = false
+    method next_rollover _ = Some Int64.max_int
+
+    method log_value_explicit i (v:Value.t) ~sync marker =
+      let entry = Entry.make i v 0L marker in
+      let () = data <- entry::data in
+      let () = last_entry <- (Some entry) in
+      Lwt.return 0
+
 
     method close ?(wait_for_compression = false) () =
         let () = ignore wait_for_compression in
         Lwt.return ()
 
-    method remove_oldest_tlogs _count = Lwt.return ()
-
     method remove_below _i = Lwt.return ()
+    method complete_file_to_deliver _ = None
   end
 
-let make_mem_tlog_collection _tlog_dir _tlf_dir _head_dir ~fsync name ~fsync_tlog_dir =
+let make_mem_tlog_collection
+      ?tlog_max_entries ?tlog_max_size _tlog_dir _tlf_dir _head_dir ~fsync name ~fsync_tlog_dir =
   let () = ignore fsync in
   let () = ignore fsync_tlog_dir in
   let x = new mem_tlog_collection name in

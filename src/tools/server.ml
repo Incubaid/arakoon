@@ -34,8 +34,7 @@ let close = function
 let deny_max (_ic,oc,_cid) =
   Logger.warning_ "max connections reached, denying this one" >>= fun () ->
   Llio.output_int32 oc (Arakoon_exc.int32_of_rc Arakoon_exc.E_MAX_CONNECTIONS) >>= fun () ->
-  Llio.output_string oc "too many clients" >>= fun () ->
-  Lwt_io.flush oc
+  Llio.output_string oc "too many clients"
 
 let deny_closing (_ic,oc,_cid) =
   Logger.warning_ "closing socket, denying this one" >>= fun () ->
@@ -47,14 +46,19 @@ let session_thread (sid:string) cid protocol fd =
     (fun () ->
        let (ic, oc) = match fd with
          | Plain fd' ->
-             let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd'
-             and oc = Lwt_io.of_fd ~mode:Lwt_io.output fd' in
+             let ic = Lwt_io.of_fd ~close:Lwt.return ~mode:Lwt_io.input fd'
+             and oc = Lwt_io.of_fd ~close:Lwt.return ~mode:Lwt_io.output fd' in
              (ic, oc)
          | TLS fd' ->
              let ic = Lwt_ssl.in_channel_of_descr fd'
              and oc = Lwt_ssl.out_channel_of_descr fd' in
              (ic, oc)
-       in protocol (ic,oc,cid)
+       in
+       Lwt.finalize
+         (fun () -> protocol (ic,oc,cid))
+         (fun () ->
+          Lwt_io.close oc >>= fun () ->
+          Lwt_io.close ic)
     )
     (function
       | FOOBAR as foobar->
@@ -146,6 +150,7 @@ let make_server_thread
       ?(setup_callback=no_callback)
       ?(teardown_callback = no_callback)
       ?(ssl_context : [> `Server ] Typed_ssl.t option)
+      ~tcp_keepalive
       ~scheme ~stop
       host port protocol =
 
@@ -205,6 +210,7 @@ let make_server_thread
         Lwt.catch
           (fun () ->
            Lwt_unix.accept listening_socket >>= fun (plain_fd, cl_socket_address) ->
+           Tcp_keepalive.apply plain_fd tcp_keepalive;
            let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
            let finalize () =
              Hashtbl.remove client_threads cid;

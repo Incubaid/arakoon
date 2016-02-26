@@ -442,7 +442,7 @@ def test_block_master_ports () :
         new_cli = arakoon.Arakoon.ArakoonClient(
             arakoon.Arakoon.ArakoonClientConfig(CONFIG.cluster_id,
                                                 cli_cfg_only_master ) )
-        NT.assert_raises( ArakoonNoMaster, new_cli.whoMaster )
+        NT.assert_raises( arakoon.ArakoonExceptions.ArakoonNoMaster, new_cli.whoMaster )
         new_cli.dropConnections()
 
         return new_master_id
@@ -462,7 +462,7 @@ def test_block_master_ports () :
     rules = {"filter": block_rules}
     apply_iptables_rules(rules )
 
-    NT.assert_raises( ArakoonException, cli.set, "key", "value" )
+    NT.assert_raises( X.arakoon_client.ArakoonException, cli.set, "key", "value" )
 
     new_master_id = validate_reelection( old_master_id )
 

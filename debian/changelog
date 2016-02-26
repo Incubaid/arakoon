@@ -1,3 +1,58 @@
+arakoon (1.9.2) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain.slootmaekers@openvstorage.com>  Fri, 26 Feb 2016 15:00:08 +0100
+
+arakoon (1.9.1) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain.slootmaekers@openvstorage.com>  Fri, 19 Feb 2016 08:28:56 +0100
+
+arakoon (1.9.0) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain.slootmaekers@openvstorage.com>  Fri, 12 Feb 2016 14:59:23 +0100
+
+arakoon (1.8.13) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain.slootmaekers@openvstorage.com>  Mon, 25 Jan 2016 11:24:48 +0100
+
+arakoon (1.8.12+etcd) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain.slootmaekers@openvstorage.com>  Thu, 14 Jan 2016 16:00:00 +0100
+
+arakoon (1.8.12) unstable; urgency=low
+  * new upstream version
+
+ -- Jan Doms <jan.doms@gmail.com>  Wed, 23 Dec 2015 10:09:44 +0100
+
+arakoon (1.8.11) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain.slootmaekers@openvstorage.com>  Fri, 11 Dec 2015 10:33:41 +0100
+
+arakoon (1.8.10) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain.slootmaekers@openvstorage.com>  Mon, 02 Nov 2015 11:25:40 +0100
+
+arakoon (1.8.9) unstable; urgency=low
+  * new upstream version
+
+ -- Jan Doms <jan.doms@gmail.com>  Tue, 25 Aug 2015 12:51:56 +0100
+
+arakoon (1.8.8) unstable; urgency=low
+  * new upstream version
+
+ -- Jan Doms <jan.doms@gmail.com>  Wed, 05 Aug 2015 15:30:24 +0100
+
+arakoon (1.8.7) unstable; urgency=low
+  * new upstream version
+
+ -- Jan Doms <jan.doms@gmail.com>  Mon, 03 Aug 2015 16:48:18 +0100
+
 arakoon (1.8.6) unstable; urgency=low
   * new upstream version
 

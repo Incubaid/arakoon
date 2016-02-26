@@ -39,10 +39,9 @@ limitations under the License.
    - removed pcre dependency
    - fixed little bug on parsing of empty lines with spaces
    - little change to fold signature to accomodate ocaml 4.0
+   - removed IO from ini file parsing so it can be used with Lwt too
 *)
 
-open Parseini
-open Inilexer
 
 exception Invalid_section of string
 exception Invalid_element of string
@@ -95,15 +94,20 @@ let rec filterfile ?(buf=Buffer.create 500) f fd =
       filterfile ~buf f fd
   with End_of_file -> Buffer.contents buf
 
-let read_inifile file fd tbl =
+let parse_inifile txt tbl =
   let lxbuf =
-    Lexing.from_string
-      (filterfile
-         (fun line -> not (Str.string_match comment line 0))
-         fd)
+    let lines = Str.split (Str.regexp "\n") txt in
+    let lines' = List.filter (fun line -> not (Str.string_match comment line 0)) lines in
+    let buf = Buffer.create (String.length txt) in
+    let () =List.iter
+      (fun line -> Buffer.add_string buf line;
+                   Buffer.add_char buf '\n'
+      ) lines' in
+    let txt' = Buffer.contents buf in
+    Lexing.from_string txt'
   in
   try
-    let parsed_file = inifile lexini lxbuf in
+    let parsed_txt = Parseini.inifile Inilexer.lexini lxbuf in
     List.iter
       (fun (section, values) ->
          Hashtbl.add tbl section
@@ -111,31 +115,32 @@ let read_inifile file fd tbl =
               (fun tbl (key, value) -> Hashtbl.add tbl key value;tbl)
               (Hashtbl.create 10)
               values))
-      parsed_file
+      parsed_txt
   with Parsing.Parse_error | Failure "lexing: empty token" ->
-    raise (Ini_parse_error (lxbuf.Lexing.lex_curr_p.Lexing.pos_lnum, file))
+    raise (Ini_parse_error (lxbuf.Lexing.lex_curr_p.Lexing.pos_lnum, txt))
 
-let write_inifile fd tbl =
-  Hashtbl.iter
-    (fun k v ->
-       output_string fd "[";output_string fd k;output_string fd "]\n";
-       (Hashtbl.iter
-          (fun k v ->
-             output_string fd k;output_string fd " = ";output_string fd v;
-             output_string fd "\n") v);
-       output_string fd "\n")
-    tbl
+let write_inifile oc tbl =
+  let open Lwt.Infix in
+  let sections = Hashtbl.fold (fun k s acc -> (k,s)::acc) tbl [] |> List.rev in
+  Lwt_list.iter_s
+    (fun (k,section) ->
+     Lwt_io.fprintlf oc "[%s]" k >>= fun () ->
+     let kvs = Hashtbl.fold (fun k v acc -> (k,v) :: acc) section [] |> List.rev in
+     Lwt_list.iter_s
+       (fun (k,v) ->
+        Lwt_io.fprintlf oc "%s = %s\n" k v
+       )
+       kvs
+     >>= fun () ->
+     Lwt_io.write oc "\n"
+    ) sections
 
-class inifile ?(spec=[]) file =
+class inifile ?(spec=[]) txt =
   object (self)
-    val file = file
     val data = Hashtbl.create 50
 
     initializer
-      let inch = open_in file in
-      (try read_inifile file inch data
-      with exn -> close_in inch;raise exn);
-      close_in inch;
+      let () = parse_inifile txt data in
       self#validate
 
     method private validate =
@@ -245,10 +250,10 @@ class inifile ?(spec=[]) file =
                with Not_found -> raise (Invalid_section sec))
                [])))
 
-    method save ?(file = file) () =
-      let outch = open_out file in
-      write_inifile outch data;
-      flush outch;
+    method save file =
+      Lwt_io.with_file
+        Lwt_io.Output file
+        (fun oc -> write_inifile oc data)
   end
 
 let readdir path =
@@ -269,7 +274,7 @@ let fold ?(spec=[]) func path initial =
         if (Unix.stat path).Unix.st_kind = Unix.S_REG
         then Filename.check_suffix path ".ini"
         else false
-      with Unix.Unix_error (_,_,_) -> false in  
+      with Unix.Unix_error (_,_,_) -> false in
   (List.fold_left
      func
      initial
@@ -280,4 +285,3 @@ let fold ?(spec=[]) func path initial =
            (List.rev_map
               (fun p -> (path ^ "/" ^ p))
               (readdir path)))))
-

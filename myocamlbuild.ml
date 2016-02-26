@@ -6,12 +6,10 @@ let dependencies = [ "lwt";
                      "ssl";
                      "bz2";
                      "quickcheck";
-                     "nocrypto";
-                     "zarith";
-                     "cstruct";
-                     "ctypes";
                      "ocplib-endian";
-                     "uuidm";
+                     "redis";
+                     "uri";
+                     "core";
                    ]
 
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)
@@ -60,7 +58,7 @@ let list_dependencies () =
   let pkgs = List.map query dependencies in
   let lines = List.map (fun (pkg, version, descr) ->
     let tabs = if String.length pkg < 8 then "\t\t" else "\t" in
-    Printf.sprintf "%s%s%s\t%s" pkg tabs version descr)
+    Printf.sprintf "%s%s%12s\t%s" pkg tabs version descr)
     pkgs
   in
   String.concat "\n" lines
@@ -138,10 +136,6 @@ let _ = dispatch & function
       flag ["ocaml";"link";"is_main"](
         S[A"-linkpkg"; A"src/libcutil.a";
          ]);
-
-      flag ["ocaml";"link";"is_main"](
-        S[A"-package"; A"nocrypto";]
-      );
 
       flag ["ocaml";"byte";"link"] (S[A"-custom";]);
 

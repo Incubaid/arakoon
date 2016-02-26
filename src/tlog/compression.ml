@@ -66,7 +66,7 @@ let _compress_tlog
     | No -> failwith "compressor is 'No'"
   in
   Lwt_io.with_file
-    ~buffer_size:131072
+    ~buffer:(Lwt_bytes.create 131072)
     ~mode:Lwt_io.input tlog_name
     (fun ic ->
        let tmp_file = archive_name ^ ".part" in
@@ -103,8 +103,7 @@ let _compress_tlog
           let compress_and_write last_i buffer =
             let contents = Buffer.contents buffer in
             let t0 = Unix.gettimeofday () in
-            Lwt_preemptive.detach (fun () -> compress contents) ()
-            >>= fun output ->
+            let output = compress contents in
             begin
               if !cancel
               then Lwt.fail Canceled
