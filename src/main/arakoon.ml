@@ -279,7 +279,7 @@ let main () =
                                   Arg.Set_string filename],
      "<filename> : compress a tlog file");
     ("-archive", Arg.Set_string archive_type,
-     "either '.tlf' or '.tlf'");
+     "either '.tlx' or the older '.tlf'");
     ("--uncompress-tlog", Arg.Tuple[set_laction UncompressTlog;
                                     Arg.Set_string filename],
      "<filename> : uncompress a tlog file");
