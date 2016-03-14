@@ -148,7 +148,7 @@ let get_key_count ms =
 let copy_store2 (_old_location:string) (_new_location:string)
                 ~(overwrite:bool) ~(throttling:float) =
   ignore (overwrite,throttling);
-  Lwt.return ()
+  Lwt.return_false
 
 let relocate _new_location = failwith "Memstore.relocation not implemented"
 

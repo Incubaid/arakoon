@@ -196,6 +196,8 @@ let only_catchup
      S.copy_store2 full_snapshot_path db_name
                    ~overwrite:false
                    ~throttling:Node_cfg.default_head_copy_throttling
+     >>= fun _ ->
+     Lwt.return ()
     )
     (function
       | Not_found -> Lwt.return ()
@@ -534,8 +536,8 @@ let _main_2 (type s)
              S.copy_store2 full_snapshot_path db_name
                            ~overwrite:false
                            ~throttling:Node_cfg.default_head_copy_throttling
-             >>= fun () ->
-             head_copied := true;
+             >>= fun copied ->
+             head_copied := copied;
              Lwt.return_unit
             )
             (function

@@ -33,7 +33,8 @@ RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         libtool \
         libboost-all-dev \
         iptables \
-        net-tools
+        net-tools \
+        ncurses-dev
 
 RUN useradd jenkins -u 1001 -g root
 

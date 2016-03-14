@@ -99,7 +99,7 @@ struct
     (store: 'a)
     (store_methods: (string -> string ->
                      overwrite:bool -> throttling:float ->
-                     unit Lwt.t) * string * float)
+                     bool Lwt.t) * string * float)
     (tlog_collection:Tlogcollection.tlog_collection)
     (lease_expiration:int)
     ~quorum_function n_nodes
@@ -679,7 +679,10 @@ struct
                      ~mode
                      (fun () ->
                       S.copy_store2 (S.get_location store) head_path
-                                    ~overwrite:true ~throttling:copy_head_throttling) >>= fun () ->
+                                    ~overwrite:true
+                                    ~throttling:copy_head_throttling
+                      >>= fun _ ->
+                      Lwt.return ()) >>= fun () ->
 
             (* remove all but tlogs_to_keep last tlogs *)
             Collapser._head_i (module S) head_path >>= fun head_io ->

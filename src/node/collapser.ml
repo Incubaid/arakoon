@@ -26,7 +26,7 @@ let section = Logger.Section.main
 let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
     (module S : Store.STORE with type t = s)
     ((copy_store : string -> string ->
-                   overwrite:bool -> throttling:float -> unit Lwt.t),
+                   overwrite:bool -> throttling:float -> bool Lwt.t),
      (head_location:string),
      (throttling:float)
     )
@@ -42,7 +42,8 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
     fun () ->
       copy_store head_location new_location
                  ~overwrite:true
-                 ~throttling
+                 ~throttling >>= fun _copied ->
+      Lwt.return ()
   ) (
     function
       | Not_found -> Logger.debug_f_ "head db at '%s' does not exist" head_location
