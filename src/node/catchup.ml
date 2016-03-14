@@ -82,7 +82,8 @@ let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_i
     let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
       let target_name = S.get_location store in
-      File_system.copy_file hfn target_name ~overwrite:true ~throttling:0.0
+      File_system.copy_file hfn target_name ~overwrite:true ~throttling:0.0 >>= fun _copied ->
+      Lwt.return ()
     in
     S.reopen store when_closed >>= fun () ->
     Lwt.return ()

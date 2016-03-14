@@ -203,7 +203,7 @@ module type Simple_store = sig
   val copy_store2 : string -> string ->
                     overwrite:bool ->
                     throttling:float ->
-                    unit Lwt.t
+                    bool Lwt.t
 end
 
 let _f _pf = function
