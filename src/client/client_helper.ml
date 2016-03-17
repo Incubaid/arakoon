@@ -37,11 +37,12 @@ let default_create_client_context ~ca_cert ~creds ~protocol =
 
 let with_connection ~tls ~tcp_keepalive sa do_it =
   let fd = Lwt_unix.socket (Unix.domain_of_sockaddr sa) Unix.SOCK_STREAM 0 in
-  Tcp_keepalive.apply fd tcp_keepalive;
-  Lwt_unix.setsockopt fd Lwt_unix.TCP_NODELAY true;
-  Lwt_unix.set_close_on_exec fd;
   Lwt.catch
-    (fun () -> Lwt_unix.connect fd sa)
+    (fun () ->
+      Tcp_keepalive.apply fd tcp_keepalive;
+      Lwt_unix.setsockopt fd Lwt_unix.TCP_NODELAY true;
+      Lwt_unix.set_close_on_exec fd;
+      Lwt_unix.connect fd sa)
     (fun exn ->
       Lwt.catch
         (fun () -> Lwt_unix.close fd)
