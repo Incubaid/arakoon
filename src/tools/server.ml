@@ -209,31 +209,32 @@ let make_server_thread
       let serve () =
         Lwt.catch
           (fun () ->
-           Lwt_unix.accept listening_socket >>= fun (plain_fd, cl_socket_address) ->
-           Tcp_keepalive.apply plain_fd tcp_keepalive;
-           let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
-           let finalize () =
-             Hashtbl.remove client_threads cid;
-             Lwt_condition.signal _condition ();
-             Lwt.return ()
-           in
-           possible_denial cid plain_fd cl_socket_address >>= fun mt ->
-           begin
-             match mt with
-             | Some t ->
-                Lwt.ignore_result
-                  (Lwt.catch
-                     (fun () ->
-                      Hashtbl.add client_threads cid t;
-                      t >>= fun () ->
-                      finalize ()
-                     )
-                     (fun exn ->
-                      Logger.info_f_ ~exn "Exception in client thread %s" cid >>= fun () ->
-                      finalize ()))
-             | None -> ()
-           end;
-           Lwt.return ()
+            Lwt_unix.accept listening_socket >>= fun (plain_fd, cl_socket_address) ->
+            Lwt_unix.setsockopt plain_fd Lwt_unix.TCP_NODELAY true;
+            Tcp_keepalive.apply plain_fd tcp_keepalive;
+            let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
+            let finalize () =
+              Hashtbl.remove client_threads cid;
+              Lwt_condition.signal _condition ();
+              Lwt.return ()
+            in
+            possible_denial cid plain_fd cl_socket_address >>= fun mt ->
+            begin
+              match mt with
+              | Some t ->
+                 Lwt.ignore_result
+                   (Lwt.catch
+                      (fun () ->
+                        Hashtbl.add client_threads cid t;
+                        t >>= fun () ->
+                        finalize ()
+                      )
+                      (fun exn ->
+                        Logger.info_f_ ~exn "Exception in client thread %s" cid >>= fun () ->
+                        finalize ()))
+              | None -> ()
+            end;
+            Lwt.return ()
           )
           (function
             | Unix.Unix_error (Unix.EMFILE,s0,s1) ->

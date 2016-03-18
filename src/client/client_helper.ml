@@ -35,21 +35,45 @@ let default_create_client_context ~ca_cert ~creds ~protocol =
   ctx
 
 
-let with_connection ~tls ~tcp_keepalive sa do_it = match tls with
-  | None -> Lwt_io.with_connection sa do_it
+let with_connection ~tls ~tcp_keepalive sa do_it =
+  let fd = Lwt_unix.socket (Unix.domain_of_sockaddr sa) Unix.SOCK_STREAM 0 in
+  Lwt.catch
+    (fun () ->
+      Tcp_keepalive.apply fd tcp_keepalive;
+      Lwt_unix.setsockopt fd Lwt_unix.TCP_NODELAY true;
+      Lwt_unix.set_close_on_exec fd;
+      Lwt_unix.connect fd sa)
+    (fun exn ->
+      Lwt.catch
+        (fun () -> Lwt_unix.close fd)
+        (fun _ -> Lwt.return_unit)
+      >>= fun () ->
+      Lwt.fail exn
+    )
+  >>= fun () ->
+  begin
+  match tls with
+  | None -> 
+     let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd 
+     and oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
+     let conn = (ic,oc)
+     and fin = fun () -> Lwt_unix.close fd
+     in
+     Lwt.return (conn,fin)
   | Some ctx ->
-    let fd = Lwt_unix.socket (Unix.domain_of_sockaddr sa) Unix.SOCK_STREAM 0 in
-    Tcp_keepalive.apply fd tcp_keepalive;
-    Lwt_unix.set_close_on_exec fd;
-    Lwt_unix.connect fd sa >>= fun () ->
-    Typed_ssl.Lwt.ssl_connect fd ctx >>= fun (_, sock) ->
-    let ic = Lwt_ssl.in_channel_of_descr sock
-    and oc = Lwt_ssl.out_channel_of_descr sock in
-    Lwt.finalize
-      (fun () -> do_it (ic, oc))
-      (fun () -> Lwt_ssl.close sock)
-
-
+     Typed_ssl.Lwt.ssl_connect fd ctx >>= fun (_, sock) ->
+     let ic = Lwt_ssl.in_channel_of_descr sock
+     and oc = Lwt_ssl.out_channel_of_descr sock in
+     let conn = (ic,oc) 
+     and fin = fun () -> Lwt_ssl.close sock
+     in
+     Lwt.return (conn,fin)
+  end
+  >>= fun (conn,fin) ->
+  Lwt.finalize
+    (fun () -> do_it conn)
+    fin
+  
 exception No_connection
 
 let with_connection' ~tls ~tcp_keepalive addrs f =
