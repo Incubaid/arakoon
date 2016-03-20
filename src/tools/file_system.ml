@@ -153,7 +153,8 @@ let copy_file source target ~overwrite ~throttling =
   exists target >>= fun target_exists ->
   if target_exists && not overwrite
   then
-    Logger.info_f_ "Not copying %s to %s because target already exists" source target
+    Logger.info_f_ "Not copying %s to %s because target already exists" source target >>= fun () ->
+    Lwt.return_false
   else
     begin
       let tmp_file = target ^ ".tmp" in
@@ -161,7 +162,8 @@ let copy_file source target ~overwrite ~throttling =
       Lwt_io.with_file ~mode:Lwt_io.input source
         (fun ic ->
          with_tmp_file tmp_file target
-                       (fun oc -> copy_all ic oc))
+                       (fun oc -> copy_all ic oc)) >>= fun () ->
+      Lwt.return_true
     end
 
 let safe_rename src dest =

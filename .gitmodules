@@ -1,3 +1,3 @@
 [submodule "pylabs/pyrakoon"]
 	path = pylabs/pyrakoon
-	url = git://github.com/Incubaid/pyrakoon.git
+	url = https://github.com/openvstorage/pyrakoon.git

@@ -327,6 +327,12 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
       backend # last_entries2 i oc >>= fun () ->
       Lwt.return false
     end
+  | LAST_ENTRIES3 ->
+     Sn.input_sn ic >>= fun i ->
+      Logger.debug_f_ "connection=%s LAST_ENTRIES3: i=%Li" id i >>= fun () ->
+      response_ok oc >>= fun () ->
+      backend # last_entries3 i oc >>= fun () ->
+      Lwt.return false
   | WHO_MASTER ->
     begin
       Logger.debug_f_ "connection=%s WHO_MASTER" id >>= fun () ->

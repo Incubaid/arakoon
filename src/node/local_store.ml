@@ -205,7 +205,7 @@ let copy_store ls networkClient (oc: Lwt_io.output_channel) =
 let relocate ls new_location =
   copy_store2 ls.location new_location ~overwrite:true
               ~throttling:0.0
-  >>= fun () ->
+  >>= fun _copied ->
   let old_location = ls.location in
   let () = ls.location <- new_location in
   Logger.info_f_ "Attempting to unlink file '%s'" old_location >>= fun () ->

@@ -72,9 +72,18 @@ let network_of_messaging (m:messaging) =
 let update_votes (nones, somes) = function
   | None -> (nones + 1, somes)
   | Some key ->
-      List.alter ~list:somes ~key ~default:1 (fun v -> Some (v + 1))
-      |> List.sort (fun (_, fa) (_, fb) -> fb - fa)
-      |> fun s -> (nones, s)
+    List.alter
+      ~equals:(fun v1 v2 ->
+               v1 = v2
+               || (match v1, v2 with
+                   (* ignore the timestamp when comparing a masterset,
+                      otherwise in some situations electing the master
+                      might get stuck in a loop *)
+                   | Value.Vm(m1, _), Value.Vm(m2, _) -> m1 = m2
+                   | _ -> false))
+      ~list:somes ~key ~default:1 (fun v -> Some (v + 1))
+    |> List.sort (fun (_, fa) (_, fb) -> fb - fa)
+    |> fun s -> (nones, s)
 
 type paxos_event =
   | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
@@ -118,6 +127,7 @@ type 'a constants =
    is_learner: bool;
    stop : bool ref;
    catchup_tls_ctx : [ `Client | `Server ] Typed_ssl.t option;
+   tcp_keepalive : Tcp_keepalive.t;
    mutable election_timeout : (Sn.t * Sn.t * float) option;
    mutable lease_expiration_id : int;
    mutable respect_run_master : (string * float) option;
@@ -133,7 +143,7 @@ let is_election constants =
     | Elected | Preferred _ -> true
     | ReadOnly | Forced _ -> false
 
-let make (type s) ~catchup_tls_ctx me is_learner others send get_value
+let make (type s) ~catchup_tls_ctx ~tcp_keepalive me is_learner others send get_value
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
       other_cfgs lease_expiration inject_event is_alive ~cluster_id
@@ -160,6 +170,7 @@ let make (type s) ~catchup_tls_ctx me is_learner others send get_value
     cluster_id;
     stop;
     catchup_tls_ctx;
+    tcp_keepalive;
     election_timeout = None;
     lease_expiration_id = 0;
     respect_run_master = None;

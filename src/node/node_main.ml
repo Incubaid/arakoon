@@ -25,27 +25,8 @@ open Statistics
 
 let section = Logger.Section.main
 
-let _split node_name cfgs =
-  let rec loop me_o others = function
-    | [] -> me_o, others
-    | cfg :: rest ->
-      if cfg.node_name = node_name then
-        loop (Some cfg) others rest
-      else
-        loop me_o (cfg::others) rest
-  in
-  let me_o, others = loop None [] cfgs in
-  match me_o with
-    | None -> failwith (node_name ^ " is not known in config")
-    | Some me -> me,others
 
-
-let _config_logging me get_cfgs =
-  let cluster_cfg = get_cfgs () in
-  let cfg =
-    try List.find (fun c -> c.node_name = me) cluster_cfg.cfgs
-    with Not_found -> failwith ("Could not find config for node " ^ me )
-  in
+let _config_log_levels me cluster_cfg cfg =
   let log_config =
     match cfg.log_config with
       | None -> Node_cfg.Node_cfg.get_default_log_config ()
@@ -74,22 +55,27 @@ let _config_logging me get_cfgs =
   let () = set_level Client_protocol.section log_config.client_protocol in
   let () = set_level Multi_paxos.section log_config.paxos in
   let () = set_level Tcp_messaging.section log_config.tcp_messaging in
-  let log_dir = cfg.log_dir in
-  let node_name = cfg.node_name in
-  let common_prefix = log_dir ^ "/" ^ node_name in
-  let log_file_name = common_prefix ^ ".log" in
-  let get_crash_file_name () =
-    Printf.sprintf "%s.debug.%f" common_prefix (Unix.time()) in
+  Lwt.return ()
+
+let _config_logging me get_cfgs =
+  get_cfgs () >>= fun cluster_cfg ->
+  let cfg =
+    try List.find (fun c -> c.node_name = me) cluster_cfg.cfgs
+    with Not_found -> failwith ("Could not find config for node " ^ me )
+  in
+  _config_log_levels me cluster_cfg cfg >>= fun () ->
   if not cfg.is_test
   then
-    begin
-      Crash_logger.setup_default_logger log_file_name get_crash_file_name
-      >>= fun logger -> Lwt.return (Some logger)
-    end
+    Arakoon_logger.setup_log_sinks cfg.log_sinks >>= fun () ->
+    let dump_crash_log () =
+      Lwt_list.iter_p
+        Crash_logger.dump_crash_log
+        cfg.crash_log_sinks >>= fun () ->
+      Logger.info_ "Crash log dumped"
+    in
+    Lwt.return dump_crash_log
   else
-    begin
-      Lwt.return None
-    end
+    Lwt.return (fun () -> Logger.info_ "No crash_log defined")
 
 let _config_batched_transactions node_cfg cluster_cfg =
   let get_optional o default = match o with
@@ -113,6 +99,7 @@ let _config_messaging
       ?ssl_context me others
       cookie laggy
       lease_period max_buffer_size
+      ~tcp_keepalive
       ~stop =
   let drop_it = match laggy with
     | true -> let count = ref 0 in
@@ -134,14 +121,16 @@ let _config_messaging
       [] others
   in
   let client_ssl_context = ssl_context in
-  let messaging = new tcp_messaging
-    (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5)
-    ?client_ssl_context ~stop in
+  let messaging =
+    new tcp_messaging
+        (me.ips, me.messaging_port) cookie drop_it max_buffer_size ~timeout:(lease_period *. 2.5)
+        ~tcp_keepalive
+        ?client_ssl_context ~stop in
   messaging # register_receivers mapping;
   (messaging :> Messaging.messaging)
 
 
-let _config_service ?ssl_context cfg stop backend =
+let _config_service ?ssl_context ~tcp_keepalive cfg stop backend =
   let port = cfg.client_port in
   let hosts = cfg.ips in
   let max_connections =
@@ -155,19 +144,23 @@ let _config_service ?ssl_context cfg stop backend =
                       Server.make_server_thread ~name host port
                         (Client_protocol.protocol stop backend)
                         ~scheme ?ssl_context ~stop
+                        ~tcp_keepalive
                    )
                    hosts
   in
   let uber_service () = Lwt_list.iter_p (fun f -> f ()) services in
   uber_service
 
-let _log_rotate cfg i get_cfgs =
+let _log_rotate me i get_cfgs =
   Logger.warning_f_ "received USR1 (%i) going to close/reopen log file" i
   >>= fun () ->
-  let logger = !Lwt_log.default in
-  _config_logging cfg get_cfgs >>= fun _ ->
-  Lwt_log.close logger >>= fun () ->
-  Lwt.return ()
+  get_cfgs () >>= fun cluster_cfg ->
+  let cfg =
+    try List.find (fun c -> c.node_name = me) cluster_cfg.cfgs
+    with Not_found -> failwith ("Could not find config for node " ^ me )
+  in
+  _config_log_levels me cluster_cfg cfg >>= fun () ->
+  !Arakoon_logger.reopen_loggers ()
 
 let log_prelude cluster_cfg =
   Logger.info_ "--- NODE STARTED ---" >>= fun () ->
@@ -176,7 +169,7 @@ let log_prelude cluster_cfg =
   Logger.info_f_ "version: %i.%i.%i" Arakoon_version.major
     Arakoon_version.minor Arakoon_version.patch   >>= fun () ->
   Logger.info_f_ "NOFILE: %i" (Limits.get_rlimit Limits.NOFILE Limits.Soft)      >>= fun () ->
-  Logger.info_f_ "tlogEntriesPerFile: %i" (!Tlogcommon.tlogEntriesPerFile)       >>= fun () ->
+
   Logger.info_f_ "cluster_cfg=%s" (string_of_cluster_cfg cluster_cfg)            >>= fun () ->
   Logger.info_f_ "Batched_store.max_entries = %i" !Batched_store.max_entries    >>= fun () ->
   Logger.info_f_ "Batched_store.max_size = %i" !Batched_store.max_size
@@ -184,23 +177,48 @@ let log_prelude cluster_cfg =
 
 let full_db_name me = me.home ^ "/" ^ me.node_name ^ ".db"
 
-let only_catchup (type s) (module S : Store.STORE with type t = s) ~tls_ctx ~name ~cluster_cfg ~make_tlog_coll =
+let only_catchup
+      (type s) (module S : Store.STORE with type t = s)
+      ~tls_ctx
+      ~name
+      ~cluster_cfg
+      ~(make_tlog_coll:Tlogcollection.tlc_factory)
+      get_snapshot_name
+  =
   Logger.info_ "ONLY CATCHUP" >>= fun () ->
-  let me, other_configs = _split name cluster_cfg.cfgs in
+  let me, other_configs = Node_cfg.Node_cfg.split name cluster_cfg.cfgs in
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
+  let snapshot_name = get_snapshot_name() in
+  let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
+  Lwt.catch
+    (fun () ->
+     S.copy_store2 full_snapshot_path db_name
+                   ~overwrite:false
+                   ~throttling:Node_cfg.default_head_copy_throttling
+     >>= fun _ ->
+     Lwt.return ()
+    )
+    (function
+      | Not_found -> Lwt.return ()
+      | e -> raise e
+    )
+  >>= fun () ->
+
+  S.make_store ~lcnum:cluster_cfg.lcnum
+               ~ncnum:cluster_cfg.ncnum
+               db_name >>= fun store ->
+  let compressor = me.compressor in
+  make_tlog_coll ~compressor
+                 ~tlog_max_entries:cluster_cfg.tlog_max_entries
+                 ~tlog_max_size:cluster_cfg.tlog_max_size
+                 me.tlog_dir me.tlx_dir me.head_dir
+                 ~fsync:false name ~fsync_tlog_dir:false
+  >>= fun tlc ->
   let try_catchup mr_name =
     Lwt.catch
       (fun () ->
-       S.make_store ~lcnum:cluster_cfg.lcnum
-                    ~ncnum:cluster_cfg.ncnum
-                    db_name >>= fun store ->
-       let compressor = me.compressor in
-       make_tlog_coll ~compressor
-                      me.tlog_dir me.tlx_dir me.head_dir
-                      ~fsync:false name ~fsync_tlog_dir:false
-       >>= fun tlc ->
-       Catchup.catchup ~tls_ctx ~stop:(ref false)
+       Catchup.catchup ~tls_ctx ~tcp_keepalive:cluster_cfg.tcp_keepalive ~stop:(ref false)
                        me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
        S.close store ~flush:true ~sync:true >>= fun () ->
@@ -332,7 +350,7 @@ module X = struct
     let t0 = Unix.gettimeofday () in
     Logger.debug_f_ "on_accept: n:%s i:%s" (Sn.string_of n) (Sn.string_of i)
     >>= fun () ->
-    tlog_coll # accept i v >>= fun () ->
+    tlog_coll # accept i v >>= fun total_size ->
     begin
       match v with
         | Value.Vc (us,_)     ->
@@ -345,9 +363,9 @@ module X = struct
     let d = t1 -. t0 in
     if d >= 1.0
     then
-      Logger.info_f_ "T:on_accept took: %f" d
+      Logger.info_f_ "T:on_accept took: %f (%i B)" d total_size
     else
-      Logger.debug_f_ "T:on_accept took: %f" d
+      Logger.debug_f_ "T:on_accept took: %f (%i B) " d total_size
 
   let reporting period backend () =
     let fp = float period in
@@ -364,18 +382,18 @@ end
 
 let _main_2 (type s)
       (module S : Store.STORE with type t = s)
-      make_tlog_coll
-      make_config get_snapshot_name ~name
-      ~daemonize ~catchup_only ~stop : int Lwt.t =
+      (make_tlog_coll:Tlogcollection.tlc_factory)
+      (make_config: unit -> 'a Lwt.t)
+      get_snapshot_name ~name
+      ~daemonize ~catchup_only
+      ~autofix
+      ~stop : int Lwt.t
+  =
   Lwt_io.set_default_buffer_size 32768;
-  let cluster_cfg = make_config () in
+  make_config () >>= fun cluster_cfg ->
   let cfgs = cluster_cfg.cfgs in
-  let me, others = _split name cfgs in
-  _config_logging me.node_name make_config >>= fun dump_crash_log ->
-  let maybe_dump_crash_log () =
-    match dump_crash_log with
-    | None -> Logger.info_ "No crash_log defined"
-    | Some f -> f () >>= fun () -> Logger.info_ "Crash log dumped" in
+  let me, others = Node_cfg.Node_cfg.split name cfgs in
+  _config_logging me.node_name make_config >>= fun maybe_dump_crash_log ->
   let _ = Lwt_unix.on_signal Sys.sigusr2 (fun _ ->
       let handle () =
         Lwt_unix.sleep 0.001 >>= fun () ->
@@ -388,20 +406,19 @@ let _main_2 (type s)
   let ssl_context = build_ssl_context me cluster_cfg in
   let service_ssl_context = build_service_ssl_context me cluster_cfg in
 
-  let () = match cluster_cfg.overwrite_tlog_entries with
-    | None -> ()
-    | Some i ->  Tlogcommon.tlogEntriesPerFile := i
-  in
-
   log_prelude cluster_cfg >>= fun () ->
+  Logger.info_f_ "autofix:%b" autofix >>= fun () ->
   Plugin_loader.load me.home cluster_cfg.plugins >>= fun () ->
 
   if catchup_only
   then
     begin
-      only_catchup (module S) ~tls_ctx:ssl_context ~name ~cluster_cfg ~make_tlog_coll
-      >>= fun _ -> (* we don't need that here as there is no continuation *)
-
+      only_catchup
+        (module S)
+        ~tls_ctx:ssl_context
+        ~name ~cluster_cfg ~make_tlog_coll
+        get_snapshot_name
+      >>= fun () ->
       Lwt.return 0
     end
   else
@@ -481,8 +498,10 @@ let _main_2 (type s)
         end
       in
       Lwt.ignore_result ( upload_cfg_to_keeper () ) ;
+      let tcp_keepalive = cluster_cfg.tcp_keepalive in
       let messaging  = _config_messaging
                          ?ssl_context
+                         ~tcp_keepalive
                          me cfgs cookie me.is_laggy
                          (float me.lease_period)
                          cluster_cfg.max_buffer_size
@@ -501,25 +520,35 @@ let _main_2 (type s)
         (quorum_function n_nodes) n_nodes >>= fun () ->
       Logger.info_f_ "DAEMONIZATION=%b" daemonize >>= fun () ->
 
-      let build_startup_state () =
-        begin
+      let open_tlog_collection_and_store ~autofix me =
+        Logger.info_f_ "open_tlog_collection_and_store ~autofix:%b" autofix >>= fun () ->
+        let db_name = full_db_name me in
+        let head_copied = ref false in
+        let _open_tlc_and_store () =
+          Logger.debug_ "_open_tlc_and_store" >>= fun () ->
           Node_cfg.Node_cfg.validate_dirs me >>= fun () ->
-          let db_name = full_db_name me in
+          Logger.debug_ "validated directories" >>= fun () ->
           let snapshot_name = get_snapshot_name() in
           let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
+          Logger.debug_f_ "full_snapshot_path:%s" full_snapshot_path >>= fun () ->
           Lwt.catch
             (fun () ->
              S.copy_store2 full_snapshot_path db_name
                            ~overwrite:false
                            ~throttling:Node_cfg.default_head_copy_throttling
+             >>= fun copied ->
+             head_copied := copied;
+             Lwt.return_unit
             )
             (function
-              | Not_found -> Lwt.return ()
-              | e -> raise e
+              | Not_found -> Lwt.return_unit
+              | e -> Lwt.fail e
             )
           >>= fun () ->
           let compressor = me.compressor in
           make_tlog_coll ~compressor
+                         ~tlog_max_entries:cluster_cfg.tlog_max_entries
+                         ~tlog_max_size:cluster_cfg.tlog_max_size
                          me.tlog_dir me.tlx_dir me.head_dir
                          ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
@@ -527,6 +556,52 @@ let _main_2 (type s)
           and ncnum = cluster_cfg.ncnum
           in
           S.make_store ~lcnum ~ncnum db_name >>= fun (store:S.t) ->
+          Lwt.return (tlog_coll, store)
+        in
+        Lwt.catch
+        (fun () -> _open_tlc_and_store ())
+        (fun exn ->
+         if autofix
+         then
+           begin
+             let clean_up_retry fn =
+               (if not !head_copied
+               then File_system.unlink db_name
+               else Lwt.return_unit)
+               >>= fun () ->
+               Tlog_main._mark_tlog fn (Tlog_map._make_close_marker me.node_name) >>= fun _ ->
+               _open_tlc_and_store()
+             in
+             let open Tlog_map in
+             match exn with
+             | Tlog_map.TLCNotProperlyClosed (fn,_) ->
+                begin
+                  Logger.warning_ ~exn "AUTOFIX: improperly closed tlog" >>= fun ()->
+                  clean_up_retry fn
+                end
+             | Tlogcommon.TLogUnexpectedEndOfFile _ ->
+                begin
+                  Logger.warning_ ~exn "AUTOFIX: unexpected end of tlog" >>= fun () ->
+                  Tlog_map._get_tlog_names me.tlog_dir me.tlx_dir >>= fun tlog_names ->
+                  let fn = List.hd (List.rev tlog_names) |> Filename.concat me.tlog_dir in
+                  Tlc2._truncate_tlog fn >>= fun ()->
+                  clean_up_retry fn
+                end
+
+             | _ ->
+                Logger.fatal_f_ ~exn "AUTOFIX: can't autofix this" >>= fun () ->
+                Lwt.fail exn
+           end
+         else
+           Logger.fatal_f_ ~exn "propagating" >>= fun () ->
+           Lwt.fail exn
+        )
+      in
+      let build_startup_state () =
+        begin
+
+          open_tlog_collection_and_store me ~autofix
+          >>= fun (tlog_coll, store) ->
           let last_i = tlog_coll # get_last_i () in
           begin
             if me.is_witness
@@ -561,6 +636,8 @@ let _main_2 (type s)
           let act_not_preferred = ref false in
           let sb =
             let test = Node_cfg.Node_cfg.test cluster_cfg in
+            let snapshot_name = get_snapshot_name() in
+            let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
             new SB.sync_backend me
               (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
               inject_push
@@ -576,7 +653,10 @@ let _main_2 (type s)
           in
           let backend = (sb :> Backend.backend) in
 
-          let service = _config_service ?ssl_context:service_ssl_context me stop backend in
+          let service = _config_service
+                          ?ssl_context:service_ssl_context
+                          ~tcp_keepalive
+                          me stop backend in
 
           let send, _run, _register, is_alive =
             Multi_paxos.network_of_messaging messaging in
@@ -615,6 +695,7 @@ let _main_2 (type s)
                  let addrs = List.map (fun ip -> Network.make_address ip master_cfg.client_port) master_cfg.ips in
                  Client_main.with_connection'
                    ~tls:ssl_context
+                   ~tcp_keepalive
                    addrs
                    (fun _addr conn ->
                     Arakoon_remote_client.make_remote_client cluster_id conn >>= fun client ->
@@ -732,7 +813,9 @@ let _main_2 (type s)
                   else None
           in
           let constants =
-            Multi_paxos.make ~catchup_tls_ctx:catchup_tls_ctx my_name
+            Multi_paxos.make
+              ~catchup_tls_ctx:catchup_tls_ctx my_name
+              ~tcp_keepalive
               me.is_learner
               other_names send
               get_last_value
@@ -868,9 +951,9 @@ let _main_2 (type s)
             Logger.fatal_f_ "[rc=%i] Store counter too low: %s" rc msg >>= fun () ->
             maybe_dump_crash_log () >>= fun () ->
             Lwt.return rc
-          | Tlc2.TLCNotProperlyClosed msg ->
+          | Tlog_map.TLCNotProperlyClosed (fn, msg) ->
             let rc = 42 in
-            Logger.fatal_f_ "[rc=%i] tlog not properly closed %s" rc msg >>= fun () ->
+            Logger.fatal_f_ "[rc=%i] tlog %s not properly closed %s" rc fn msg >>= fun () ->
             Lwt.return rc
           | Node_cfg.InvalidTlogDir dir ->
             let rc = 43 in
@@ -915,11 +998,16 @@ let _main_2 (type s)
     end
 
 
-let main_t make_config name daemonize catchup_only : int Lwt.t =
+let main_t (make_config: unit -> 'a Lwt.t)
+           name daemonize catchup_only autofix : int Lwt.t
+  =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
-  let make_tlog_coll = Tlc2.make_tlc2 in
+  let (make_tlog_coll :Tlogcollection.tlc_factory) = Tlc2.make_tlc2 in
   let get_snapshot_name = Tlc2.head_name in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop:(ref false)
+  _main_2 (module S)
+          make_tlog_coll
+          make_config get_snapshot_name
+          ~name ~daemonize ~catchup_only ~autofix ~stop:(ref false)
 
 let test_t make_config name ~stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
@@ -929,5 +1017,7 @@ let test_t make_config name ~stop =
   in
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false
-  and catchup_only = false in
-  _main_2 (module S) make_tlog_coll make_config get_snapshot_name ~name ~daemonize ~catchup_only ~stop
+  and catchup_only = false
+  and autofix = false in
+  _main_2 (module S) make_tlog_coll make_config get_snapshot_name
+          ~name ~daemonize ~catchup_only ~stop ~autofix

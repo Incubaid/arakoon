@@ -1085,14 +1085,14 @@ class ArakoonCluster:
         if not nodeName in self.listLocalNodes():
             raise ArakoonNodeNotLocal( nodeName)
 
-    def startOne(self, nodeName):
+    def startOne(self, nodeName, extraParams = None):
         """
         Start the node with a given name
         @param nodeName The name of the node
-
+        @param extraParams an optional list of extra parameters for the command line
         """
         self._requireLocal(nodeName)
-        return self._startOne(nodeName)
+        return self._startOne(nodeName, extraParams)
 
 
     def catchupOnly(self, nodeName):
@@ -1272,7 +1272,7 @@ class ArakoonCluster:
         cmdLine = string.join(cmd, ' ')
         return cmdLine
 
-    def _startOne(self, name):
+    def _startOne(self, name, extraParams = None):
         if self._getStatusOne(name) == X.AppStatusType.RUNNING:
             return
 
@@ -1284,8 +1284,10 @@ class ArakoonCluster:
 
         command = self._cmd(name)
         cmd.extend(command)
+        if extraParams:
+            cmd.extend(extraParams)
         cmd.append('-daemonize')
-        logging.debug('calling: %s', str(cmd))
+        logging.debug('calling: %s', ' '.join(cmd))
         return subprocess.call(cmd, close_fds = True)
 
     def _getIp(self,ip_mess):

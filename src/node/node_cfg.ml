@@ -18,7 +18,7 @@ limitations under the License.
 
 let section = Logger.Section.main
 
-let config_file = ref "cfg/arakoon.ini"
+let config_url = ref (Arakoon_config_url.make "cfg/arakoon.ini")
 
 let default_lease_period = 10
 let default_max_value_size = 8 * 1024 * 1024
@@ -27,6 +27,21 @@ let default_client_buffer_capacity = 32
 let default_lcnum = 16384
 let default_ncnum = 8192
 let default_head_copy_throttling = 0.0
+
+type tcp_keepalive_cfg = Tcp_keepalive.t = {
+      enable_tcp_keepalive : bool;
+      tcp_keepalive_time : int;
+      tcp_keepalive_intvl : int;
+      tcp_keepalive_probes : int;
+    }
+
+let default_tcp_keepalive = {
+    enable_tcp_keepalive = true;
+    tcp_keepalive_time = 20;
+    tcp_keepalive_intvl = 20;
+    tcp_keepalive_probes = 3;
+  }
+
 open Master_type
 open Client_cfg
 
@@ -115,7 +130,7 @@ module TLSConfig = struct
 end
 
 module Node_cfg = struct
-
+  open Lwt.Infix
   type t = {node_name:string;
             ips: string list;
             client_port:int;
@@ -124,7 +139,8 @@ module Node_cfg = struct
             tlog_dir:string;
             tlx_dir:string;
             head_dir:string;
-            log_dir:string;
+            log_sinks : Arakoon_log_sink.t list;
+            crash_log_sinks : Arakoon_log_sink.t list;
             log_level:string;
             log_config:string option;
             batched_transaction_config:string option;
@@ -152,7 +168,8 @@ module Node_cfg = struct
            ; "messaging_port", int t.messaging_port
            ; "home", string t.home
            ; "tlog_dir", string t.tlog_dir
-           ; "log_dir", string t.log_dir
+           ; "log_sinks", list Arakoon_log_sink.to_string t.log_sinks
+           ; "crash_log_sinks", list Arakoon_log_sink.to_string t.crash_log_sinks
            ; "tlx_dir", string t.tlx_dir
            ; "head_dir", string t.head_dir
            ; "log_level", string t.log_level
@@ -224,14 +241,16 @@ module Node_cfg = struct
       cluster_id : string;
       plugins: string list;
       nursery_cfg : (string*ClientCfg.t) option;
-      overwrite_tlog_entries: int option;
+      tlog_max_size : int ;
+      tlog_max_entries: int;
       max_value_size: int;
       max_buffer_size: int;
       client_buffer_capacity: int;
       lcnum : int; (* tokyo cabinet: leaf nodes in cache *)
       ncnum : int; (* tokyo cabinet: internal nodes in cache *)
       tls : TLSConfig.Cluster.t option;
-}
+      tcp_keepalive : tcp_keepalive_cfg;
+    }
 
   let node_cfg_to_node_client_cfg (cfg : t) =
     { Arakoon_client_config.ips = cfg.ips;
@@ -257,7 +276,8 @@ module Node_cfg = struct
            ; "cluster_id", string c.cluster_id
            ; "plugins", list string c.plugins
            ; "nursery_cfg", option (pair string ClientCfg.to_string) c.nursery_cfg
-           ; "overwrite_tlog_entries", option int c.overwrite_tlog_entries
+           ; "tlog_max_entries", int c.tlog_max_entries
+           ; "tlog_max_size", int c.tlog_max_size
            ; "max_value_size", int c.max_value_size
            ; "max_buffer_size", int c.max_buffer_size
            ; "client_buffer_capacity", int c.client_buffer_capacity
@@ -281,7 +301,8 @@ module Node_cfg = struct
         tlog_dir = home;
         tlx_dir = home;
         head_dir = home;
-        log_dir = ":None";
+        log_sinks = [];
+        crash_log_sinks = [];
         log_level = "DEBUG";
         log_config = Some "default_log_config";
         batched_transaction_config = Some "default_batched_transaction_config";
@@ -310,7 +331,7 @@ module Node_cfg = struct
     let batched_transaction_cfgs = [("default_batched_transaction_config", get_default_batched_transaction_config ())] in
     let cfgs = loop [] n_nodes in
     let quorum_function = Quorum.quorum_function in
-    let overwrite_tlog_entries = None in
+
     let cluster_cfg = {
       cfgs;
       log_cfgs;
@@ -321,25 +342,31 @@ module Node_cfg = struct
       _lease_period = default_lease_period;
       cluster_id;
       plugins = [];
-      overwrite_tlog_entries;
+      tlog_max_entries = 10_000 ;
+      tlog_max_size  = 100_000;
       max_value_size = default_max_value_size;
       max_buffer_size = default_max_buffer_size;
       client_buffer_capacity = default_client_buffer_capacity;
       lcnum = default_lcnum;
       ncnum = default_ncnum;
       tls = None;
+      tcp_keepalive = default_tcp_keepalive;
     }
     in
     cluster_cfg
 
 
-
+  let _global_int inifile attribute d =
+    Ini.get inifile "global" attribute Ini.p_int (Ini.default d)
 
   let _node_names inifile =
     Ini.get inifile "global" "cluster" Ini.p_string_list Ini.required
 
   let _ips inifile node_name =
     Ini.get inifile node_name "ip" Ini.p_string_list Ini.required
+
+  let _tlog_max_entries inifile = _global_int inifile "tlog_max_entries"    10_000
+  let _tlog_max_size    inifile = _global_int inifile "tlog_max_size"    5_000_000
 
   let _tlog_entries_overwrite inifile =
     Ini.get inifile "global" "__tainted_tlog_entries_per_file"
@@ -406,11 +433,11 @@ module Node_cfg = struct
     in
     master
 
-  let get_nursery_cfg inifile filename =
+  let get_nursery_cfg inifile =
     try
       begin
         let n_cluster_id = Ini.get inifile "nursery" "cluster_id" Ini.p_string Ini.required in
-        let cfg =  ClientCfg.from_file "nursery" filename in
+        let cfg = ClientCfg.from_ini "nursery" inifile in
         Some (n_cluster_id, cfg)
       end
     with _ -> None
@@ -490,6 +517,7 @@ module Node_cfg = struct
     let client_port = get_int "client_port" in
     let messaging_port = get_int "messaging_port" in
     let home = get_string "home" in
+
     let tlog_dir =
       try get_string "tlog_dir"
       with _ -> home
@@ -519,7 +547,7 @@ module Node_cfg = struct
       else
         begin
           let s = Ini.get inifile node_name "tlog_compression" Ini.p_string
-                          (Ini.default "bz2")
+                          (Ini.default "snappy")
           in
           match String.lowercase s with
           | "snappy"  -> Compression.Snappy
@@ -544,6 +572,26 @@ module Node_cfg = struct
     let log_dir =
       try get_string "log_dir"
       with _ -> home
+    in
+    let log_sinks =
+      let default_sink = Printf.sprintf "%s/%s.log" log_dir node_name in
+      (try Ini.get
+             inifile node_name "log_sinks"
+             Ini.p_string_list
+             (Ini.default [ default_sink ])
+       with _ -> [ default_sink ])
+      |> List.map
+           Arakoon_log_sink.make
+    in
+    let crash_log_sinks =
+      let default = Printf.sprintf "%s/%s" log_dir node_name in
+      (try Ini.get
+             inifile node_name "crash_log_sinks"
+             Ini.p_string_list
+             (Ini.default [ default ])
+       with _ -> [ default ])
+      |> List.map
+           (fun x -> Arakoon_log_sink.File x)
     in
     let reporting = Ini.get inifile node_name "reporting" Ini.p_int (Ini.default 300) in
     let get_string_option x = Ini.get inifile node_name x (Ini.p_option Ini.p_string) (Ini.default None) in
@@ -574,7 +622,8 @@ module Node_cfg = struct
      tlog_dir;
      tlx_dir;
      head_dir;
-     log_dir;
+     log_sinks;
+     crash_log_sinks;
      log_level;
      log_config;
      batched_transaction_config;
@@ -595,101 +644,146 @@ module Node_cfg = struct
     }
 
 
-  let read_config config_file =
-    let inifile = new Inifiles.inifile config_file in
-    let fm = _startup_mode inifile in
-    let nodes = _node_names inifile in
-    let plugin_names = _plugins inifile in
-    let cfgs, remaining = List.fold_left
-                            (fun (a,remaining) section ->
-                               if List.mem section nodes || _get_bool inifile section "learner"
-                               then
-                                 let cfg = _node_config inifile section fm in
-                                 let new_remaining = List.filter (fun x -> x <> section) remaining in
-                                 (cfg::a, new_remaining)
-                               else (a,remaining))
-                            ([],nodes) (inifile # sects) in
-    let log_cfg_names = List.map (fun cfg -> cfg.log_config) cfgs in
-    let log_cfgs = List.fold_left
-                     (fun a section ->
-                        if List.mem (Some section) log_cfg_names
-                        then
-                          let log_cfg = _log_config inifile section in
-                          (section, log_cfg)::a
-                        else
-                          a)
-                     [] (inifile # sects) in
-    let batched_transaction_cfg_names = List.map (fun cfg -> cfg.batched_transaction_config) cfgs in
-    let batched_transaction_cfgs = List.fold_left
-                                     (fun a section ->
-                                        if List.mem (Some section) batched_transaction_cfg_names
-                                        then
-                                          let batched_transaction_cfg = _batched_transaction_config inifile section in
-                                          (section, batched_transaction_cfg)::a
-                                        else
-                                          a)
-                                     [] (inifile # sects) in
-    let () = if List.length remaining > 0 then
-        failwith ("Can't find config section for: " ^ (String.concat "," remaining))
-    in
-    let quorum_function = _get_quorum_function inifile in
-    let lease_period = _get_lease_period inifile in
-    let cluster_id = _get_cluster_id inifile in
-    let m_n_cfg = get_nursery_cfg inifile config_file in
-    let overwrite_tlog_entries = _tlog_entries_overwrite inifile in
-    let max_value_size = _max_value_size inifile in
-    let max_buffer_size = _max_buffer_size inifile in
-    let client_buffer_capacity = _client_buffer_capacity inifile in
-    let lcnum = _lcnum inifile in
-    let ncnum = _ncnum inifile in
-    let tls_ca_cert = _tls_ca_cert inifile in
-    let tls_service = _tls_service inifile in
-    let tls_service_validate_peer = _tls_service_validate_peer inifile in
-    let tls_version = _tls_version inifile in
-    let tls_cipher_list = _tls_cipher_list inifile in
-    let tls = match tls_ca_cert with
-      | None -> None
-      | Some ca_cert ->
-          let cfg = TLSConfig.Cluster.make
-                      ~ca_cert
-                      ~service:tls_service
-                      ~service_validate_peer:tls_service_validate_peer
-                      ~protocol:tls_version
-                      ~cipher_list:tls_cipher_list
-          in
-          Some cfg
-    in
-    let cluster_cfg =
-      { cfgs;
-        log_cfgs;
-        batched_transaction_cfgs;
-        nursery_cfg = m_n_cfg;
-        _master = fm;
-        quorum_function;
-        _lease_period = lease_period;
-        cluster_id = cluster_id;
-        plugins = plugin_names;
-        overwrite_tlog_entries;
-        max_value_size;
-        max_buffer_size;
-        client_buffer_capacity;
-        lcnum;
-        ncnum;
-        tls;
-      }
-    in
-    cluster_cfg
 
-  let read_client_config fn = to_client_cfg (read_config fn)
+    let _retrieve_cfg_from_txt txt =
+      let inifile = new Inifiles.inifile txt in
+      let fm = _startup_mode inifile in
+      let nodes = _node_names inifile in
+      let plugin_names = _plugins inifile in
+      let cfgs, remaining =
+        List.fold_left
+          (fun (a,remaining) section ->
+           if List.mem section nodes || _get_bool inifile section "learner"
+           then
+             let cfg = _node_config inifile section fm in
+             let new_remaining = List.filter (fun x -> x <> section) remaining in
+             (cfg::a, new_remaining)
+           else (a,remaining))
+          ([],nodes) (inifile # sects)
+      in
+      let log_cfg_names = List.map (fun cfg -> cfg.log_config) cfgs in
+      let log_cfgs =
+        List.fold_left
+          (fun a section ->
+           if List.mem (Some section) log_cfg_names
+           then
+             let log_cfg = _log_config inifile section in
+             (section, log_cfg)::a
+           else
+             a)
+          [] (inifile # sects)
+      in
+      let batched_transaction_cfg_names = List.map (fun cfg -> cfg.batched_transaction_config) cfgs in
+      let batched_transaction_cfgs =
+        List.fold_left
+          (fun a section ->
+           if List.mem (Some section) batched_transaction_cfg_names
+           then
+             let batched_transaction_cfg = _batched_transaction_config inifile section in
+             (section, batched_transaction_cfg)::a
+           else
+             a)
+          [] (inifile # sects)
+      in
+      let () = if List.length remaining > 0 then
+                 failwith ("Can't find config section for: " ^ (String.concat "," remaining))
+      in
+      let quorum_function = _get_quorum_function inifile in
+      let lease_period = _get_lease_period inifile in
+      let cluster_id = _get_cluster_id inifile in
+      let m_n_cfg = get_nursery_cfg inifile in
+      let overwrite_tlog_entries = _tlog_entries_overwrite inifile in
+      let tlog_max_entries = _tlog_max_entries inifile in
+      let tlog_max_size    = _tlog_max_size inifile in
+      let () = match overwrite_tlog_entries with
+        | None -> ()
+        | Some _ ->
+           let msg = "deprecated:__tainted_tlog_entries_per_file will be ignored;"^
+                       " please use 'tlog_max_entries' "
+           in
+           Logger.ign_warning_ msg
+      in
+      let max_value_size = _max_value_size inifile in
+      let max_buffer_size = _max_buffer_size inifile in
+      let client_buffer_capacity = _client_buffer_capacity inifile in
+      let lcnum = _lcnum inifile in
+      let ncnum = _ncnum inifile in
+      let tls_ca_cert = _tls_ca_cert inifile in
+      let tls_service = _tls_service inifile in
+      let tls_service_validate_peer = _tls_service_validate_peer inifile in
+      let tls_version = _tls_version inifile in
+      let tls_cipher_list = _tls_cipher_list inifile in
+      let tls = match tls_ca_cert with
+        | None -> None
+        | Some ca_cert ->
+           let cfg = TLSConfig.Cluster.make
+                       ~ca_cert
+                       ~service:tls_service
+                       ~service_validate_peer:tls_service_validate_peer
+                       ~protocol:tls_version
+                       ~cipher_list:tls_cipher_list
+           in
+           Some cfg
+      in
+      let enable_tcp_keepalive =
+        Ini.get
+          inifile "global" "enable_tcp_keepalive"
+          Ini.p_bool (Ini.default true)
+      in
+      let tcp_keepalive_time =
+        Ini.get
+          inifile "global" "tcp_keepalive_time"
+          Ini.p_int (Ini.default 20)
+      in
+      let tcp_keepalive_intvl =
+        Ini.get
+          inifile "global" "tcp_keepalive_intvl"
+          Ini.p_int (Ini.default 20)
+      in
+      let tcp_keepalive_probes =
+        Ini.get
+          inifile "global" "tcp_keepalive_probes"
+          Ini.p_int (Ini.default 3)
+      in
+      let cluster_cfg =
+        { cfgs;
+          log_cfgs;
+          batched_transaction_cfgs;
+          nursery_cfg = m_n_cfg;
+          _master = fm;
+          quorum_function;
+          _lease_period = lease_period;
+          cluster_id = cluster_id;
+          plugins = plugin_names;
+          tlog_max_entries;
+          tlog_max_size;
+          max_value_size;
+          max_buffer_size;
+          client_buffer_capacity;
+          lcnum;
+          ncnum;
+          tls;
+          tcp_keepalive = {
+              enable_tcp_keepalive;
+              tcp_keepalive_time;
+              tcp_keepalive_intvl;
+              tcp_keepalive_probes;
+            };
+        }
+      in
+      cluster_cfg
 
   let node_name t = t.node_name
+
   let home t = t.home
 
   let client_addresses t = (t.ips, t.client_port)
 
   let get_master t = t.master
 
-  let get_node_cfgs_from_file () = read_config !config_file
+  let retrieve_cfg url = Arakoon_config_url.retrieve url >|= _retrieve_cfg_from_txt
+
+  let retrieve_client_cfg url = retrieve_cfg url >>= fun cfg -> Lwt.return (to_client_cfg cfg)
 
   let test ccfg ~cluster_id = ccfg.cluster_id = cluster_id
 
@@ -748,7 +842,7 @@ module Node_cfg = struct
             let go () =
               Logger.debug_f_ "Touching %S" fn >>= fun () ->
               Lwt_unix.openfile fn
-                [Lwt_unix.O_RDWR; Lwt_unix.O_CLOEXEC; Lwt_unix.O_CREAT; Lwt_unix.O_EXCL]
+                [Lwt_unix.O_RDWR; Lwt_unix.O_CREAT; Lwt_unix.O_EXCL]
                 0o600 >>= fun fd ->
 
               Lwt.finalize
@@ -783,4 +877,19 @@ module Node_cfg = struct
         verify t.head_dir "Head dir" (InvalidHeadDir t.head_dir)
 
       end
+
+  let split node_name cfgs =
+    let rec loop me_o others = function
+      | [] -> me_o, others
+      | cfg :: rest ->
+         if cfg.node_name = node_name then
+           loop (Some cfg) others rest
+         else
+           loop me_o (cfg::others) rest
+    in
+    let me_o, others = loop None [] cfgs in
+    match me_o with
+    | None -> failwith (node_name ^ " is not known in config")
+    | Some me -> me,others
+
 end

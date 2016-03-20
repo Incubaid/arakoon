@@ -24,40 +24,42 @@ import time
 import subprocess
 from threading import Thread
 from nose.tools import *
+from Compat import X
 
 @Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
 def test_restart_master_long ():
     restart_iter_cnt = 10
+    factor = 100
     def write_loop ():
-        Common.iterate_n_times( 100000,
+        Common.iterate_n_times( 100* factor,
                                 Common.retrying_set_get_and_delete,
                                 failure_max=2*restart_iter_cnt,
-                                valid_exceptions=[ArakoonSockNotReadable,
-                                                  ArakoonNotFound,
-                                                  ArakoonGoingDown
+                                valid_exceptions=[X.arakoon_client.ArakoonSockNotReadable,
+                                                  X.arakoon_client.ArakoonNotFound,
+                                                  X.arakoon_client.ArakoonGoingDown
                                                   ] )
 
-    valid_excs = [ArakoonNotFound,
-                  ArakoonSocketException,
-                  ArakoonGoingDown,
-                  ArakoonNoMaster]
+    valid_excs = [X.arakoon_client.ArakoonNotFound,
+                  X.arakoon_client.ArakoonSocketException,
+                  X.arakoon_client.ArakoonGoingDown,
+                  X.arakoon_client.ArakoonNoMaster]
     def range_query_loop1 ():
-        Common.heavy_range_entries_scenario (200000,
+        Common.heavy_range_entries_scenario (200 * factor,
                                              1500,
                                              1000,
                                              valid_exceptions=valid_excs)
     def range_query_loop2 ():
-        Common.heavy_range_entries_scenario (210000,
+        Common.heavy_range_entries_scenario (210 * factor ,
                                              1500,
                                              1000,
                                              valid_exceptions=valid_excs)
     def range_query_loop3 ():
-        Common.heavy_range_entries_scenario (220000,
+        Common.heavy_range_entries_scenario (220 * factor,
                                              1500,
                                              1000,
                                              valid_exceptions=valid_excs)
     def range_query_loop4 ():
-        Common.heavy_range_entries_scenario (230000,
+        Common.heavy_range_entries_scenario (230* factor,
                                              1500,
                                              1000,
                                              valid_exceptions=valid_excs)
@@ -67,12 +69,14 @@ def test_restart_master_long ():
                                             1.5 * Common.lease_duration )
     global test_failed
     test_failed = False
+    logging.info("set_get_deletes done, now heavy scenario")
     Common.create_and_wait_for_thread_list( [restart_loop,
                                              write_loop,
                                              range_query_loop1,
                                              range_query_loop2,
                                              range_query_loop3,
-                                             range_query_loop4] )
+                                             range_query_loop4
+    ] )
 
     cli = Common.get_client()
     time.sleep(2.0)

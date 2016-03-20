@@ -34,5 +34,5 @@ How to make a release
 
  * wait until github published it.
 
- * send mail to arakoon_internal@incubaid.com
+ * send mail to arakoon@openvstorage.com
 

@@ -1,7 +1,7 @@
 ==================
 Installing Arakoon
 ==================
-This section explains you how you can install Arakoon, Incubaid's distributed
+This section explains you how you can install Arakoon, Open vStorage's distributed
 key-value store. You can also install a Python or OCaml client to interact with
 Arakoon.
 
@@ -66,6 +66,6 @@ To install the Arakoon OCaml Client, you only have to install the
 
 Other Clients
 =============
-Arakoon has also a C and PHP client, available on bitbucket.org_.
+Arakoon has also a python available on github.com_.
 
-.. _bitbucket.org: https://bitbucket.org/despiegk/arakoon/src/ada5840d1b78/src/client/
+.. _github.com: https://github.com/openvstorage/arakoon/tree/1.8/src/client

@@ -59,7 +59,7 @@ sig
   val copy_store2 : string -> string ->
                     overwrite:bool ->
                     throttling:float ->
-                    unit Lwt.t
+                    bool Lwt.t
 
   val get_succ_store_i : t -> int64
   val get_catchup_start_i : t -> int64

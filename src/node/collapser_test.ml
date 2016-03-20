@@ -19,6 +19,7 @@ limitations under the License.
 open Lwt
 open OUnit
 open Update
+open Tlog_map
 
 let section = Logger.Section.main
 let compressor = Compression.Snappy
@@ -37,7 +38,7 @@ let _should_fail x error_msg success_msg =
   if bad then Lwt.fail (Failure error_msg)
   else Lwt.return ()
 
-let _make_values tlc n =
+let _make_values tlc start_i n =
   let sync = false in
   let rec loop i =
     if i = n
@@ -52,14 +53,17 @@ let _make_values tlc n =
       tlc # log_value sni value >>= fun _wr_result ->
       loop (i+1)
   in
-  loop 0
+  loop start_i
 
-let test_collapse_until (dn, tlf_dir, head_dir) =
-  let () = Tlogcommon.tlogEntriesPerFile := 1000 in
-  Logger.debug_f_ "dn=%s, tlf_dir=%s, head_dir=%s" dn tlf_dir head_dir >>= fun () ->
-  Tlc2.make_tlc2 ~compressor dn tlf_dir head_dir
-                 ~fsync:false "node_name" ~fsync_tlog_dir:false >>= fun tlc ->
-  _make_values tlc 1111 >>= fun () ->
+let test_collapse_until (dn, tlx_dir, head_dir) =
+  let node_id = "node_name" in
+  Logger.debug_f_ "dn=%s, tlf_dir=%s, head_dir=%s" dn tlx_dir head_dir >>= fun () ->
+  Tlc2.make_tlc2 ~compressor
+                 ~tlog_max_entries:1000
+                 dn tlx_dir head_dir
+                 ~fsync:false node_id ~fsync_tlog_dir:false
+  >>= fun tlc ->
+  _make_values tlc 0 1111 >>= fun () ->
   tlc # close () >>= fun () ->
   Lwt_unix.sleep 5.0 >>= fun () -> (* give it time to generate the .tlc *)
   (* now collapse first file into a tc *)
@@ -83,46 +87,99 @@ let test_collapse_until (dn, tlf_dir, head_dir) =
   Lwt.return ()
 
 
-let test_dn = "/tmp/collapser"
-let _tlf_dir = "/tmp/collapser_tlf"
-let _head_dir = "/tmp/collapser_head"
 
-let test_collapse_many (dn, tlf_dir, head_dir) =
-  let () = Tlogcommon.tlogEntriesPerFile := 100 in
-  Logger.debug_f_ "test_collapse_many_regime dn=%s, tlf_dir=%s, head_dir=%s" dn tlf_dir head_dir >>= fun () ->
-  Tlc2.make_tlc2 ~compressor dn tlf_dir head_dir
-                 ~fsync:false "node_name" ~fsync_tlog_dir:false >>= fun tlc ->
-  _make_values tlc 632 >>= fun () ->
-  tlc # close () >>= fun () ->
-  Lwt_unix.sleep 5.0 >>= fun () -> (* compression finished ? *)
-  let storename = Filename.concat test_dn "head.db" in
-  let cb fn = Logger.debug_f_ "collapsed %s" (Sn.string_of fn) in
-  let cb' = fun _n -> Lwt.return () in
+
+let test_collapse_many (dn, tlx_dir, head_dir) =
+  let node_id = "node_name" in
+  Logger.debug_f_ "test_collapse_many_regime dn=%s, tlx_dir=%s, head_dir=%s" dn tlx_dir head_dir
+  >>= fun () ->
+  let make_tlc () = 
+    Tlc2.make_tlc2 ~compressor ~tlog_max_entries:100
+                 dn tlx_dir head_dir
+                 ~fsync:false node_id ~fsync_tlog_dir:false
+  in
+  make_tlc () >>= fun tlc ->
+  _make_values tlc 0 632 >>= fun () ->
+  tlc # close () ~wait_for_compression:true >>= fun () ->
+  
+  make_tlc () >>= fun tlc ->
+  let storename = Filename.concat dn "head.db" in
+  let cb n = Logger.debug_f_ "collapsed %03i" n in
+  let cb' = fun _ -> Lwt.return () in
   File_system.unlink storename >>= fun () ->
   let store_methods = (Batched_store.Local_store.copy_store2, storename, 0.0) in
-  Collapser.collapse_many tlc (module S) store_methods 5 cb' cb None >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 6 cb' cb None >>= fun () ->
   Logger.debug_ "collapsed 000" >>= fun () ->
-  Collapser.collapse_many tlc (module S) store_methods 3 cb' cb None >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 4 cb' cb None >>= fun () ->
   Logger.debug_ "collapsed 001 & 002" >>= fun () ->
   Collapser.collapse_many tlc (module S) store_methods 1 cb' cb None >>= fun () ->
   Logger.debug_ "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
   Lwt.return ()
 
+let test_repeated_collapse (dn,tlx_dir, head_dir) =
+  Logger.info_f_ "---------- test_repeated_collapse ----------" >>= fun () ->
+  let node_id = "node_name" in
+  Logger.debug_f_ "test_collapse_many dn=%s, tlx_dir=%s, head_dir=%s" dn tlx_dir head_dir
+  >>= fun () ->
+  Tlc2.make_tlc2 ~compressor ~tlog_max_entries:100
+                 dn tlx_dir head_dir
+                 ~fsync:false node_id ~fsync_tlog_dir:false
+  >>= fun tlc ->
+  let head_location= Filename.concat dn "head.db" in
+  let count = ref 0 in
+  let cb' x =
+    Logger.debug_f_ "cb':%i" x >>= fun () ->
+    count := x;
+    Lwt.return_unit
+  in
+  let cb  n =
+    Logger.debug_f_ "cb:collapsed %03i" n >>= fun () ->
+    decr count ;
+    Lwt.return_unit
+  in
+  
+  let store_methods = (Batched_store.Local_store.copy_store2, head_location, 0.0) in
+  File_system.unlink head_location >>= fun () ->
+  let n_entries = 520 in
+  _make_values tlc 0 n_entries >>= fun () ->
+  let collapse_slowdown = None in
+  Collapser.collapse_many tlc (module S) store_methods 1 cb' cb collapse_slowdown >>= fun () ->
+  Logger.debug_f_"post collapse: count=%i" !count >>= fun () ->
+  OUnit.assert_equal 0 !count ~printer:string_of_int ~msg:"count should be zero";
+  Logger.debug_f_ "adding %i more entries" n_entries >>= fun () ->
+  _make_values tlc n_entries (2 * n_entries) >>= fun () ->
+  Lwt_unix.sleep 2.0 >>= fun () -> (* just to make debugging less messy *)
+  Collapser.collapse_many tlc (module S) store_methods 1 cb' cb collapse_slowdown >>= fun () ->
+  Logger.debug_f_"post collapse: count=%i" !count >>= fun () ->
+  OUnit.assert_equal 0 !count ~printer:string_of_int ~msg:"count should be zero";
+  tlc # close ~wait_for_compression:true () >>= fun () ->
+  Lwt.return()
+  
+let setup =
+  let c = ref 0 in
+  (fun () ->
+    let () = incr c in
+    Logger.info_f_ "Collapser_test.setup_%i" !c >>= fun () ->
+    let root =
+      let w = try Sys.getenv "WORKSPACE"  with _ -> "" in
+      w ^ "/tmp"
+    in
+    let test_dn  =  Printf.sprintf "%s/collapser_%i"      root !c 
+    and _tlx_dir =  Printf.sprintf "%s/collapser_tlx_%i"  root !c 
+    and _head_dir = Printf.sprintf "%s/collapser_head_%i" root !c
+    in
+    let _ = Sys.command (Printf.sprintf "rm -rf '%s'" test_dn) in
+    let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _tlx_dir) in 
+    let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _head_dir) in
+    let _ = Sys.command (Printf.sprintf "mkdir -p '%s'" root) in
+    File_system.mkdir test_dn 0o755 >>= fun () ->
+    File_system.mkdir _tlx_dir 0o755 >>= fun () ->
+    File_system.mkdir _head_dir 0o755 >>= fun () ->
+    Lwt.return (test_dn, _tlx_dir, _head_dir))
 
-let setup () =
-  Logger.info_ "Collapser_test.setup" >>= fun () ->
 
-  let _ = Sys.command (Printf.sprintf "rm -rf '%s'" test_dn) in
-  let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _tlf_dir) in
-  let _ = Sys.command (Printf.sprintf "rm -rf '%s'" _head_dir) in
-  File_system.mkdir test_dn 0o755 >>= fun () ->
-  File_system.mkdir _tlf_dir 0o755 >>= fun () ->
-  File_system.mkdir _head_dir 0o755 >>= fun () ->
-  Lwt.return (test_dn, _tlf_dir, _head_dir)
-
-
-let teardown (dn, tlf_dir, head_dir) =
-  Logger.debug_f_ "teardown %s, %s, %s" dn tlf_dir head_dir
+let teardown (dn, tlx_dir, head_dir) =
+  Logger.debug_f_ "teardown %s, %s, %s" dn tlx_dir head_dir
 
 
 let suite =
@@ -131,4 +188,5 @@ let suite =
   "collapser_test" >:::[
     "collapse_until" >:: wrapTest test_collapse_until;
     "collapse_many" >:: wrapTest test_collapse_many;
+    "repeated_collapse" >:: wrapTest test_repeated_collapse;
   ]

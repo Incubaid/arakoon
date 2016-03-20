@@ -17,10 +17,16 @@ limitations under the License.
 open OUnit
 open Node_cfg
 open Node_cfg
+open Lwt.Infix
 let test_correctness () =
 
-  let cfg = Node_cfg.read_config !config_file in
-  OUnit.assert_equal cfg.cluster_id "ricky"
+  let t =
+    Node_cfg.retrieve_cfg !config_url >>= fun cfg ->
+    let r = OUnit.assert_equal cfg.cluster_id "ricky" in
+    Lwt.return r
+  in
+  Lwt_main.run t
 
-
-let suite = "node_cfg" >::: ["correctness" >:: test_correctness]
+let suite = "node_cfg" >::: [
+      "correctness" >:: test_correctness;
+    ]
