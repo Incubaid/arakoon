@@ -13,6 +13,11 @@ RUN yum -y install python-devel
 
 RUN useradd jenkins -u 1001 -g root
 
+RUN rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
+RUN yum -y update
+RUN yum -y install python-pip
+RUN yum -y install openssl-devel gmp-devel which
+RUN yum -y install zlib-devel ncurses-devel
 
 RUN wget https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh
 RUN sh ./opam_installer.sh /usr/local/bin 4.02.3
@@ -20,13 +25,6 @@ RUN mkdir /home/opam
 ENV opam_env='opam config env --root=/home/opam/OPAM'
 RUN opam init --root=/home/opam/OPAM --comp 4.02.3
 
-
-
-RUN rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
-RUN yum -y update
-RUN yum -y install python-pip
-RUN yum -y install openssl-devel gmp-devel which
-RUN yum -y install zlib-devel
 
 # protobuf
 RUN yum -y install bzip2
