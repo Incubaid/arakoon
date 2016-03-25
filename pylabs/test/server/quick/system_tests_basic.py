@@ -503,7 +503,7 @@ def test_get_version():
     vt = client.getVersion()
     logging.debug("tuple = %s", str(vt))
     (major,minor,patch, info) = vt
-    majors = [1, 2 ** 32 - 1] # 2 ** 32 - 1 ~= -1
+    majors = [1, 2 ** 32 - 1, -1] # 2 ** 32 - 1 ~= -1
     assert_in(major, majors)
     #then on specific level:
     vt2 = client.getVersion(C.node_names[0])
