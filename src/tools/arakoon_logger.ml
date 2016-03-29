@@ -57,13 +57,10 @@ let file_logger file_name =
   Lwt.return (lg_output, reopen)
 
 let console_logger =
-  let mutex = Lwt_mutex.create () in
   let lg_output line =
-    Lwt_mutex.with_lock
-      mutex
-      (fun () ->
-       Lwt_io.write Lwt_io.stdout line >>= fun () ->
-       Lwt_io.write_char Lwt_io.stdout '\n')
+    Lwt_io.atomic
+      (fun oc -> Lwt_io.write_line oc line)
+      Lwt_io.stdout
   in
   let reopen () = Lwt.return_unit in
   lg_output, reopen
