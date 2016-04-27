@@ -34,6 +34,7 @@ let _make_log_cfg () =
      client_protocol = None;
      paxos = None;
      tcp_messaging = None;
+     tlog_map = None;
    })
 
 let _make_batched_transaction_cfg () =

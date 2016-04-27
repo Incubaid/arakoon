@@ -196,6 +196,7 @@ module Node_cfg = struct
       client_protocol: string option;
       paxos: string option;
       tcp_messaging: string option;
+      tlog_map: string option;
     }
 
   let string_of_log_cfg lcfg =
@@ -210,6 +211,7 @@ module Node_cfg = struct
       client_protocol = None;
       paxos = None;
       tcp_messaging = None;
+      tlog_map = None;
     }
 
   type batched_transaction_cfg =
@@ -471,10 +473,12 @@ module Node_cfg = struct
     let client_protocol = get_log_level "client_protocol" in
     let paxos = get_log_level "paxos" in
     let tcp_messaging = get_log_level "tcp_messaging" in
+    let tlog_map = get_log_level "tlog_map" in
     {
       client_protocol;
       paxos;
       tcp_messaging;
+      tlog_map;
     }
 
   let _batched_transaction_config inifile section_name =
