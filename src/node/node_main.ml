@@ -55,6 +55,7 @@ let _config_log_levels me cluster_cfg cfg =
   let () = set_level Client_protocol.section log_config.client_protocol in
   let () = set_level Multi_paxos.section log_config.paxos in
   let () = set_level Tcp_messaging.section log_config.tcp_messaging in
+  let () = set_level Tlog_map.section log_config.tlog_map in
   Lwt.return ()
 
 let _config_logging me get_cfgs =
