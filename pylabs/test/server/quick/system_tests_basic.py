@@ -272,6 +272,16 @@ def test_large_value ():
 def test_range_entries ():
     C.range_entries_scenario( 1000 )
 
+@C.with_custom_setup(C.setup_1_node, C.basic_teardown)
+def test_range_0():
+    client = C.get_client()
+    k = 'xey001'
+    client.set(k,k)
+    results = client.range(None, False, None, False,-1)
+    assert_equals(results,[k], 'should have 1 element')
+    results = client.range(None, False, None, False, 0)
+    assert_equals(results,[])
+
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_scenario_1():
     client = C.get_client()
