@@ -1,3 +1,8 @@
+arakoon (1.9.4) unstable; urgency=low
+  * new upstream version
+
+ -- Romain Slootmaekers <romain.slootmaekers@openvstorage.com>  Mon, 23 May 2016 09:08:26 +0100
+
 arakoon (1.9.3) unstable; urgency=low
   * new upstream version
 
