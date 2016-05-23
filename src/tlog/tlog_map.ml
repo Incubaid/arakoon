@@ -42,7 +42,7 @@ let is_archive filename =
   match extension with
   | ".tlx" | ".tlf" | ".tlc"-> true
   | _ -> false
-  
+
 let first_i_of ?extension_override filename =
   let extension = match extension_override with
     | None -> extension_of filename
@@ -55,14 +55,14 @@ let first_i_of ?extension_override filename =
     let i =  Sn.sn_from buffer in
     Lwt.return i
   in
-  let reader = 
+  let reader =
     match extension with
-    | ".tlog" -> (fun ic -> Sn.input_sn ic )                   
+    | ".tlog" -> (fun ic -> Sn.input_sn ic )
     | ".tlx" ->
        (fun ic ->
          Compression.read_format ic Compression.Snappy >>= fun ()->
          Sn.input_sn ic >>= fun _last_i ->
-         read_uncompress ic Compression.uncompress_snappy 
+         read_uncompress ic Compression.uncompress_snappy
        )
     | ".tlf"  ->
        (fun ic ->
@@ -80,7 +80,7 @@ let first_i_of ?extension_override filename =
   Lwt_io.with_file ~mode:Lwt_io.input filename reader >>= fun i ->
   Logger.debug_f_ "%s starts with i:%Li" filename i >>= fun () ->
   Lwt.return i
-                   
+
 
 let get_number fn =
   let dot_pos = String.index fn '.' in
@@ -238,7 +238,7 @@ let _validate_one
         let base = Filename.basename tlog_name in
         if (not check_sabotage) || (ext = ".tlog" && get_number base = 0)
         then Lwt.return (None, new_index, 0)
-        else (* 
+        else (*
          somebody sabotaged us:
          (s)he deleted the .tlog file but we have .tlf's
          meaning rotation happened correctly.
@@ -265,11 +265,11 @@ module TlogMap = struct
       mutable tlog_size: int;
       mutable tlog_entries : int;
       mutable tlog_number: tlog_number;
-      
+
       mutable i_to_tlog_number : item list; (* sorted: most recent first *)
       mutable should_roll: bool;
     }
-             
+
   let show_map t =
     To_string.list
       (fun item ->
@@ -277,7 +277,7 @@ module TlogMap = struct
                        (Sn.string_of item.i) item.n item.is_archive
       )
       t.i_to_tlog_number
-                      
+
   let new_entry t s =
     t.tlog_size <- t.tlog_size + s;
     t.tlog_entries <- t.tlog_entries + 1;
@@ -315,7 +315,7 @@ module TlogMap = struct
                                canonical
                                (Sn.string_of i) (Sn.string_of prev)
                )
-        ) >>= fun () ->                  
+        ) >>= fun () ->
         let is_archive = is_archive tlog_name in
         let acc' = {i;n;is_archive}:: acc in
         let prev' = i in
@@ -330,7 +330,7 @@ module TlogMap = struct
     let last_i =
       match last with
       | None -> Sn.zero
-      | Some e -> Entry.i_of e 
+      | Some e -> Entry.i_of e
     in
     let tlog_entries, should_roll,last_start =
       match i_to_tlog_number with
@@ -340,12 +340,12 @@ module TlogMap = struct
          let tlog_entries = Sn.sub last_i item.i |> Sn.to_int in
          let should_roll = tlog_entries + 1 >= tlog_max_entries in
          tlog_entries, should_roll, item.i
-    in 
+    in
     Logger.debug_f_ "_init: tlog_entries:%i should_roll:%b" tlog_entries should_roll
     >>= fun () ->
     Lwt.return ((tlog_entries, tlog_size, tlog_number, i_to_tlog_number, should_roll),
                 last, index)
-      
+
   let make ?tlog_max_entries
            ?tlog_max_size
            tlog_dir tlx_dir node_id
@@ -362,7 +362,7 @@ module TlogMap = struct
       tlog_dir tlx_dir node_id ~check_marker ~check_sabotage:false
       tlog_max_entries tlog_max_size
     >>= fun ((tlog_entries, tlog_size,tlog_number,i_to_tlog_number, should_roll), last, index ) ->
-    
+
     let t = {node_id; tlog_dir;tlx_dir;tlog_max_entries; tlog_max_size;
              tlog_entries; tlog_size; tlog_number; i_to_tlog_number;should_roll;
             }
@@ -388,7 +388,7 @@ module TlogMap = struct
     let full_path = _get_full_path t.tlog_dir t.tlx_dir (file_name new_c) in
     Lwt.return (new_c, full_path)
 
-  
+
   let find_tlog_file t c =
     let open Compression in
     let f0 = archive_name Snappy c in
@@ -440,7 +440,7 @@ module TlogMap = struct
         | exn -> Logger.debug_f_ ~exn "filename:%s" full_name >>= fun () ->
                  Lwt.fail exn
       )
-      
+
   let outer_of_i t i =
     let rec find = function
       | [] -> 0
@@ -450,7 +450,7 @@ module TlogMap = struct
          else find rest
     in
     find t.i_to_tlog_number
-      
+
   let get_start_i t n =
     let rec find = function
       | [] -> None
@@ -460,17 +460,17 @@ module TlogMap = struct
          else find rest
     in
     let r = find t.i_to_tlog_number in
-    (* Logger.ign_debug_f_ "get_start_i %s %i => %s"  (show_map t) n 
+    (* Logger.ign_debug_f_ "get_start_i %s %i => %s"  (show_map t) n
                                                       (To_string.option Sn.string_of r) ;
      *)
     r
-         
-  
+
+
 
   let should_roll t = t.should_roll
 
   let set_should_roll t = t.should_roll <- true
-                                             
+
   let new_outer t i =
     let n = t.tlog_number + 1 in
     let () = t.tlog_number <- n in
@@ -510,7 +510,7 @@ module TlogMap = struct
                      | false -> loop xs)
     in
     loop canonicals
-         
+
   let remove_below t i =
     Logger.debug_f_ "remove_below %s tlog_map:%s" (Sn.string_of i) (show_map t)
     >>= fun () ->
@@ -520,7 +520,8 @@ module TlogMap = struct
       | x :: rest -> find_start (x::to_remove_rev) rest
     in
     let to_remove,to_keep_rev = find_start [] (List.rev t.i_to_tlog_number) in
-    
+    t.i_to_tlog_number <- List.rev to_keep_rev;
+
     let remove item  =
       which_tlog_file  t item.n >>= function
       | None -> Lwt.return_unit
@@ -531,7 +532,6 @@ module TlogMap = struct
          end
     in
     Lwt_list.iter_s remove to_remove >>= fun () ->
-    t.i_to_tlog_number <- List.rev to_keep_rev;
     Logger.debug_f_ "after remove_below %s tlog_map:%s" (Sn.string_of i) (show_map t) >>= fun () ->
     Lwt.return_unit
 
@@ -545,9 +545,9 @@ module TlogMap = struct
     let r = find t.i_to_tlog_number in
     Logger.ign_debug_f_ "is_rollover_point %s => %b" (Sn.string_of i) r;
     r
-    
+
   let complete_file_to_deliver t i =
-    
+
     let rec find = function
       | [] -> None
       | item1 :: item0 :: _ when item0.i = i -> Some (item0.n,item1.i)
@@ -582,14 +582,14 @@ module TlogMap = struct
     Logger.debug_f_ "TlogMap.iterate_tlog_dir start_i:%s too_far_i:%s ~index:%s"
                     (Sn.string_of start_i) tfs (Index.to_string index)
     >>= fun () ->
-    get_tlog_names t >>= fun tlog_names -> (* TODO: we probably shouldn't look at the fs *) 
+    get_tlog_names t >>= fun tlog_names -> (* TODO: we probably shouldn't look at the fs *)
     let acc_entry (_i0:Sn.t) entry =
       f entry >>= fun () -> let i = Entry.i_of entry in Lwt.return i
     in
     let num_tlogs = List.length tlog_names in
     let maybe_fold (cnt,low) fn =
       let fn_start = get_start_i t (get_number fn) in
-      
+
       let low_n = Sn.succ low in
       match fn_start with
       | Some fn_start ->
@@ -604,7 +604,7 @@ module TlogMap = struct
            then
              begin
                Logger.debug_f_ "fold over: %s: [%s,...) "
-                               fn (Sn.string_of fn_start) 
+                               fn (Sn.string_of fn_start)
                >>= fun () ->
                let first = fn_start in
                Logger.info_f_ "Replaying tlog file: %s (%d/%d)" fn cnt num_tlogs  >>= fun () ->
@@ -625,14 +625,14 @@ module TlogMap = struct
     Lwt_list.fold_left_s maybe_fold (1,start_i) tlog_names
     >>= fun _x ->
     Lwt.return ()
-      
+
   let tlogs_to_collapse t head_i last_i tlogs_to_keep =
     let () = Logger.ign_debug_f_
                "tlogs_to_collapse head_i:%s last_i:%s tlogs_to_keep:%i tlog_map:%s"
                (Sn.string_of head_i) (Sn.string_of last_i)
                tlogs_to_keep (show_map t)
     in
-    
+
     let collapsable =
       List.filter (fun item -> item.i >= head_i) t.i_to_tlog_number
     in
@@ -649,9 +649,9 @@ module TlogMap = struct
     let r = match to_collapse_rev with
     | [] -> None
     | item :: _ ->
-       (* 
-          +2 because before X goes to the store, 
-          you need to have seen X+1 and thus too_far = X+2 
+       (*
+          +2 because before X goes to the store,
+          you need to have seen X+1 and thus too_far = X+2
        *)
        Some (n_to_collapse, Int64.add item.i 2L)
     in
@@ -661,13 +661,13 @@ module TlogMap = struct
                (Sn.string_of last_i)
                tlogs_to_keep
                (To_string.option (fun (n,i) -> Printf.sprintf "(%i,%s)" n (Sn.string_of i)) r)
-    in            
+    in
     r
-    
+
   let old_uncompressed t =
     List.fold_left
       (fun acc item -> if item.is_archive then acc else item.n :: acc)
       []
-      t.i_to_tlog_number |> List.rev 
-                
+      t.i_to_tlog_number |> List.rev
+
 end

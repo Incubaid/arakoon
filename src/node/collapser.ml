@@ -117,7 +117,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
                 | Some (pi,pv) ->
                   if pi < i then
                     begin
-                      maybe_log pi 
+                      maybe_log pi
                       >>= fun () ->
                       slowdown (fun () -> S.safe_insert_value new_store pi pv) >>= fun _ ->
                       let () = acc := Some(i,value) in
@@ -144,7 +144,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
             end
           in
 
-          Logger.debug_f_ "Done replaying to head (%s : %s)" (Sn.string_of si) (Sn.string_of too_far_i) >>= fun() ->
+          Logger.info_f_ "Done replaying to head (%s : %s)" (Sn.string_of si) (Sn.string_of too_far_i) >>= fun() ->
           begin
             if si = Sn.pred (Sn.pred too_far_i) then
               Lwt.return ()
@@ -216,7 +216,7 @@ let collapse_many
   | Some (n, too_far_i) ->
     begin
       Logger.info_f_ "Going to collapse %d tlogs" n >>= fun () ->
-      cb' (n + 2) >>= fun () -> 
+      cb' (n + 2) >>= fun () ->
       Logger.debug_f_ "too_far_i = %s" (Sn.string_of too_far_i) >>= fun () ->
       collapse_until tlog_coll (module S) store_fs too_far_i cb slowdown >>= fun () ->
       get_head_i () >>= fun head_i ->
