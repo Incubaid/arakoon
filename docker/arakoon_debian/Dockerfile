@@ -75,10 +75,10 @@ ENV LANG=C
 RUN chmod 777 /home/opam/OPAM/4.02.3/lib
 
 # Install etcd:
-RUN curl -L  https://github.com/coreos/etcd/releases/download/v2.2.4/etcd-v2.2.4-linux-amd64.tar.gz -o etcd-v2.2.4-linux-amd64.tar.gz
-RUN tar xzvf etcd-v2.2.4-linux-amd64.tar.gz
-RUN cp ./etcd-v2.2.4-linux-amd64/etcd /usr/bin \
-    && cp ./etcd-v2.2.4-linux-amd64/etcdctl /usr/bin
+RUN curl -L https://github.com/coreos/etcd/releases/download/v2.3.5/etcd-v2.3.5-linux-amd64.tar.gz -o etcd-v2.3.5-linux-amd64.tar.gz
+RUN tar xzvf etcd-v2.3.5-linux-amd64.tar.gz
+RUN cp ./etcd-v2.3.5-linux-amd64/etcd /usr/bin
+RUN cp ./etcd-v2.3.5-linux-amd64/etcdctl /usr/bin
 
 # Install redis:
 RUN wget http://download.redis.io/releases/redis-3.0.7.tar.gz

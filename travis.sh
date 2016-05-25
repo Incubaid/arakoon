@@ -53,10 +53,10 @@ install () {
     opam install ${OPAM_DEPENDS}
 
     # Install etcd:
-    curl -L  https://github.com/coreos/etcd/releases/download/v2.2.4/etcd-v2.2.4-linux-amd64.tar.gz -o etcd-v2.2.4-linux-amd64.tar.gz
-    tar xzvf etcd-v2.2.4-linux-amd64.tar.gz
-    sudo cp ./etcd-v2.2.4-linux-amd64/etcd /usr/bin
-    sudo cp ./etcd-v2.2.4-linux-amd64/etcdctl /usr/bin
+    curl -L https://github.com/coreos/etcd/releases/download/v2.3.5/etcd-v2.3.5-linux-amd64.tar.gz -o etcd-v2.3.5-linux-amd64.tar.gz
+    tar xzvf etcd-v2.3.5-linux-amd64.tar.gz
+    sudo cp ./etcd-v2.3.5-linux-amd64/etcd /usr/bin
+    sudo cp ./etcd-v2.3.5-linux-amd64/etcdctl /usr/bin
 }
 
 script () {
