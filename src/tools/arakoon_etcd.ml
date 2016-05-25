@@ -40,6 +40,7 @@ let retrieve_value peers path =
   let cmd = [| "etcdctl";
                "--peers=" ^ peers_s;
                "get";
+               "--quorum";
                path;
               |]
   in
