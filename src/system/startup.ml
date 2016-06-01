@@ -126,6 +126,7 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
       ~catchup_only:false
       ~autofix:false
       ~stop:!stop
+      ~lock:false
     >>= fun _ -> Lwt.return ()
   in
   node_ts := t :: !node_ts;

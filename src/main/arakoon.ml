@@ -514,7 +514,11 @@ let main () =
           let main_t =
             Node_main.main_t
               make_config
-              !node_id !daemonize !catchup_only !autofix
+              !node_id
+              ~daemonize:!daemonize
+              ~catchup_only:!catchup_only
+              ~autofix:!autofix
+              ~lock:true
           in
           (* Lwt_engine.set (new Lwt_engine.select :> Lwt_engine.t); *)
           try
