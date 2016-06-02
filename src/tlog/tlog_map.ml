@@ -308,7 +308,7 @@ module TlogMap = struct
         let n = get_number tlog_name in
         let canonical = _get_full_path tlog_dir tlx_dir tlog_name in
         first_i_of canonical >>= fun i ->
-        (if i > prev
+        (if i >= prev
         then Lwt.return_unit
         else Lwt.fail_with
                (Printf.sprintf "%S starts with %s, which ain't higher than %s"
