@@ -388,13 +388,28 @@ let _main_2 (type s)
       get_snapshot_name ~name
       ~daemonize ~catchup_only
       ~autofix
-      ~stop : int Lwt.t
+      ~stop
+      ~lock
+    : int Lwt.t
   =
   Lwt_io.set_default_buffer_size 32768;
   make_config () >>= fun cluster_cfg ->
   let cfgs = cluster_cfg.cfgs in
   let me, others = Node_cfg.Node_cfg.split name cfgs in
   _config_logging me.node_name make_config >>= fun maybe_dump_crash_log ->
+
+  (let lock_file = me.home ^ "/LOCK" in
+   if not lock
+      || Core.Lock_file.create
+           ~message:"Do not remove this file, it's meant to ensure an arakoon process is not running twice"
+           lock_file
+   then Lwt.return ()
+   else Lwt.fail_with
+          (Printf.sprintf
+             "Could not get the required lock at %s, this node must already be running in another process"
+             lock_file))
+  >>= fun () ->
+
   let _ = Lwt_unix.on_signal Sys.sigusr2 (fun _ ->
       let handle () =
         Lwt_unix.sleep 0.001 >>= fun () ->
@@ -1000,7 +1015,7 @@ let _main_2 (type s)
 
 
 let main_t (make_config: unit -> 'a Lwt.t)
-           name daemonize catchup_only autofix : int Lwt.t
+           name ~daemonize ~catchup_only ~autofix ~lock : int Lwt.t
   =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let (make_tlog_coll :Tlogcollection.tlc_factory) = Tlc2.make_tlc2 in
@@ -1008,7 +1023,8 @@ let main_t (make_config: unit -> 'a Lwt.t)
   _main_2 (module S)
           make_tlog_coll
           make_config get_snapshot_name
-          ~name ~daemonize ~catchup_only ~autofix ~stop:(ref false)
+          ~name ~daemonize ~catchup_only ~autofix
+          ~stop:(ref false) ~lock:true
 
 let test_t make_config name ~stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
@@ -1021,4 +1037,5 @@ let test_t make_config name ~stop =
   and catchup_only = false
   and autofix = false in
   _main_2 (module S) make_tlog_coll make_config get_snapshot_name
-          ~name ~daemonize ~catchup_only ~stop ~autofix
+          ~name ~daemonize ~catchup_only
+          ~stop ~autofix ~lock:false
