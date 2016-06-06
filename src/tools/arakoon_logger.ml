@@ -80,7 +80,7 @@ let format_message
        |> Core.Span.to_parts
      in
      Printf.sprintf
-       "%04d/%02d/%02d %02d:%02d:%02d %d %c%02d%02d"
+       "%04d-%02d-%02d %02d:%02d:%02d %d %c%02d%02d"
        (tm.tm_year + 1900)
        (tm.tm_mon + 1)
        tm.tm_mday
