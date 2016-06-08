@@ -104,6 +104,9 @@ let handle_exception oc exn=
         Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, Logger.Error)
       | Canceled ->
         Lwt.fail Canceled
+      | End_of_file ->
+        Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "end of file because the client disconnected",
+                    true, Logger.Info)
       | _ ->
         Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", true, Logger.Error)
   end
