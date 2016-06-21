@@ -51,6 +51,11 @@ An overview of all command-line options is available by running `arakoon.native 
 
 Of course you want to use Arakoon from within a program. We provide OCaml, C and Python clients.
 
+Documentation
+--------------
+For additional information please visit the [Arakoon GitBook](https://openvstorage.gitbooks.io/arakoon).
+
+
 Releases
 --------
 
