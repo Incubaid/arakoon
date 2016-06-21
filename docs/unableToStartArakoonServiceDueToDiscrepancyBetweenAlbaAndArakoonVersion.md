@@ -1,7 +1,9 @@
 # Unable to start Arakoon service due to discrepancy between Alba and Arakoon version
 
+Applies to: Eugene-updates & Fargo
+
 ## 1. Description
-Due to an upgrade of ALBA the Arakoon went down. It was impossible to restart the Arakoon.
+Due to an upgrade of ALBA the Arakoon went down. It was impossible to restart the Arakoon. 
 
 Possible error message:
 ```

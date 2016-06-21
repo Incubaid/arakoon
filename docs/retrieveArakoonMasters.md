@@ -1,8 +1,10 @@
 # Easy way to retrieve the Arakoon masters on a cluster
 
+Applies to: Eugene-updates & Fargo
+
 ## 1. Description
 
-Retrieve the Arakoon master on a cluster
+Retrieve the Arakoon master on a cluster.
 
 ## 2. Steps
 ### 2.1 Eugene-updates
