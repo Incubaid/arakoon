@@ -110,7 +110,6 @@ let test_iterate4 (dn, tlx_dir, (factory:Tlogcollection_test.factory)) =
 
 
 let test_iterate5 (dn, _tlx_dir, (factory:factory)) =
-  TlogMap.make ~tlog_max_entries:10 dn _tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun (tlc:tlog_collection) ->
   let rec loop (tlc:tlog_collection) i =
     if i = 33
@@ -149,7 +148,6 @@ let test_iterate5 (dn, _tlx_dir, (factory:factory)) =
   Lwt.return ()
 
 let test_iterate6 (dn, _tlx_dir, (factory:factory)) =
-  TlogMap.make ~tlog_max_entries:10 dn _tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   let sync = false in
   factory dn node_id >>= fun (tlc:tlog_collection) ->
   let rec loop i =
@@ -195,6 +193,48 @@ let test_iterate6 (dn, _tlx_dir, (factory:factory)) =
   (* OUnit.assert_equal ~printer:string_of_int 19 !sum; *)
   Lwt.return ()
 
+let test_iterate7 (dn, tlx_dir, (factory:factory)) =
+  Logger.info_f_ "test_iterate7  %s, %s" dn tlx_dir >>= fun () ->
+  let tlog_max_size = 32000 in
+  factory ~tlog_max_size dn node_id >>= fun tlc ->
+  let make_value size =
+    Value.create_client_value [ Update.Set ("", Bytes.create size); ] false
+  in
+  tlc # log_value 0L (make_value 5) >>= fun _ ->
+  tlc # log_value 1L (make_value 5) >>= fun _ ->
+  tlc # log_value 2L (make_value 5) >>= fun _ ->
+  tlc # log_value 2L (make_value tlog_max_size) >>= fun _ ->
+  tlc # log_value 3L (make_value tlog_max_size) >>= fun _ ->
+  tlc # log_value 4L (make_value 5) >>= fun _ ->
+  tlc # log_value 5L (make_value tlog_max_size) >>= fun _ ->
+  tlc # log_value 6L (make_value tlog_max_size) >>= fun _ ->
+  tlc # log_value 7L (make_value tlog_max_size) >>= fun _ ->
+
+  TlogMap.make dn tlx_dir node_id ~check_marker:false >>= fun (tlog_map,_,_) ->
+  Lwt_log.debug_f "%s" (TlogMap.show_map tlog_map) >>= fun () ->
+  assert ([ (7L, 4);
+            (6L, 3);
+            (4L, 2);
+            (3L, 1);
+            (0L, 0);
+          ] =
+            List.map
+              (fun ({ TlogMap.i; n; is_archive; }) ->
+               i, n)
+              tlog_map.TlogMap.i_to_tlog_number);
+
+  let next = ref 0L in
+  tlc # iterate
+      0L 6L
+      (fun entry ->
+       Lwt_log.debug_f "iter entry: %s" (Tlogcommon.Entry.entry2s entry) >>= fun () ->
+       assert (!next = Tlogcommon.Entry.i_of entry);
+       next := Int64.succ !next;
+       Lwt.return ())
+      (fun i -> Lwt.return ())
+  >>= fun () ->
+  assert (!next = 5L);
+  Lwt.return ()
 
 let test_compression_bug (dn, tlx_dir, (factory:factory)) =
   Logger.info_ "test_compression_bug" >>= fun () ->
@@ -314,6 +354,69 @@ let test_size_based_roll_over1 (dn, tlx_dir, (factory:factory)) =
   OUnit.assert_equal 3 (TlogMap.get_tlog_number second_map) ~printer;
   Lwt.return_unit
 
+let test_get_last_i (dn, tlx_dir, (factory:factory)) =
+  let make_value size =
+    Value.create_client_value [ Update.Set ("", Bytes.create size); ] false
+  in
+  let value = make_value 0 in
+
+  factory dn node_id >>= fun tlc ->
+
+  (* this one is a bit special ...
+   * IMO the correct return value should be None *)
+  assert (0L = tlc # get_last_i ());
+
+  tlc # log_value 0L value >>= fun _ ->
+  assert (0L = tlc # get_last_i ());
+
+  tlc # log_value 1L value >>= fun _ ->
+  assert (1L = tlc # get_last_i ());
+
+  let ic, oc = Lwt_io.pipe () in
+
+  let _ =
+    let tlog_max_size = 32000 in
+    Tlogcollection_test.setup factory "test_get_last_i_x2" () >>= fun (dn, tlx_dir, factory) ->
+    factory ~tlog_max_size dn node_id >>= fun tlc2 ->
+    tlc2 # log_value 0L value >>= fun _ ->
+    tlc2 # log_value 1L value >>= fun _ ->
+    tlc2 # log_value 2L value >>= fun _ ->
+    tlc2 # log_value 3L (make_value tlog_max_size) >>= fun _ ->
+    tlc2 # log_value 4L value >>= fun _ ->
+    tlc2 # log_value 5L value >>= fun _ ->
+
+    (* did we do what we expected to do? *)
+    TlogMap.make dn tlx_dir node_id ~check_marker:false >>= fun (tlog_map,_,_) ->
+    assert ([ (4L, 1);
+              (0L, 0);
+            ] =
+              List.map
+                (fun ({ TlogMap.i; n; is_archive; }) ->
+                 i, n)
+                tlog_map.TlogMap.i_to_tlog_number);
+
+    tlc2 # dump_tlog_file
+         1
+         oc
+  in
+
+  Llio.input_string ic >>= fun extension ->
+  Sn.input_sn ic >>= fun start_i ->
+  assert (start_i = 4L);
+  Llio.input_int64 ic >>= fun length ->
+
+  tlc # save_tlog_file
+      start_i
+      extension
+      length
+      ic >>= fun () ->
+  let last_i = tlc # get_last_i () in
+  Lwt_log.debug_f "got last_i = %Li" last_i >>= fun () ->
+  assert (5L = last_i);
+
+  Lwt.return_unit
+
+
 let make_test_tlc (x, y) = x >:: wrap_tlc y x
 
 let suite = "tlc2" >:::
@@ -329,6 +432,7 @@ let suite = "tlc2" >:::
                   ("test_iterate4", test_iterate4);
                   ("test_iterate5", test_iterate5);
                   ("test_iterate6", test_iterate6);
+                  ("test_iterate7", test_iterate7);
                   ("validate",  Tlogcollection_test.test_validate_normal);
                   ("validate_corrupt", Tlogcollection_test.test_validate_corrupt_1);
                   ("test_rollover_1002", Tlogcollection_test.test_rollover_1002);
@@ -336,5 +440,6 @@ let suite = "tlc2" >:::
                   ("test_interrupted_rollover", test_interrupted_rollover);
                   ("test_compression_bug", test_compression_bug);
                   ("test_compression_previous", test_compression_previous);
-                  ("test_size_based_roll_over1",test_size_based_roll_over1)
+                  ("test_size_based_roll_over1", test_size_based_roll_over1);
+                  ("test_get_last_i", test_get_last_i);
                 ]
