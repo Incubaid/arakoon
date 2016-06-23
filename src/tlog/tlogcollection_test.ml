@@ -98,7 +98,7 @@ let test_rollover_1002 (dn, tlx_dir, (factory:factory)) =
   _log_repeat c value n_updates >>= fun () ->
   c # close () >>= fun () ->
   factory dn node_id >>= fun tlc_two ->
-  let vo = tlc_two # get_last_value (Sn.of_int (n_updates-1)) in
+  tlc_two # get_last_value (Sn.of_int (n_updates-1)) >>= fun vo ->
   let vos = Log_extra.option2s (Value.value2s ~values:false) vo in
   Logger.info_f_ "last_value = %s" vos >>= fun () ->
   tlc_two # close() >>= fun () ->
@@ -112,7 +112,7 @@ let test_get_value_bug (dn, _tlf_dir, (factory:factory)) =
   c0 # close () >>= fun () ->
   factory dn node_id >>= fun c1 ->
   (* c1 # validate () >>= fun _ -> *)
-  match c1 # get_last_value 0L with
+  c1 # get_last_value 0L >>= function
     | None -> Llio.lwt_failfmt "get_last_update 0 yields None"
     | Some v -> let () = OUnit.assert_equal v v0 in Lwt.return ()
 

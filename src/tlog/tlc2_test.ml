@@ -364,13 +364,16 @@ let test_get_last_i (dn, tlx_dir, (factory:factory)) =
 
   (* this one is a bit special ...
    * IMO the correct return value should be None *)
-  assert (0L = tlc # get_last_i ());
+  tlc # get_last_i () >>= fun last_i ->
+  assert (0L = last_i);
 
   tlc # log_value 0L value >>= fun _ ->
-  assert (0L = tlc # get_last_i ());
+  tlc # get_last_i () >>= fun last_i ->
+  assert (0L = last_i);
 
   tlc # log_value 1L value >>= fun _ ->
-  assert (1L = tlc # get_last_i ());
+  tlc # get_last_i () >>= fun last_i ->
+  assert (1L = last_i);
 
   let ic, oc = Lwt_io.pipe () in
 
@@ -410,7 +413,7 @@ let test_get_last_i (dn, tlx_dir, (factory:factory)) =
       extension
       length
       ic >>= fun () ->
-  let last_i = tlc # get_last_i () in
+  tlc # get_last_i () >>= fun last_i ->
   Lwt_log.debug_f "got last_i = %Li" last_i >>= fun () ->
   assert (5L = last_i);
 

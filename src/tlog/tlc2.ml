@@ -415,30 +415,33 @@ class tlc2
 
 
     method get_last_i () =
-      match _previous_entry with
-        | None -> Sn.start
-        | Some pe -> let pi = Entry.i_of pe in pi
+      (match _previous_entry with
+       | None -> Sn.start
+       | Some pe -> let pi = Entry.i_of pe in pi)
+      |> Lwt.return
 
     method get_last_value i =
-      match _previous_entry with
-        | None -> None
-        | Some pe ->
+      (match _previous_entry with
+       | None -> None
+       | Some pe ->
           let pi = Entry.i_of pe in
           if pi = i
           then Some (Entry.v_of pe)
           else
-          if i > pi
-          then None
-          else (* pi > i *)
-            let msg = Printf.sprintf "get_last_value %s > %s can't look back so far"
-                        (Sn.string_of pi) (Sn.string_of i)
-            in
-            failwith msg
+            if i > pi
+            then None
+            else (* pi > i *)
+              let msg = Printf.sprintf "get_last_value %s > %s can't look back so far"
+                                       (Sn.string_of pi) (Sn.string_of i)
+              in
+              failwith msg)
+      |> Lwt.return
 
     method get_last () =
-      match _previous_entry with
-        | None -> None
-        | Some pe ->  Some (Entry.v_of pe, Entry.i_of pe)
+      (match _previous_entry with
+       | None -> None
+       | Some pe ->  Some (Entry.v_of pe, Entry.i_of pe))
+      |> Lwt.return
 
     method tlogs_to_collapse ~head_i ~last_i ~tlogs_to_keep =
       TlogMap.tlogs_to_collapse tlog_map head_i last_i tlogs_to_keep
@@ -472,7 +475,7 @@ class tlc2
               Logger.info_ ~exn "Exception while canceling compression thread")
       end >>= fun () ->
       Logger.debug_ "tlc2::closes () (part2)" >>= fun () ->
-      match self # get_last () with
+      self # get_last () >>= function
       | None -> Logger.debug_f_ "... no last, we never logged anything=> no marker"
       | Some(v,i) ->
          begin
