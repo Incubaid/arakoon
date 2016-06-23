@@ -373,12 +373,12 @@ module TlogMap = struct
     _init
       t.tlog_dir t.tlx_dir t.node_id ~check_marker:false ~check_sabotage:false
       t.tlog_max_entries t.tlog_max_size
-    >>= fun ((tlog_entries, tlog_size, tlog_number,i_to_tlog_number,should_roll),_,_) ->
+    >>= fun ((tlog_entries, tlog_size, tlog_number,i_to_tlog_number,should_roll), last,_) ->
     t.tlog_size   <- tlog_size;
     t.tlog_number <- tlog_number;
     t.i_to_tlog_number <- i_to_tlog_number;
     t.should_roll <- should_roll;
-    Lwt.return ()
+    Lwt.return last
 
   let get_last_tlog t =
     Logger.debug_ "get_last_tlog" >>= fun () ->

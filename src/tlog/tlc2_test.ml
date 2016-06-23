@@ -202,7 +202,6 @@ let test_iterate7 (dn, tlx_dir, (factory:factory)) =
   in
   tlc # log_value 0L (make_value 5) >>= fun _ ->
   tlc # log_value 1L (make_value 5) >>= fun _ ->
-  tlc # log_value 2L (make_value 5) >>= fun _ ->
   tlc # log_value 2L (make_value tlog_max_size) >>= fun _ ->
   tlc # log_value 3L (make_value tlog_max_size) >>= fun _ ->
   tlc # log_value 4L (make_value 5) >>= fun _ ->
@@ -233,7 +232,7 @@ let test_iterate7 (dn, tlx_dir, (factory:factory)) =
        Lwt.return ())
       (fun i -> Lwt.return ())
   >>= fun () ->
-  assert (!next = 5L);
+  assert (!next = 6L);
   Lwt.return ()
 
 let test_compression_bug (dn, tlx_dir, (factory:factory)) =
