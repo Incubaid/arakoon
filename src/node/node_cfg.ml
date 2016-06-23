@@ -367,8 +367,8 @@ module Node_cfg = struct
   let _ips inifile node_name =
     Ini.get inifile node_name "ip" Ini.p_string_list Ini.required
 
-  let _tlog_max_entries inifile = _global_int inifile "tlog_max_entries"    50_000
-  let _tlog_max_size    inifile = _global_int inifile "tlog_max_size"    5_000_000
+  let _tlog_max_entries inifile = _global_int inifile "tlog_max_entries"       50_000
+  let _tlog_max_size    inifile = _global_int inifile "tlog_max_size"    32*1024*1024
 
   let _tlog_entries_overwrite inifile =
     Ini.get inifile "global" "__tainted_tlog_entries_per_file"
