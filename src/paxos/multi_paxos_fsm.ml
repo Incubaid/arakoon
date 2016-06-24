@@ -28,7 +28,7 @@ open Master_type
 let election_suggest (type s) constants (n, counter) () =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let i = S.get_succ_store_i constants.store in
-  let vo = constants.get_value i in
+  constants.get_value i >>= fun vo ->
   let me = constants.me in
   let v_lims, msg =
     match vo with

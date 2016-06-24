@@ -201,7 +201,7 @@ let collapse_many
 
   Logger.debug_f_ "collapse_many" >>= fun () ->
   let (_,(head_location:string), _) = store_fs in
-  let last_i = tlog_coll # get_last_i () in
+  tlog_coll # get_last_i () >>= fun last_i ->
   let get_head_i () =
     _head_i (module S) head_location >>= fun head_io ->
     Logger.debug_f_ "head @ %s : last_i %s " (Log_extra.option2s Sn.string_of head_io) (Sn.string_of last_i)

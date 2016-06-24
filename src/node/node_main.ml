@@ -618,7 +618,7 @@ let _main_2 (type s)
 
           open_tlog_collection_and_store me ~autofix
           >>= fun (tlog_coll, store) ->
-          let last_i = tlog_coll # get_last_i () in
+          tlog_coll # get_last_i () >>= fun last_i ->
           begin
             if me.is_witness
             then

@@ -36,8 +36,6 @@ class type tlog_collection =
            tlogs_to_keep:int ->
            (int * Sn.t) option
                
-  method get_last_value: Sn.t -> Value.t option (* Lwt.t *)
-  method get_last: unit -> (Value.t * Sn.t) option
   method close : ?wait_for_compression : bool -> unit -> unit Lwt.t
   method get_infimum_i : unit -> Sn.t Lwt.t
   method dump_head : Lwt_io.output_channel -> Sn.t Lwt.t
@@ -60,7 +58,11 @@ class type tlog_collection =
   method remove_below : Sn.t -> unit Lwt.t
                                      
   method get_start_i : int -> Sn.t option
-  method get_last_i: unit -> Sn.t
+
+  method get_last_i: unit -> Sn.t Lwt.t
+  method get_last_value: Sn.t -> Value.t option Lwt.t
+  method get_last: unit -> (Value.t * Sn.t) option Lwt.t
+
   method is_rollover_point: Sn.t -> bool
   method next_rollover: Sn.t -> Sn.t option
   method which_tlog_file : int -> (string option) Lwt.t

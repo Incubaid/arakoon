@@ -154,11 +154,26 @@ class tlc2
         (node_id:string) ~(fsync:bool) ~(fsync_tlog_dir:bool)
         
   =
-
+  let _previous_entry = ref (Some last) in
+  let set_previous_entry e =
+    _previous_entry := Some e
+  in
+  let invalidate_previous_entry () =
+    _previous_entry := None
+  in
+  let get_previous_entry () =
+    match !_previous_entry with
+    | None ->
+       TlogMap.reinit tlog_map >>= fun last ->
+       set_previous_entry last;
+       Lwt.return last
+    | Some p ->
+       Lwt.return p
+  in
   object(self: # tlog_collection)
     val mutable _file = file
     val mutable _index = index
-    val mutable _previous_entry = last
+
     val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
     val mutable _compression_thread = None
     val mutable _compressing = false
@@ -267,7 +282,7 @@ class tlc2
              end
              >>= fun () ->
              let entry = Entry.make i value p marker in
-             _previous_entry <- Some entry;
+             set_previous_entry (Some entry);
              Index.note entry _index;
              let () = TlogMap.new_entry tlog_map total_size in
              Lwt.return total_size
@@ -395,6 +410,7 @@ class tlc2
       Lwt.return next_i
 
     method save_head ic =
+      invalidate_previous_entry ();
       Logger.info_ "save_head()" >>= fun () ->
       Llio.input_int64 ic >>= fun length ->
       let hf_name = self # get_head_name () in
@@ -415,30 +431,33 @@ class tlc2
 
 
     method get_last_i () =
-      match _previous_entry with
-        | None -> Sn.start
-        | Some pe -> let pi = Entry.i_of pe in pi
+      get_previous_entry () >>= function
+      | None ->
+         Lwt.return Sn.start
+      | Some pe ->
+         let pi = Entry.i_of pe in
+         Lwt.return pi
 
     method get_last_value i =
-      match _previous_entry with
-        | None -> None
-        | Some pe ->
+      get_previous_entry () >>= function
+       | None -> Lwt.return None
+       | Some pe ->
           let pi = Entry.i_of pe in
           if pi = i
-          then Some (Entry.v_of pe)
+          then Lwt.return (Some (Entry.v_of pe))
           else
-          if i > pi
-          then None
-          else (* pi > i *)
-            let msg = Printf.sprintf "get_last_value %s > %s can't look back so far"
-                        (Sn.string_of pi) (Sn.string_of i)
-            in
-            failwith msg
+            if i > pi
+            then Lwt.return None
+            else (* pi > i *)
+              let msg = Printf.sprintf "get_last_value %s > %s can't look back so far"
+                                       (Sn.string_of pi) (Sn.string_of i)
+              in
+              Lwt.fail_with msg
 
     method get_last () =
-      match _previous_entry with
-        | None -> None
-        | Some pe ->  Some (Entry.v_of pe, Entry.i_of pe)
+      get_previous_entry () >>= function
+      | None -> Lwt.return None
+      | Some pe -> Lwt.return (Some (Entry.v_of pe, Entry.i_of pe))
 
     method tlogs_to_collapse ~head_i ~last_i ~tlogs_to_keep =
       TlogMap.tlogs_to_collapse tlog_map head_i last_i tlogs_to_keep
@@ -472,7 +491,7 @@ class tlc2
               Logger.info_ ~exn "Exception while canceling compression thread")
       end >>= fun () ->
       Logger.debug_ "tlc2::closes () (part2)" >>= fun () ->
-      match self # get_last () with
+      self # get_last () >>= function
       | None -> Logger.debug_f_ "... no last, we never logged anything=> no marker"
       | Some(v,i) ->
          begin
@@ -545,6 +564,7 @@ class tlc2
          Lwt.return_unit
 
     method save_tlog_file first_i extension length ic =
+      invalidate_previous_entry ();
       (* what with rotation (jump to new tlog), open streams, ...*)
       self # _maybe_close_current_file ()
       >>= fun () ->
@@ -567,13 +587,14 @@ class tlc2
 
 
     method reinit () =
+      invalidate_previous_entry ();
       begin
         match _file with
         | None -> Lwt.return ()
         | Some file -> F.close file >>= fun () -> _file <- None;Lwt.return ()
       end 
       >>= fun () ->                                                               
-      TlogMap.reinit tlog_map
+      TlogMap.reinit tlog_map >|= ignore
                      
     method remove_below i = TlogMap.remove_below tlog_map i
     method complete_file_to_deliver i = TlogMap.complete_file_to_deliver tlog_map i 

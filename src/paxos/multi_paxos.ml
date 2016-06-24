@@ -107,7 +107,7 @@ type 'a constants =
   {me:id;
    others: id list;
    send: MPMessage.t -> id -> id -> unit Lwt.t;
-   get_value: Sn.t -> Value.t option;
+   get_value: Sn.t -> Value.t option Lwt.t;
    on_accept: Value.t * Sn.t * Sn.t -> unit Lwt.t;
    on_consensus:
      Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n ->
@@ -353,7 +353,7 @@ let handle_prepare (type s) constants dest n n' i' =
               (* Ok, we can make a Promise to the other node, if we want to *)
               let make_promise () =
                 constants.respect_run_master <- Some (dest, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
-                let lv = constants.get_value nak_max in
+                constants.get_value nak_max >>= fun lv ->
                 let reply = Promise(n',nak_max,lv) in
                 Logger.info_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
                 start_election_timeout constants n' i' >>= fun () ->

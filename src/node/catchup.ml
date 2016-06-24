@@ -65,7 +65,7 @@ let stop_fuse stop =
 
 let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_id  mr_name ((module S : Store.STORE with type t = s),store,tlog_coll)
   =
-  let current_i = tlog_coll # get_last_i () in
+  tlog_coll # get_last_i () >>= fun current_i ->
   Logger.info_f_ "catchup_tlog %s from %s " (Sn.string_of current_i) mr_name >>= fun () ->
   let mr_addresses =
     try
@@ -109,7 +109,7 @@ let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_i
     )
     (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")
   >>= fun () ->
-  Lwt.return (tlog_coll # get_last_i ())
+  tlog_coll # get_last_i ()
 
 
 let prepare_and_insert_value (type s) (module S : Store.STORE with type t = s) me store i v =
@@ -237,8 +237,9 @@ let catchup_store ~stop (type s) me
 let catchup
       ~tls_ctx ~tcp_keepalive
       ~stop me other_configs ~cluster_id ((_,_,tlog_coll) as dbt) mr_name =
+  tlog_coll # get_last_i () >>= fun last_i ->
   Logger.info_f_ "CATCHUP start: I'm @ %s and %s is more recent"
-    (Sn.string_of (tlog_coll # get_last_i ())) mr_name
+    (Sn.string_of last_i) mr_name
   >>= fun () ->
   catchup_tlog
     ~tls_ctx ~tcp_keepalive
@@ -252,7 +253,7 @@ let verify_n_catchup_store
       (type s) ~stop me ?(apply_last_tlog_value=false)
       ((module S : Store.STORE with type t = s), store, tlog_coll)
   =
-  let current_i = tlog_coll # get_last_i () in
+  tlog_coll # get_last_i () >>= fun current_i ->
   let too_far_i =
     if apply_last_tlog_value
     then

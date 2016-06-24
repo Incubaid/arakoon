@@ -82,7 +82,6 @@ let _log_repeat tlc (value:Value.t) n =
 
 let test_rollover (dn, tlx_dir, (factory:factory)) =
   Logger.info_f_ "test_rollover %s, %s" dn tlx_dir >>= fun () ->
-  TlogMap.make ~tlog_max_entries:5 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun (c:tlog_collection) ->
   let value = _make_set_v "x" "y" in
   _log_repeat c value 101 >>= fun () ->
@@ -99,7 +98,7 @@ let test_rollover_1002 (dn, tlx_dir, (factory:factory)) =
   _log_repeat c value n_updates >>= fun () ->
   c # close () >>= fun () ->
   factory dn node_id >>= fun tlc_two ->
-  let vo = tlc_two # get_last_value (Sn.of_int (n_updates-1)) in
+  tlc_two # get_last_value (Sn.of_int (n_updates-1)) >>= fun vo ->
   let vos = Log_extra.option2s (Value.value2s ~values:false) vo in
   Logger.info_f_ "last_value = %s" vos >>= fun () ->
   tlc_two # close() >>= fun () ->
@@ -113,7 +112,7 @@ let test_get_value_bug (dn, _tlf_dir, (factory:factory)) =
   c0 # close () >>= fun () ->
   factory dn node_id >>= fun c1 ->
   (* c1 # validate () >>= fun _ -> *)
-  match c1 # get_last_value 0L with
+  c1 # get_last_value 0L >>= function
     | None -> Llio.lwt_failfmt "get_last_update 0 yields None"
     | Some v -> let () = OUnit.assert_equal v v0 in Lwt.return ()
 
@@ -147,7 +146,6 @@ let test_restart (dn, _tlf_dir, (factory:factory)) =
 
 let test_iterate (dn, tlx_dir, (factory: factory)) =
   Logger.info_f_ "test_iterate  %s, %s" dn tlx_dir >>= fun () ->
-  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun  (tlc:tlog_collection) ->
   let value = _make_set_v "xxx" "y" in
   _log_repeat tlc value 323 >>= fun () ->
@@ -169,7 +167,6 @@ let test_iterate (dn, tlx_dir, (factory: factory)) =
 
 let test_iterate2 (dn, tlx_dir, (factory:factory)) =
   Logger.info_f_ "test_iterate2  %s, %s" dn tlx_dir >>= fun () ->
-  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "test_iterate0" "xxx" in
   _log_repeat tlc value 3 >>= fun () ->
@@ -191,7 +188,6 @@ let test_iterate2 (dn, tlx_dir, (factory:factory)) =
 
 let test_iterate3 (dn, tlx_dir, (factory:factory)) =
   Logger.info_f_ "test_iterate3  %s, %s" dn tlx_dir >>= fun () ->
-  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id  >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "test_iterate3" "xxx" in
   _log_repeat tlc value 120 >>= fun () ->
@@ -211,7 +207,6 @@ let test_iterate3 (dn, tlx_dir, (factory:factory)) =
 
 let test_validate_normal (dn, tlx_dir, (factory:factory)) =
   Logger.info_f_ "test_validate_normal  %s, %s" dn tlx_dir >>= fun () ->
-  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "XXX" "X" in
   _log_repeat tlc value 123 >>= fun () ->
@@ -231,7 +226,6 @@ let test_validate_normal (dn, tlx_dir, (factory:factory)) =
 
 let test_validate_corrupt_1 (dn, tlx_dir, (factory:factory)) =
   let open Tlog_map in
-  TlogMap.make ~tlog_max_entries:100 dn tlx_dir node_id ~check_marker:true >>= fun tlog_map ->
   factory dn node_id >>= fun (tlc:tlog_collection) ->
   let value = _make_set_v "Incompetent" "Politicians" in
   _log_repeat tlc value 42 >>= fun () ->

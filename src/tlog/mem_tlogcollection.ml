@@ -29,14 +29,15 @@ class mem_tlog_collection _name =
     method get_infimum_i () = Lwt.return Sn.start
 
     method get_last_i () =
-      match last_entry with
-        | None -> Sn.start
-        | Some entry -> Entry.i_of entry
+      (match last_entry with
+       | None -> Sn.start
+       | Some entry -> Entry.i_of entry)
+      |> Lwt.return
 
     method get_last_value i =
-      match last_entry with
-        | None -> None
-        | Some entry ->
+      (match last_entry with
+       | None -> None
+       | Some entry ->
           let i' = Entry.i_of entry in
           begin
             if i = i'
@@ -45,12 +46,14 @@ class mem_tlog_collection _name =
               Some v
             else
               None
-          end
+          end)
+      |> Lwt.return
 
     method get_last () =
-      match last_entry with
-        | None -> None
-        | Some e -> Some (Entry.v_of e, Entry.i_of e)
+      (match last_entry with
+       | None -> None
+       | Some e -> Some (Entry.v_of e, Entry.i_of e))
+      |> Lwt.return
 
 
     method iterate from_i too_far_i f _cb =
