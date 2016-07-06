@@ -461,14 +461,8 @@ let main () =
     | WHO_MASTER -> Client_main.who_master ~tls !config_url ()
     | EXPECT_PROGRESS_POSSIBLE -> Client_main.expect_progress_possible ~tls !config_url
     | STATISTICS -> Client_main.statistics ~tls !config_url
-    | Collapse_local ->
-       Lwt_main.run
-         begin
-           let open Lwt.Infix in
-           make_config () >>= fun cfg ->
-           Collapser.collapse_out_of_band cfg !node_id !n_tlogs
-         end;
-       0
+    | Collapse_local -> Collapser_main.collapse_local make_config !node_id !n_tlogs
+
     | Collapse_remote -> Collapser_main.collapse_remote
                            ~tls ~tcp_keepalive
                            !ip !port !cluster_id !n_tlogs

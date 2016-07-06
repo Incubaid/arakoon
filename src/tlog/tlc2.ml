@@ -148,11 +148,11 @@ let _init_file fsync_dir tlog_map =
 
 class tlc2
         ?(compressor=Compression.Snappy)
-        (head_dir:string) 
+        (head_dir:string)
         (last:Entry.t option) (index:Index.index) (file:F.t option)
         (tlog_map: TlogMap.t)
         (node_id:string) ~(fsync:bool) ~(fsync_tlog_dir:bool)
-        
+
   =
   let _previous_entry = ref (Some last) in
   let set_previous_entry e =
@@ -331,7 +331,7 @@ class tlc2
               let new_outer = TlogMap.new_outer tlog_map i in
               Logger.info_f_ "should roll: i= %s old_outer = %i => jump to %i"
                              (Sn.string_of i)
-                             old_outer 
+                             old_outer
                              new_outer
               >>= fun () ->
               self # _jump_to_tlog file old_outer new_outer
@@ -375,7 +375,7 @@ class tlc2
       =
       let index = _index in
       Logger.debug_f_ "tlc2.iterate : index=%s" (Index.to_string index) >>= fun () ->
-      TlogMap.iterate_tlog_dir tlog_map ~index start_i too_far_i 
+      TlogMap.iterate_tlog_dir tlog_map ~index start_i too_far_i
                                f cb
 
 
@@ -422,10 +422,10 @@ class tlc2
         tmp
         hf_name
         (fun oc ->
-          Llio.copy_stream ~length ~ic ~oc) 
+          Llio.copy_stream ~length ~ic ~oc)
       >>= fun () ->
       self # _maybe_close_current_file ()
-      >>= fun () ->                                                               
+      >>= fun () ->
       let () = TlogMap.set_should_roll tlog_map in
       Logger.info_ "done: save_head"
 
@@ -503,17 +503,17 @@ class tlc2
               Logger.debug_f_ "wrote %S marker @i=%s for %S"
                               (Log_extra.string_option2s marker) (Sn.string_of i) node_id
               >>= fun () ->
-              F.close file 
+              F.close file
            | None -> Logger.fatal_f_ "how can this be?"
          end
-      
+
 
     method get_tlog_from_i (i:Sn.t) : int = TlogMap.outer_of_i tlog_map i
 
     method get_start_i (n:int) : Sn.t option = TlogMap.get_start_i tlog_map n
     method is_rollover_point i = TlogMap.is_rollover_point tlog_map i
     method next_rollover i     = TlogMap.next_rollover tlog_map i
-                                                       
+
     method get_tlog_count () =
       TlogMap.get_tlog_names tlog_map >>= fun tlogs ->
       Lwt.return (List.length tlogs)
@@ -527,7 +527,7 @@ class tlc2
       self # which_tlog_file n >>= fun co ->
       let canonical = match co with
         | Some fn -> fn
-        | None -> 
+        | None ->
                   let fn = file_name n in
                   TlogMap.get_full_path tlog_map fn
       in
@@ -572,12 +572,12 @@ class tlc2
       let new_name = Printf.sprintf "%03i%s" new_outer extension in
       let canon = TlogMap.get_full_path tlog_map new_name in
       let tmp = canon ^ ".tmp" in
-      
+
       Logger.info_f_
         "save_tlog_file: first_i:%s extension:%s in %s"
         (Sn.string_of first_i) extension tmp
       >>= fun () ->
-      
+
       Lwt_io.with_file ~mode:Lwt_io.output tmp
                        (fun oc -> Llio.copy_stream ~length ~ic ~oc)
       >>= fun () ->
@@ -592,24 +592,26 @@ class tlc2
         match _file with
         | None -> Lwt.return ()
         | Some file -> F.close file >>= fun () -> _file <- None;Lwt.return ()
-      end 
-      >>= fun () ->                                                               
+      end
+      >>= fun () ->
       TlogMap.reinit tlog_map >|= ignore
-                     
+
     method remove_below i = TlogMap.remove_below tlog_map i
-    method complete_file_to_deliver i = TlogMap.complete_file_to_deliver tlog_map i 
+    method complete_file_to_deliver i = TlogMap.complete_file_to_deliver tlog_map i
   end
 
 
 
 let make_tlc2 ~compressor
               ?tlog_max_entries ?tlog_max_size
+              ?(check_marker=true)
               tlog_dir tlf_dir
               head_dir ~fsync node_id ~fsync_tlog_dir
+
   =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   TlogMap.make ?tlog_max_entries ?tlog_max_size
-               tlog_dir tlf_dir node_id ~check_marker:true
+               tlog_dir tlf_dir node_id ~check_marker
   >>= fun (tlog_map , last, index )->
   Logger.debug_f_ "make_tlc2 index = %s" (Index.to_string index)
   >>= fun () ->
@@ -639,10 +641,10 @@ let make_tlc2 ~compressor
          Lwt.return (Some file)
   end >>= fun file ->
   let col = new tlc2 head_dir last index
-                file tlog_map 
+                file tlog_map
                 ~compressor node_id ~fsync ~fsync_tlog_dir in
   Lwt.return col
-             
+
 let _truncate_tlog filename =
   Logger.debug_f_ "_truncate %s" filename >>= fun () ->
   let skipper () _entry = Lwt.return () in

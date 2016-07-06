@@ -25,13 +25,13 @@ from nose.tools import *
 
 def _check_tlog_dirs(node, n):
     (home_dir, _, tlf_dir, head_dir) = Common.build_node_dir_names(node)
-    
+
     tlogs = X.listFilesInDir( home_dir, filter="*.tlog" )
     tlxs  = X.listFilesInDir( tlf_dir,  filter="*.tlx" )
     logging.info("tlogs:%s", tlogs)
     logging.info("tlxs:%s", tlxs)
     print tlxs
-    
+
     assert_equals(len(tlogs) + len(tlxs), n,
                   msg = "(%s + %s) should have %i file(s)" % (tlogs,tlxs,n))
     assert_true(X.fileExists(head_dir + "/head.db"))
@@ -47,7 +47,7 @@ def test_remote_collapse_witness_node():
     Common.collapse(witness,1)
     logging.info("collapsing done")
     _check_tlog_dirs(witness,1)
-    
+
     Common.stopOne(master)
     Common.wipe(master)
     Common.startOne(master)
@@ -71,7 +71,7 @@ def test_remote_collapse():
     Common.collapse(zero,1)
     logging.info("collapsing done")
     _check_tlog_dirs(zero,1)
-    
+
     Common.stopOne(one)
     Common.wipe(one)
     Common.startOne(one)
@@ -85,27 +85,27 @@ def test_remote_collapse():
         up2date = cli.expectProgressPossible()
     logging.info("catchup from collapsed node finished")
 
-    
+
 @Common.with_custom_setup(Common.setup_2_nodes_mini, Common.basic_teardown)
 def test_remote_collapse_client():
-    print 
+    print
     cluster = Common._getCluster()
     cluster_id = cluster._getClusterId()
     config = cluster.getClientConfig()
     ccfg = X.arakoon_client.ArakoonClientConfig(cluster_id,
                                                 config)
     client = X.arakoon_admin.ArakoonAdmin(ccfg)
-    
+
     zero = Common.node_names[0]
     one = Common.node_names[1]
     n = 29876
     Common.iterate_n_times(n, Common.simple_set)
     logging.info("did %i sets, now going into collapse scenario" % n)
-    
+
     client.collapse(zero,1)
     logging.info("collapsing done")
     _check_tlog_dirs(zero,1)
-    
+
 
 @Common.with_custom_setup(Common.setup_2_nodes_forced_master_mini, Common.basic_teardown)
 def test_local_collapse_witness_node():
@@ -115,10 +115,12 @@ def test_local_collapse_witness_node():
     Common.iterate_n_times(n, Common.simple_set)
     logging.info("did %i sets, now going into collapse scenario" % n)
 
-    Common.local_collapse(witness,1)
+    rc = Common.local_collapse(witness,1)
+    assert_equal(rc,0)
+
     logging.info("collapsing done")
-    
-    
+
+
     Common.stopOne(master)
     Common.wipe(master)
     Common.startOne(master)
@@ -135,13 +137,17 @@ def test_local_collapse_witness_node():
 @Common.with_custom_setup(Common.setup_2_nodes_mini, Common.basic_teardown)
 def test_local_collapse():
     logging.info("starting test_local_collapse")
-    
+
     zero = Common.node_names[0]
     one = Common.node_names[1]
     n = 29876
     Common.iterate_n_times(n, Common.simple_set)
     logging.info("did %i sets, now going into collapse scenario" % n)
-    Common.local_collapse(zero,1)
+    rc= Common.local_collapse(zero,1)
+    assert_equal(rc,0)
+    head_name = '%s/%s/head/head.db' %(Common.data_base_dir, zero)
+    logging.info(head_name)
+    assert_true(X.fileExists(head_name))
     #
     logging.info("collapsing done")
     Common.stopOne(one)

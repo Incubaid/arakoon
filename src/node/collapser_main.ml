@@ -40,3 +40,21 @@ let collapse_remote ~tls ~tcp_keepalive ip port cluster_id n =
       )
   in
   Lwt_main.run (t () )
+
+let collapse_local make_config node_id n_tlogs =
+  let t =
+    Lwt.catch
+      (fun() ->
+        let open Lwt.Infix in
+        make_config () >>= fun cfg ->
+        Collapser.collapse_out_of_band cfg node_id n_tlogs >>= fun () ->
+        Lwt.return 0
+
+      )
+      (fun exn ->
+        Logger.fatal Logger.Section.main ~exn "collapse_local failed"
+        >>= fun () ->
+        Lwt.return 1
+      )
+  in
+  Lwt_main.run t
