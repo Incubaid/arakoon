@@ -1018,7 +1018,9 @@ let main_t (make_config: unit -> 'a Lwt.t)
            name ~daemonize ~catchup_only ~autofix ~lock : int Lwt.t
   =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
-  let (make_tlog_coll :Tlogcollection.tlc_factory) = Tlc2.make_tlc2 in
+  let (make_tlog_coll :Tlogcollection.tlc_factory) =
+    Tlc2.make_tlc2 ~check_marker:true
+  in
   let get_snapshot_name = Tlc2.head_name in
   _main_2 (module S)
           make_tlog_coll

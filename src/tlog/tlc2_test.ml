@@ -33,6 +33,7 @@ let create_test_tlc ?tlog_max_entries ?tlog_max_size dn =
     dn
     ?tlog_max_entries ?tlog_max_size tlx_dir tlx_dir
     ~compressor ~fsync:false ~fsync_tlog_dir:false
+    ~check_marker:true
 
 let wrap_tlc = Tlogcollection_test.wrap create_test_tlc
 
@@ -53,7 +54,7 @@ let test_interrupted_rollover (dn, tlx_dir, factory) =
   factory ~tlog_max_entries:5 dn node_id >>= fun tlog_coll ->
   let value = Value.create_master_value ~lease_start:0. "me" in
   tlog_coll # log_value 5L value >>= fun _ ->
-  tlog_coll # close () >>= fun _ ->  
+  tlog_coll # close () >>= fun _ ->
   Tlog_map._get_tlog_names dn tlx_dir >>= fun tlog_names ->
   let n = List.length tlog_names in
   let msg = Printf.sprintf "Number of tlogs incorrect. Expected 2, got %d" n in
@@ -265,7 +266,7 @@ let test_compression_bug (dn, tlx_dir, (factory:factory)) =
     Logger.debug_f_ "ENTRY: i=%Li" i
   in
   let cb _ = Lwt.return_unit in
-  
+
   tlc2 # iterate 0L (Sn.of_int n) f cb >>= fun () ->
 
   OUnit.assert_equal
