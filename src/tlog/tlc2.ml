@@ -621,7 +621,7 @@ let make_tlc2 ~compressor
       | Some e -> let i = Entry.i_of e in "Some " ^ (Sn.string_of i)
   in
   Logger.debug_f_ "post_validation: last_i=%s" msg >>= fun () ->
-  (* rewrite last entry with ANOTHER marker so we can see we got here *)
+  (* maybe rewrite last entry with ANOTHER marker so we can see we got here *)
   begin
     match last with
       | None   -> Lwt.return None
@@ -632,11 +632,17 @@ let make_tlc2 ~compressor
          let marker = Some (_make_open_marker node_id) in
          _init_file fsync_tlog_dir tlog_map >>= fun file ->
          let oc = F.oc_of file in
-         Tlogcommon.write_marker oc i v marker >>= fun () ->
-         Logger.debug_f_ "wrote %S marker @i=%s for %S"
-                         (Log_extra.string_option2s marker)
-                         (Sn.string_of i)
-                         node_id
+         begin
+           if check_marker
+           then
+             Tlogcommon.write_marker oc i v marker
+             >>= fun () ->
+             Logger.info_f_ "wrote %S marker @i=%s for %S"
+                             (Log_extra.string_option2s marker)
+                             (Sn.string_of i)
+                             node_id
+           else Lwt.return_unit
+         end
          >>= fun () ->
          Lwt.return (Some file)
   end >>= fun file ->
