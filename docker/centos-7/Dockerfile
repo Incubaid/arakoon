@@ -66,6 +66,26 @@ RUN eval `${opam_env}` && \
         uri.1.9.2
 
 
+RUN pip install fabric junit-xml nose simplejson python-etcd
+
+RUN mkdir /home/tests
+RUN chmod 777 /home/tests
+
+# Install etcd:
+ENV etcd_version=2.3.5
+RUN curl -L  https://github.com/coreos/etcd/releases/download/v${etcd_version}/etcd-v${etcd_version}-linux-amd64.tar.gz -o etcd-v{etcd_version}-linux-amd64.tar.gz
+RUN tar xzvf etcd-v{etcd_version}-linux-amd64.tar.gz
+RUN cp ./etcd-v${etcd_version}-linux-amd64/etcd /usr/bin \
+    && cp ./etcd-v${etcd_version}-linux-amd64/etcdctl /usr/bin
+
+# Install redis:
+RUN wget http://download.redis.io/releases/redis-3.0.7.tar.gz
+RUN tar xzvf redis-3.0.7.tar.gz
+RUN cd redis-3.0.7 && make
+RUN cp ./redis-3.0.7/src/redis-server /usr/bin
+RUN cp ./redis-3.0.7/src/redis-cli /usr/bin
+
+
 RUN yum -y update && yum -y install \
         autoconf help2man perl-Thread-Queue \
         sudo iproute
@@ -80,7 +100,7 @@ RUN awk 'NR == 56 {next} {print}' /etc/sudoers >/tmp/__sudoers && mv /tmp/__sudo
 RUN yum -y install rpm-build
 
 RUN chmod ugoa+rxw -R ${opam_root}
-RUN su - -c "echo 'eval `${opam_env}`' >> /home/jenkins/.profile"
+RUN su - -c "echo 'eval `${opam_env}`' >> /home/jenkins/.bash_profile"
 RUN echo "jenkins ALL=NOPASSWD: ALL" >/etc/sudoers.d/jenkins
 
 
