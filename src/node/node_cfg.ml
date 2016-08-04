@@ -469,7 +469,7 @@ module Node_cfg = struct
       let v = Ini.get inifile log_name x (Ini.p_option Ini.p_string) (Ini.default None) in
       match v with
         | None -> None
-        | Some v -> Some (String.lowercase v) in
+        | Some v -> Some (String.lowercase_ascii v) in
     let client_protocol = get_log_level "client_protocol" in
     let paxos = get_log_level "paxos" in
     let tcp_messaging = get_log_level "tcp_messaging" in
@@ -539,7 +539,7 @@ module Node_cfg = struct
       try get_string "head_dir"
       with _ -> tlx_dir
     in
-    let log_level = String.lowercase (get_string "log_level")  in
+    let log_level = String.lowercase_ascii (get_string "log_level")  in
     let log_config = Ini.get inifile node_name "log_config" (Ini.p_option Ini.p_string) (Ini.default None) in
     let batched_transaction_config = Ini.get inifile node_name "batched_transaction_config" (Ini.p_option Ini.p_string) (Ini.default None) in
     let is_laggy = get_bool "laggy" in
@@ -553,7 +553,7 @@ module Node_cfg = struct
           let s = Ini.get inifile node_name "tlog_compression" Ini.p_string
                           (Ini.default "snappy")
           in
-          match String.lowercase s with
+          match String.lowercase_ascii s with
           | "snappy"  -> Compression.Snappy
           | "bz2"     -> Compression.Bz2
           | "none"    -> Compression.No

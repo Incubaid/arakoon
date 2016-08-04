@@ -70,7 +70,7 @@ module Ordstr =
 struct
   type t = string
   let compare (x:t) (y:t) =
-    String.compare (String.lowercase x) (String.lowercase y)
+    String.compare (String.lowercase_ascii x) (String.lowercase_ascii y)
 end
 
 module Strset = Set.Make(Ordstr)

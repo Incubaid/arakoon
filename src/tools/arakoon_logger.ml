@@ -88,7 +88,7 @@ let format_message
        tm.tm_min
        tm.tm_sec
        (int_of_float ((mod_float (Core.Time.to_float ts) 1.) *. 1_000_000.))
-       (let open Core.Std.Float in
+       (let open Core_kernel in
         match offset.Core.Span.Parts.sign with
         | Sign.Neg -> '-'
         | Sign.Pos | Sign.Zero -> '+')
