@@ -1,21 +1,20 @@
-FROM ubuntu:16.04
+FROM kpengboy/trisquel:latest
 
 RUN useradd jenkins -u 1500 -g root
 
-RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         build-essential m4 apt-utils \
-        libffi-dev libssl-dev \
-        libbz2-dev \
-        libgmp3-dev \
+        libssl-dev \
         libev-dev \
+        libbz2-dev \
         libsnappy-dev \
-        libxen-dev \
         help2man \
         pkg-config \
         time \
         aspcud \
         wget \
         curl \
+        rsync \
         darcs \
         git \
         unzip \
@@ -23,13 +22,10 @@ RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         python-dev \
         python-pip \
         debhelper \
-        psmisc \
         sudo \
-        libtool \
         iptables \
         net-tools \
         ncurses-dev
-
 
 RUN wget https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh
 

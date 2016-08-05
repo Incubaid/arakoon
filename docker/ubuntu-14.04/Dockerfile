@@ -2,12 +2,14 @@ FROM ubuntu:14.04
 
 RUN useradd jenkins -u 1500 -g root
 
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         build-essential m4 apt-utils \
-        libssl-dev \
-        libev-dev \
+        libffi-dev libssl-dev \
         libbz2-dev \
+        libgmp3-dev \
+        libev-dev \
         libsnappy-dev \
+        libxen-dev \
         help2man \
         pkg-config \
         time \
@@ -22,7 +24,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         python-dev \
         python-pip \
         debhelper \
+        psmisc \
         sudo \
+        libtool \
         iptables \
         net-tools \
         ncurses-dev
