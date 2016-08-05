@@ -10,7 +10,7 @@ install () {
 
     date
 
-    ./docker/run.sh ubuntu-16.04 build
+    ./docker/run.sh ubuntu-16.04 clean | tail -n256
 
     date
 }
@@ -20,9 +20,12 @@ script () {
 
     date
 
-    ./docker/run.sh ubuntu-16.04 unit-travis
+    ./docker/run.sh ubuntu-16.04 unit 2&>1 | tail -n256
+    RESULT=$PIPESTATUS
 
     date
+
+    exit $RESULT
 }
 
 before_cache () {

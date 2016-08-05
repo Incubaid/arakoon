@@ -61,10 +61,13 @@ RUN chmod 777 /home/tests
 
 # Install etcd:
 ENV etcd_version=2.3.5
-RUN curl -L  https://github.com/coreos/etcd/releases/download/v${etcd_version}/etcd-v${etcd_version}-linux-amd64.tar.gz -o etcd-v{etcd_version}-linux-amd64.tar.gz
-RUN tar xzvf etcd-v{etcd_version}-linux-amd64.tar.gz
-RUN cp ./etcd-v${etcd_version}-linux-amd64/etcd /usr/bin \
-    && cp ./etcd-v${etcd_version}-linux-amd64/etcdctl /usr/bin
+RUN curl \
+      -L https://github.com/coreos/etcd/releases/download/v${etcd_version}/etcd-v${etcd_version}-linux-amd64.tar.gz \
+      -o etcd-v${etcd_version}-linux-amd64.tar.gz \
+    && tar xzvf etcd-v${etcd_version}-linux-amd64.tar.gz \
+    && cp ./etcd-v${etcd_version}-linux-amd64/etcd /usr/bin \
+    && cp ./etcd-v${etcd_version}-linux-amd64/etcdctl /usr/bin \
+    && rm -rf etcd-*
 
 # Install redis:
 RUN wget http://download.redis.io/releases/redis-3.0.7.tar.gz

@@ -3,9 +3,19 @@
 IMAGE=$1
 shift
 
-if [ -t 1 ] ; then TTY="-t"; else TTY=""; fi
-
 docker build --rm=true --tag=arakoon_$IMAGE ./docker/$IMAGE
+
+if [ -t 1 ];
+then TTY="-t";
+else
+    # this path is taken on jenkins, clean previous builds first
+    TTY="";
+    docker run -i $TTY --privileged=true -e UID=${UID} \
+           -v ${PWD}:/home/jenkins/arakoon \
+           -w /home/jenkins/arakoon arakoon_$IMAGE \
+           bash -l -c "cd arakoon && ./docker/suites.sh clean"
+fi
+
 docker run -i $TTY --privileged=true -e UID=${UID} \
        -v ${PWD}:/home/jenkins/arakoon \
        -w /home/jenkins/arakoon arakoon_$IMAGE \

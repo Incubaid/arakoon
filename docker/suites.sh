@@ -17,10 +17,6 @@ case "${1-bash}" in
         ./arakoon.native --run-all-tests-xml testresults.xml || true
         cat testresults.xml
         ;;
-    unit-travis)
-        ./arakoon.native --run-all-tests 2>&1 | tail -n256
-        exit $PIPESTATUS
-        ;;
     kwik)
         ./jenkins/kwik.sh
         ;;
