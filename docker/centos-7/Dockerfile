@@ -30,6 +30,8 @@ ENV opam_root=/home/jenkins/OPAM
 ENV opam_env="opam config env --root=${opam_root}"
 RUN opam init --root=${opam_root} --comp ${ocaml_version}
 
+RUN eval `${opam_env}` && \
+    opam repo --root=${opam_root} add janestreet git://github.com/janestreet/opam-repository.git
 
 # protobuf
 RUN yum -y install bzip2
@@ -61,7 +63,7 @@ RUN eval `${opam_env}` && \
         ocplib-endian.1.0 \
         quickcheck.1.0.2 \
         conf-libev \
-        core.113.33.02+4.03 \
+        core.114.04+57 \
         redis.0.3.1 \
         uri.1.9.2
 
@@ -105,7 +107,3 @@ RUN echo "jenkins ALL=NOPASSWD: ALL" >/etc/sudoers.d/jenkins
 
 
 ENTRYPOINT ["/home/jenkins/arakoon/docker/docker-entrypoint.sh"]
-
-CMD eval `${opam_env}` \
-    && echo ${SUITE} \
-    && ./jenkins/run.sh ${SUITE}

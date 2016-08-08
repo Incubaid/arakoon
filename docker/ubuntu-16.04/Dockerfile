@@ -41,6 +41,9 @@ ENV opam_env="opam config env --root=${opam_root}"
 RUN opam init --root=${opam_root} --comp ${ocaml_version}
 
 RUN eval `${opam_env}` && \
+    opam repo --root=${opam_root} add janestreet git://github.com/janestreet/opam-repository.git
+
+RUN eval `${opam_env}` && \
     opam update && \
     opam install -y \
         ocamlfind \
@@ -53,7 +56,7 @@ RUN eval `${opam_env}` && \
         ocplib-endian.1.0 \
         quickcheck.1.0.2 \
         conf-libev \
-        core.113.33.02+4.03 \
+        core.114.04+57 \
         redis.0.3.1 \
         uri.1.9.2
 
