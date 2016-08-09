@@ -10,7 +10,7 @@ install () {
 
     date
 
-    ./docker/run.sh ubuntu-16.04 clean | tail -n256
+    ./run_with_timeout_and_progress.sh 9000 ./docker/run.sh ubuntu-16.04 clean
 
     date
 }
@@ -20,12 +20,9 @@ script () {
 
     date
 
-    ./docker/run.sh ubuntu-16.04 unit 2&>1 | tail -n256
-    RESULT=$PIPESTATUS
+    ./run_with_timeout_and_progress.sh 9000 ./docker/run.sh ubuntu-16.04 unit
 
     date
-
-    exit $RESULT
 }
 
 before_cache () {
