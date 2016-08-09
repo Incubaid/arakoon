@@ -41,8 +41,13 @@ ENV opam_root=/home/jenkins/OPAM
 ENV opam_env="opam config env --root=${opam_root}"
 RUN opam init --root=${opam_root} --comp ${ocaml_version}
 
+
+RUN git clone git://github.com/janestreet/opam-repository.git /janestreet-opam-repo && \
+    cd /janestreet-opam-repo && \
+    git checkout b98fd1964856f0c0b022a42ec4e6fc6c7bad2e81
 RUN eval `${opam_env}` && \
-    opam repo --root=${opam_root} add janestreet git://github.com/janestreet/opam-repository.git
+    opam repo --root=${opam_root} -k local add janestreet /janestreet-opam-repo
+
 
 RUN eval `${opam_env}` && \
     opam update && \
@@ -57,7 +62,7 @@ RUN eval `${opam_env}` && \
         ocplib-endian.1.0 \
         quickcheck.1.0.2 \
         conf-libev \
-        core.114.04+57 \
+        core.114.05+21 \
         redis.0.3.1 \
         uri.1.9.2
 
