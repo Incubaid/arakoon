@@ -15,4 +15,4 @@ then
 fi
 
 # finally execute the command the user requested
-exec sudo ARAKOON_PYTHON_CLIENT=$ARAKOON_PYTHON_CLIENT -i -u jenkins "$@"
+exec sudo ARAKOON_PYTHON_CLIENT=${ARAKOON_PYTHON_CLIENT-} -i -u jenkins "$@"

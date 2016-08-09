@@ -1,4 +1,4 @@
-#!/bin/bash -ue
+#!/bin/bash -u
 
 TIMEOUT=$1
 COMMAND=$2
