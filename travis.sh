@@ -8,11 +8,15 @@ install () {
     if [[ -e ~/cache/image.tar.gz ]];
     then docker load -i ~/cache/image.tar.gz; fi
 
-    date
+    START_BUILD=date
+    export START_BUILD
+    echo $START_BUILD
 
     ./run_with_timeout_and_progress.sh 9000 ./docker/run.sh ubuntu-16.04 clean
 
-    date
+    END_BUILD=date
+    export END_BUILD
+    echo $END_BUILD
 }
 
 script () {
@@ -30,9 +34,15 @@ before_cache () {
 
     date
 
-    mkdir ~/cache || true
-    docker save -o ~/cache/image.tar.gz arakoon_ubuntu-16.04
-    ls -ahl ~/cache
+    DIFF=$(echo "$END_BUILD - $START_BUILD" | bc)
+    if [ $DIFF \> 5 ]
+    then
+        mkdir ~/cache || true
+        docker save -o ~/cache/image.tar.gz arakoon_ubuntu-16.04
+        ls -ahl ~/cache;
+    else
+        echo Building of container took only $DIFF seconds, not updating cache this time;
+    fi
 
     date
 }
