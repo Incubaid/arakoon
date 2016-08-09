@@ -17,6 +17,7 @@ else
 fi
 
 docker run -i $TTY --privileged=true -e UID=${UID} \
+       --env ARAKOON_PYTHON_CLIENT \
        -v ${PWD}:/home/jenkins/arakoon \
        -w /home/jenkins/arakoon arakoon_$IMAGE \
        bash -l -c "cd arakoon && ./docker/suites.sh $@"
