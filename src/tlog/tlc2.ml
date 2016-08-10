@@ -553,17 +553,6 @@ class tlc2
       let () = TlogMap.set_should_roll tlog_map in
       Lwt.return_unit
 
-
-    method reinit () =
-      invalidate_previous_entry ();
-      begin
-        match _file with
-        | None -> Lwt.return ()
-        | Some file -> F.close file >>= fun () -> _file <- None;Lwt.return ()
-      end
-      >>= fun () ->
-      TlogMap.reinit tlog_map >|= ignore
-
     method remove_below i = TlogMap.remove_below tlog_map i
     method complete_file_to_deliver i = TlogMap.complete_file_to_deliver tlog_map i
   end

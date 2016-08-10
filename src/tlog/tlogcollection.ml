@@ -51,7 +51,7 @@ class type tlog_collection =
                           -> string -> int64
                           -> Lwt_io.input_channel
                           -> unit Lwt.t
-  method reinit : unit -> unit Lwt.t 
+
   method get_head_name : unit -> string
   method get_tlog_from_i : Sn.t -> int
   method get_tlog_count: unit -> int Lwt.t

@@ -417,6 +417,11 @@ let test_get_last_i (dn, tlx_dir, (factory:factory)) =
   Lwt_log.debug_f "got last_i = %Li" last_i >>= fun () ->
   assert (5L = last_i);
 
+  tlc # log_value 6L value >>= fun _ ->
+  tlc # get_last_i () >>= fun last_i ->
+  Lwt_log.debug_f "got last_i = %Li" last_i >>= fun () ->
+  assert (6L = last_i);
+
   Lwt.return_unit
 
 
