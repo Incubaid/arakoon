@@ -15,4 +15,3 @@ cache:
     - ~/cache
   timeout:
     1000
-before_cache: ./travis.sh before_cache
