@@ -1,6 +1,5 @@
 #!/bin/bash -xue
 
-eval `${opam_env}`
 export START=${PWD}
 echo START=${START}
 rm -rf ${START}/rpmbuild/
