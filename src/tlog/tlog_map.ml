@@ -28,6 +28,36 @@ let extension_of filename =
   let dot_pos = String.rindex filename '.' in
   String.sub filename dot_pos (len - dot_pos)
 
+let extension comp =
+  let open Compression in
+  match comp with
+    | Snappy -> ".tlx"
+    | Bz2 -> ".tlf"
+    | No -> ".tlog"
+
+let to_archive_name comp fn =
+  let length = String.length fn in
+  let ext = String.sub fn (length -5) 5 in
+  if ext = ".tlog"
+  then
+    let root = String.sub fn 0 (length -5) in
+    let e = extension comp in
+    root ^ e
+  else failwith (Printf.sprintf "extension is '%s' and should be '.tlog'" ext)
+
+
+let to_tlog_name fn =
+  let length = String.length fn in
+  let extension = String.sub fn (length -4) 4 in
+  if extension = ".tlx"
+     || extension = ".tlf"
+     || extension = ".tlc"
+  then
+    let root = String.sub fn 0 (length -4) in
+    root ^ ".tlog"
+  else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be one of .tlc .tlf .tlx" extension)
+
+
 let folder_for filename index =
   let extension = extension_of filename in
   match extension with
@@ -43,11 +73,7 @@ let is_archive filename =
   | ".tlx" | ".tlf" | ".tlc"-> true
   | _ -> false
 
-let first_i_of ?extension_override filename =
-  let extension = match extension_override with
-    | None -> extension_of filename
-    | Some ext ->  ext
-  in
+let first_i_of filename tlx_dir =
   let read_uncompress ic inflate =
     Llio.input_string ic >>= fun compressed ->
     let uncompressed = inflate compressed in
@@ -55,8 +81,8 @@ let first_i_of ?extension_override filename =
     let i =  Sn.sn_from buffer in
     Lwt.return i
   in
-  let reader =
-    match extension with
+  let reader filename =
+    match extension_of filename with
     | ".tlog" -> (fun ic -> Sn.input_sn ic )
     | ".tlx" ->
        (fun ic ->
@@ -77,7 +103,26 @@ let first_i_of ?extension_override filename =
        )
     | x -> failwith (Printf.sprintf "not a tlog_file:%s" x)
   in
-  Lwt_io.with_file ~mode:Lwt_io.input filename reader >>= fun i ->
+  let get_i filename =
+    Lwt_io.with_file ~mode:Lwt_io.input filename (reader filename)
+  in
+  Lwt.catch
+    (fun () -> get_i filename)
+    (function
+      | Unix.Unix_error(Unix.ENOENT, "open", _) when extension_of filename = ".tlog" ->
+         (* the tlog might already be compressed in the mean time *)
+         Lwt_log.info_f
+           "Could not get first_i_of %s, trying compressed tlog now"
+           filename >>= fun () ->
+         Lwt.catch
+           (fun () -> get_i (to_archive_name Compression.Snappy filename))
+           (function
+             | Unix.Unix_error(Unix.ENOENT, _, _) ->
+                get_i (to_archive_name Compression.Bz2 filename))
+      | exn ->
+         Lwt_log.warning_f ~exn "Exception during first_i_of %s" filename >>= fun () ->
+         Lwt.fail exn)
+  >>= fun i ->
   Logger.debug_f_ "%s starts with i:%Li" filename i >>= fun () ->
   Lwt.return i
 
@@ -86,13 +131,6 @@ let get_number fn =
   let dot_pos = String.index fn '.' in
   let pre = String.sub fn 0 dot_pos in
   int_of_string pre
-
-let extension comp =
-  let open Compression in
-  match comp with
-    | Snappy -> ".tlx"
-    | Bz2 -> ".tlf"
-    | No -> ".tlog"
 
 let archive_name comp c =
   let x = extension comp in
@@ -296,10 +334,10 @@ module TlogMap = struct
 
 
   let _init tlog_dir tlx_dir node_id tlog_max_entries tlog_max_size ~check_marker ~check_sabotage =
-    Logger.debug_f_ "_init ~check_marker:%b" check_marker >>= fun () ->
+    Logger.info_f_ "_init ~check_marker:%b" check_marker >>= fun () ->
     _get_tlog_names tlog_dir tlx_dir >>= fun tlog_names ->
     let tlog_number = get_count tlog_names in
-    Logger.debug_f_ "tlog_number:%i" tlog_number >>= fun () ->
+    Logger.info_f_ "tlog_number:%i" tlog_number >>= fun () ->
     let full_path = _get_full_path tlog_dir tlx_dir (file_name tlog_number) in
     _validate_one full_path node_id ~check_marker ~check_sabotage
     >>= fun (last, index, tlog_size) ->
@@ -307,7 +345,7 @@ module TlogMap = struct
       (fun (acc,prev)  tlog_name ->
         let n = get_number tlog_name in
         let canonical = _get_full_path tlog_dir tlx_dir tlog_name in
-        first_i_of canonical >>= fun i ->
+        first_i_of canonical tlx_dir >>= fun i ->
         (if i >= prev
         then Lwt.return_unit
         else Lwt.fail_with
@@ -341,7 +379,7 @@ module TlogMap = struct
          let should_roll = tlog_entries + 1 >= tlog_max_entries in
          tlog_entries, should_roll, item.i
     in
-    Logger.debug_f_ "_init: tlog_entries:%i should_roll:%b" tlog_entries should_roll
+    Logger.info_f_ "_init: tlog_entries:%i should_roll:%b" tlog_entries should_roll
     >>= fun () ->
     Lwt.return ((tlog_entries, tlog_size, tlog_number, i_to_tlog_number, should_roll),
                 last, index)

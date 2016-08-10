@@ -45,7 +45,7 @@ class type tlog_collection =
      returns file number & starting i of next file  
    *)
   method complete_file_to_deliver: Sn.t -> (int * Sn.t) option
-                                               
+
   method dump_tlog_file : int -> Lwt_io.output_channel -> unit Lwt.t
   method save_tlog_file : Sn.t
                           -> string -> int64
