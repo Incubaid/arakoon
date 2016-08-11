@@ -481,6 +481,11 @@ let defrag_db (ic,oc) =
   request oc outgoing >>= fun () ->
   response ic nothing
 
+let copy_db_to_head (ic, oc) =
+  let outgoing buf = command_to buf COPY_DB_TO_HEAD in
+  request oc outgoing >>= fun () ->
+  response ic nothing
+
 let version (ic,oc) =
   let outgoing buf = command_to buf VERSION in
   request oc outgoing >>= fun () ->

@@ -53,6 +53,7 @@ type local_action =
   | Backup_db
   | Optimize_db
   | Defrag_db
+  | Copy_db_to_head
   | NumberOfValues
   | InitNursery
   | MigrateNurseryRange
@@ -379,6 +380,12 @@ let main () =
                               Arg.Set_int port;
                              ],
      "<cluster_id> <ip> <port> requests the node to defragment its database");
+    ("--copy-db-to-head", Arg.Tuple[set_laction Copy_db_to_head;
+                              Arg.Set_string cluster_id;
+                              Arg.Set_string ip;
+                              Arg.Set_int port;
+                             ],
+     "<cluster_id> <ip> <port> requests the node to copy its database to the head location");
     ("--n-values", set_laction NumberOfValues,
      "returns the number of values in the store");
     ("--ping", Arg.Tuple[set_laction PING;
@@ -475,6 +482,9 @@ let main () =
     | Defrag_db   -> Nodestream_main.defrag_db
                        ~tls ~tcp_keepalive
                        !ip !port !cluster_id
+    | Copy_db_to_head -> Nodestream_main.copy_db_to_head
+                           ~tls ~tcp_keepalive
+                           !ip !port !cluster_id
     | NumberOfValues -> Client_main.get_key_count ~tls !config_url ()
     | InitNursery -> Nursery_main.init_nursery !config_url !cluster_id
     | MigrateNurseryRange -> Nursery_main.migrate_nursery_range

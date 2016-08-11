@@ -45,6 +45,19 @@ let defrag_db ~tls ~tcp_keepalive ip port cluster_id =
   in
   Lwt_main.run (t ())
 
+
+let copy_db_to_head ~tls ~tcp_keepalive ip port cluster_id =
+  let do_it connection =
+    make_remote_nodestream cluster_id connection >>= fun client ->
+    client # copy_db_to_head ()
+  in
+  let address = make_address ip port in
+  let t () =
+    Client_main.with_connection ~tls ~tcp_keepalive address do_it >>= fun () ->
+    Lwt.return 0
+  in
+  Lwt_main.run (t ())
+
 let get_db ~tls ~tcp_keepalive ip port cluster_id location =
   let do_it connection =
     make_remote_nodestream cluster_id connection >>= fun client ->
