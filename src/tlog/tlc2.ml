@@ -27,46 +27,14 @@ open Tlog_map
 
 let section = Logger.Section.main
 
-
-let to_archive_name comp fn =
-  let length = String.length fn in
-  let ext = String.sub fn (length -5) 5 in
-  if ext = ".tlog"
-  then
-    let root = String.sub fn 0 (length -5) in
-    let e = extension comp in
-    root ^ e
-  else failwith (Printf.sprintf "extension is '%s' and should be '.tlog'" ext)
-
-
-
 let head_fname = "head.db"
 
 let head_name () = head_fname
 
+let to_tlog_name = Tlog_map.to_tlog_name
+let to_archive_name = Tlog_map.to_archive_name
 
-
-let to_tlog_name fn =
-  let length = String.length fn in
-  let extension = String.sub fn (length -4) 4 in
-  if extension = ".tlx"
-     || extension = ".tlf"
-     || extension = ".tlc"
-  then
-    let root = String.sub fn 0 (length -4) in
-    root ^ ".tlog"
-  else failwith (Printf.sprintf "to_tlog_name:extension is '%s' and should be one of .tlc .tlf .tlx" extension)
-
-
-let folder_for filename index =
-  let extension = extension_of filename in
-  match extension with
-  | ".tlog" -> Tlogreader2.AU.fold, extension, index
-  | ".tlx"  -> Tlogreader2.AS.fold, extension, None
-  | ".tlf"  -> Tlogreader2.AC.fold, extension, None
-  | ".tlc"  -> Tlogreader2.AO.fold, extension, None
-  | _       -> failwith (Printf.sprintf "no folder for '%s'" extension)
-
+let folder_for = Tlog_map.folder_for
 
 
 let _validate_list tlog_names node_id ~check_marker=
@@ -301,7 +269,7 @@ class tlc2
         | None ->
           begin
             let outer = TlogMap.outer_of_i tlog_map i in
-            Logger.debug_f_ "prelude i:%s: outer=%i No File" (Sn.string_of i) outer>>= fun () ->
+            Logger.info_f_ "prelude i:%s: outer=%i No File" (Sn.string_of i) outer>>= fun () ->
             begin
               if outer <> 0 && (TlogMap.is_rollover_point tlog_map i)
               then
@@ -559,8 +527,8 @@ class tlc2
       match _file with
       | None -> Lwt.return ()
       | Some file ->
-         F.close file >>= fun () ->
          _file <- None;
+         F.close file >>= fun () ->
          Lwt.return_unit
 
     method save_tlog_file first_i extension length ic =
@@ -584,17 +552,6 @@ class tlc2
       File_system.rename tmp canon >>= fun () ->
       let () = TlogMap.set_should_roll tlog_map in
       Lwt.return_unit
-
-
-    method reinit () =
-      invalidate_previous_entry ();
-      begin
-        match _file with
-        | None -> Lwt.return ()
-        | Some file -> F.close file >>= fun () -> _file <- None;Lwt.return ()
-      end
-      >>= fun () ->
-      TlogMap.reinit tlog_map >|= ignore
 
     method remove_below i = TlogMap.remove_below tlog_map i
     method complete_file_to_deliver i = TlogMap.complete_file_to_deliver tlog_map i

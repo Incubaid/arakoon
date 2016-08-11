@@ -417,7 +417,35 @@ let test_get_last_i (dn, tlx_dir, (factory:factory)) =
   Lwt_log.debug_f "got last_i = %Li" last_i >>= fun () ->
   assert (5L = last_i);
 
+  tlc # log_value 6L value >>= fun _ ->
+  tlc # get_last_i () >>= fun last_i ->
+  Lwt_log.debug_f "got last_i = %Li" last_i >>= fun () ->
+  assert (6L = last_i);
+
   Lwt.return_unit
+
+let first_i_of_compress_race (dn, tlx_dir, (factory : factory)) =
+  let tlog_max_size = 1000 in
+  factory ~tlog_max_size dn "node_id" >>= fun tlc ->
+  let make_value size =
+    let open Update in
+    Value.create_client_value [ Update.Set ("", Bytes.create size); ] false
+  in
+  let value = make_value 0 in
+  tlc # log_value 0L value >>= fun _ ->
+  tlc # log_value 1L value >>= fun _ ->
+  tlc # log_value 2L value >>= fun _ ->
+  tlc # log_value 3L (make_value tlog_max_size) >>= fun _ ->
+  tlc # log_value 4L value >>= fun _ ->
+  tlc # log_value 5L value >>= fun _ ->
+  (* wait for compress *)
+  tlc # close ~wait_for_compression:true () >>= fun () ->
+
+  let tlog = dn ^ "/000.tlog" in
+  Lwt_log.debug_f "tlog=%s, tlx_dir=%s" tlog tlx_dir >>= fun () ->
+  Tlog_map.first_i_of tlog tlx_dir >>= fun i ->
+  assert (i = 0L);
+  Lwt.return ()
 
 
 let make_test_tlc (x, y) = x >:: wrap_tlc y x
@@ -445,4 +473,5 @@ let suite = "tlc2" >:::
                   ("test_compression_previous", test_compression_previous);
                   ("test_size_based_roll_over1", test_size_based_roll_over1);
                   ("test_get_last_i", test_get_last_i);
+                  ("first_i_of_compress_race", first_i_of_compress_race);
                 ]
