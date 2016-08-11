@@ -33,6 +33,7 @@ class type nodestream = object
 
   method optimize_db: unit -> unit Lwt.t
   method defrag_db:unit -> unit Lwt.t
+  method copy_db_to_head : unit -> unit Lwt.t
   method get_db: string -> unit Lwt.t
 
   method get_fringe: string option -> Routing.range_direction -> ((string * string) list) Lwt.t
