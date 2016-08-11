@@ -57,16 +57,35 @@ Verify the log file and check if he download the head.db from another node and r
 Collapse the Arakoon manually with collapse-remote
 
 #### 3.2.1 Steps
-Check the IP and PORT where your Arakoon is running. (check the Arakoon config)
+Check the IP and PORT where your Arakoon is running and collapse-remote the Arakoon database.
 
-Command:
+**Arakoon config (Fargo):**
+
+* Get the Arakoon config location:
+```
+etcdctl ls --recursive | grep arakoon | grep config
+
+/ovs/arakoon/mybackend-abm/config
+/ovs/arakoon/mybackend-nsm_0/config
+/ovs/arakoon/voldrv/config
+/ovs/arakoon/ovsdb/config
+```
+* Print the correct Arakoon config:
+```
+etcdctl get /ovs/arakoon/ovsdb/config
+```
+
+**Collapse remote**
+
+* Command:
 ```
 arakoon --collapse-remote <cluster_id> <ip> <port> <n> tells node to collapse all but <n> tlogs into its head database
 ```
+The cluster_id, ip and port can be found in the previous printed Arakoon config
 
-Example:
+* Example:
 ```
-arakoon --collapse-remote T3BpM2jJy5qloYS5 127.0.0.1 26409 2
+arakoon --collapse-remote ovsdb 10.100.1.2 26400 2
 ```
 
 ### 3.3 Manually
