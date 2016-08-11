@@ -114,6 +114,9 @@ let first_i_of filename tlx_dir =
          Lwt_log.info_f
            "Could not get first_i_of %s, trying compressed tlog now"
            filename >>= fun () ->
+         let to_archive_name c f =
+           Printf.sprintf "%s/%s" tlx_dir (to_archive_name c f |> Filename.basename)
+         in
          Lwt.catch
            (fun () -> get_i (to_archive_name Compression.Snappy filename))
            (function
