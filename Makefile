@@ -36,45 +36,73 @@ install_client:
           _build/src/arakoon_client.cmxa \
           _build/src/arakoon_client.cmxs \
           _build/src/client/stamp.cmi \
+	  _build/src/client/stamp.cmx \
           _build/src/client/arakoon_exc.mli \
           _build/src/client/arakoon_exc.cmi \
+	  _build/src/client/arakoon_exc.cmx \
           _build/src/client/arakoon_client_config.cmi \
+	  _build/src/client/arakoon_client_config.cmx \
           _build/src/client/arakoon_client.mli \
           _build/src/client/arakoon_client.cmi \
           _build/src/client/arakoon_remote_client.mli \
           _build/src/client/arakoon_remote_client.cmi \
+	  _build/src/client/arakoon_remote_client.cmx \
           _build/src/client/protocol_common.cmi \
+	  _build/src/client/protocol_common.cmx \
           _build/src/client/client_helper.cmi \
+	  _build/src/client/client_helper.cmx \
           _build/src/inifiles/inifiles.mli \
           _build/src/inifiles/inifiles.cmi \
+	  _build/src/inifiles/inifiles.cmx \
           _build/src/lib/std.cmi \
+          _build/src/lib/std.cmx \
           _build/src/plugins/registry.mli \
           _build/src/plugins/registry.cmi \
+	  _build/src/plugins/registry.cmx \
           _build/src/plugins/plugin_helper.mli \
           _build/src/plugins/plugin_helper.cmi \
+	  _build/src/plugins/plugin_helper.cmx \
           _build/src/node/key.mli \
           _build/src/node/key.cmi \
+	  _build/src/node/key.cmx \
           _build/src/node/simple_store.cmi \
+	  _build/src/node/simple_store.cmx \
           _build/src/nursery/routing.cmi \
           _build/src/tlog/interval.cmi \
+          _build/src/tlog/interval.cmx \
           _build/src/tlog/update.cmi \
+	  _build/src/tlog/update.cmx \
           _build/src/tools/ini.cmi \
+          _build/src/tools/ini.cmx \
           _build/src/tools/arakoon_log_sink.cmi \
+	  _build/src/tools/arakoon_log_sink.cmx \
           _build/src/tools/crash_logger.cmi \
+	  _build/src/tools/crash_logger.cmx \
           _build/src/tools/arakoon_redis.cmi \
+          _build/src/tools/arakoon_redis.cmx \
           _build/src/tools/arakoon_logger.cmi \
+	  _build/src/tools/arakoon_logger.cmx \
           _build/src/tools/llio.mli \
           _build/src/tools/llio.cmi \
+	  _build/src/tools/llio.cmx \
           _build/src/tools/network.cmi \
+	  _build/src/tools/network.cmx \
           _build/src/tools/lwt_buffer.cmi \
+	  _build/src/tools/lwt_buffer.cmx \
           _build/src/tools/lwt_extra.cmi \
+	  _build/src/tools/lwt_extra.cmx \
           _build/src/tools/typed_ssl.mli \
           _build/src/tools/typed_ssl.cmi \
+	  _build/src/tools/typed_ssl.cmx \
           _build/src/tools/unix_fd.cmi \
+          _build/src/tools/unix_fd.cmx \
           _build/src/tools/arakoon_etcd.cmi \
+	  _build/src/tools/arakoon_etcd.cmx \
           _build/src/tools/arakoon_config_url.cmi \
+	  _build/src/tools/arakoon_config_url.cmx \
           _build/src/tools/tcp_keepalive_sockopt_stubs.o \
           _build/src/tools/tcp_keepalive.cmi \
+	  _build/src/tools/tcp_keepalive.cmx \
           _build/src/arakoon_client.a
 
 uninstall_client:
