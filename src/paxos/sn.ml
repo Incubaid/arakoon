@@ -22,8 +22,10 @@ let zero = 0L
 let succ t = Int64.succ t
 let pred t = Int64.pred t
 let compare = Int64.compare
+
 let mul = Int64.mul
 let div = Int64.div
+
 let add = Int64.add
 let sub = Int64.sub
 let rem = Int64.rem

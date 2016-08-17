@@ -21,6 +21,7 @@ from arakoon.ArakoonExceptions import *
 import arakoon
 import logging
 import time
+import threading
 import subprocess
 from nose.tools import *
 import os
@@ -86,12 +87,12 @@ def test_20_clients_1000_sets() :
     arakoon.ArakoonProtocol.ARA_CFG_TIMEOUT = 60.0
     Common.create_and_wait_for_threads ( 20, 1000, Common.simple_set, 200.0 )
 
-@Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown)
+@Common.with_custom_setup( Common.setup_3_nodes_mini, Common.basic_teardown)
 def test_tlog_rollover():
-    Common.iterate_n_times( 150000, Common.simple_set )
+    Common.iterate_n_times( 15000, Common.simple_set )
     Common.stop_all()
     Common.start_all()
-    Common.iterate_n_times( 150000, Common.simple_set )
+    Common.iterate_n_times( 15000, Common.simple_set )
 
 @Common.with_custom_setup( Common.setup_2_nodes, Common.basic_teardown)
 def test_catchup_while_collapsing():
@@ -420,6 +421,7 @@ def test_drop_master_witness_slave():
 
 @Common.with_custom_setup( Common.setup_3_nodes, Common.basic_teardown )
 def test_3_nodes_2_slaves_down ():
+    pass
     """ make sure the 'set' operation fails when 2 slaves are down, (eta: 63s) """
     cli = Common.get_client()
     cli.nop()
@@ -429,7 +431,8 @@ def test_3_nodes_2_slaves_down ():
     for slave in slaves:
         Common.stopOne( slave )
 
-    assert_raises( ArakoonSockNotReadable, cli.set, 'k', 'v' )
+    
+    assert_raises( X.arakoon_client.ArakoonSockNotReadable, cli.set, 'k', 'v' )
 
     cli.dropConnections()
 
@@ -490,7 +493,9 @@ def test_sabotage():
     test_size = num_tlogs * tlog_size
     Common.iterate_n_times(test_size, Common.simple_set)
     time.sleep(10)
+    print "stopping"
     clu.stop()
+    
     node_id = Common.node_names[0]
     node_cfg = clu.getNodeConfig(node_id)
     node_home_dir = node_cfg ['home']
@@ -502,16 +507,35 @@ def test_sabotage():
                   #"%s.db.wal" % (node_id,), # should not exist after a `proper` close
                   ])
     for f in files:
-        print f
+        print "removing", f
         X.removeFile(f)
-
+    print "starting"
     cmd = clu._cmd('sturdy_0')
-    returncode = X.subprocess.call(cmd)
-    assert_equals(returncode, 50)
+    print cmd
+    
+    def start_node():
+        returncode = X.subprocess.call(cmd)
+        assert_equals(returncode, 50)
+        print "startup failure + correct returncode"
+    try:
+        
+        t = threading.Thread(target = start_node)
+        t.start()
+        t.join(10.0)
+        
+    except Exception,e:
+        print e
+        assert_true(False)
+        
+    print "done"
 
-@Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
+@Common.with_custom_setup( Common.setup_3_nodes_forced_master_mini, Common.basic_teardown )
 def test_large_catchup_while_running():
-    """ make sure catchup does not interphere with normal operation (eta : 720s) """
+    pass # workaround nose listing comment iso test name
+
+    #make sure catchup does not interfere with normal operation (duration ~ 100s)
+    
+    count = 20000
     cli = Common.get_client()
     cluster = Common._getCluster()
 
@@ -527,7 +551,7 @@ def test_large_catchup_while_running():
 
     time.sleep(0.1)
     X.subprocess.call(["kill","-STOP",str(node_pid)])
-    Common.iterate_n_times( 200000, Common.simple_set )
+    Common.iterate_n_times( count, Common.simple_set )
     for n in others:
         Common.collapse(n)
 
@@ -545,36 +569,6 @@ def test_log_rotation():
         Common.rotate_log(node, 1, False)
         time.sleep(0.2)
         Common.assert_running_nodes(1)
-
-@Common.with_custom_setup( Common.setup_3_nodes_forced_master, Common.basic_teardown )
-def test_large_catchup_while_running():
-    """
-    test_large_catchup_while_running : assert cluster is still ok after (catchup // collapse) (eta : 600s)
-    """
-    cli = Common.get_client()
-    cluster = Common._getCluster()
-
-    cli.set('k','v')
-    m = cli.whoMaster()
-
-    nod1 = Common.node_names[0]
-    nod2 = Common.node_names[1]
-    nod3 = Common.node_names[2]
-
-    n_name,others = (nod1, [nod2,nod3]) if nod1 != m else (nod2, [nod1, nod3])
-    node_pid = cluster._getPid(n_name)
-
-    time.sleep(0.1)
-    X.subprocess.call(["kill","-STOP", str(node_pid) ])
-    Common.iterate_n_times( 200000, Common.simple_set )
-    for n in others:
-        Common.collapse(n)
-
-    time.sleep(1.0)
-    X.subprocess.call(["kill", "-CONT", str(node_pid) ])
-    cli.delete('k')
-    time.sleep(10.0)
-    Common.assert_running_nodes(3)
 
 
 @Common.with_custom_setup( Common.setup_3_nodes_forced_master,
@@ -603,10 +597,10 @@ def test_db_optimize():
     msg = template % (start_size, opt_size)
     assert_true( opt_size < 0.1*start_size, msg)
 
-@Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
+@Common.with_custom_setup(Common.setup_1_node_mini, Common.basic_teardown)
 def test_missing_tlog():
     t0 = time.time()
-    n_sets = 450000
+    n_sets = 45000
     Common.iterate_n_times(n_sets,Common.simple_set)
     t1 = time.time()
     d0 = t1 - t0
@@ -619,7 +613,8 @@ def test_missing_tlog():
     cluster = Common._getCluster()
     cfg = cluster.getNodeConfig(nn)
     node_tlf_dir  = cfg['tlf_dir']
-    tlx_full_path = '/'.join ([node_tlf_dir, "002.tlf"])
+    
+    tlx_full_path = '/'.join ([node_tlf_dir, "002.tlx"])
     logging.info("removing %s", tlx_full_path)
     os.remove(tlx_full_path)
     logging.info("cfg keys:%s", cfg.keys())

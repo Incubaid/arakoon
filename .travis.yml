@@ -1,9 +1,17 @@
 language: c
-env:
-  - PPA=avsm/ocaml42+opam11
+sudo: required
 
-before_install: ./travis.sh before_install
 install: ./travis.sh install
 script: ./travis.sh script
+
 git:
     submodules: false
+
+services:
+  - docker
+
+cache:
+  directories:
+    - ~/cache
+  timeout:
+    1000

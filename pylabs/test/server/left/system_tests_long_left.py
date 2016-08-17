@@ -167,7 +167,7 @@ def test_mixed_tlog_formats():
     logging.info("going to do %i sets",s0)
     C.iterate_n_times(s0,C.simple_set)
     C.stop_all()
-    cluster.enableTlogCompression(compressor = 'snappy')
+    cluster.enableTlogCompression(compressor = 'bz2')
 
     C.start_all()
     logging.info("another %i sets", s0)

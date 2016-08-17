@@ -3,7 +3,10 @@ import nose
 import subprocess
 import sys
 
-root = "/tmp/X"
+root = os.environ.get('TEST_HOME')
+if root is None:
+    root = os.environ['HOME']
+
 bin_dir = '%s/apps/arakoon/bin' % root
 bin = bin_dir +'/arakoon'
 
@@ -12,6 +15,7 @@ def prologue():
         os.makedirs(bin_dir)
     if not os.path.exists(bin):
         subprocess.call(['cp','./arakoon.native', bin])
+        print "=> copying exec to: %s" % bin
     else:
         version = subprocess.check_output(['./arakoon.native','--version'])
         version2 = subprocess.check_output([bin,'--version'])
@@ -19,6 +23,8 @@ def prologue():
             print version,version2
             print "=> copying exec"
             subprocess.call(['cp','./arakoon.native', bin])
+        else:
+            print "not copying arakoon executable"
 
 
 prologue()
@@ -34,6 +40,7 @@ if env.has_key(ldlib):
     print "LD_LIBRARY_PATH=%s" % env[ldlib]
 rest = sys.argv[1:]
 cmd.extend(rest)
+
 subprocess.call(cmd,
                 cwd = './pylabs',
                 env = env

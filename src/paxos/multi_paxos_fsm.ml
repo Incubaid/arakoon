@@ -28,15 +28,18 @@ open Master_type
 let election_suggest (type s) constants (n, counter) () =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let i = S.get_succ_store_i constants.store in
-  let vo = constants.get_value i in
+  constants.get_value i >>= fun vo ->
   let me = constants.me in
   let v_lims, msg =
     match vo with
-      | None ->
-        (1,[]) , "None"
-      | Some x -> (0,[(x,1)]) , "Some _"
+      | None ->   (1,[]), "None"
+      | Some x -> (0,[(x,1)]), Value.value2s x
   in
-  Logger.info_f_ "%s: election_suggest: n=%s i=%s %s" me  (Sn.string_of n) (Sn.string_of i) msg >>= fun () ->
+  Logger.info_f_
+    "%s: election_suggest: n=%s i=%s %s"
+    me
+    (Sn.string_of n) (Sn.string_of i)
+    msg >>= fun () ->
   start_election_timeout constants n i >>= fun () ->
   let delay =
     match constants.master with
@@ -69,11 +72,10 @@ let promises_check_done constants state () =
   let me = constants.me in
   let nnones, v_s = v_lims in
   let bv,bf =
-    begin
-      match v_s with
-        | [] ->  Value.create_master_value me, 0
-        | hd::_ -> hd
-    end in
+    match v_s with
+    | [] ->  Value.create_master_value me, 0
+    | hd::_ -> hd
+  in
   let nnodes = List.length constants.others + 1 in
   let needed = constants.quorum_function nnodes in
   let nvoted = List.length who_voted in

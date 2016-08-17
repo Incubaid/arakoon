@@ -99,7 +99,7 @@ struct
     (store: 'a)
     (store_methods: (string -> string ->
                      overwrite:bool -> throttling:float ->
-                     unit Lwt.t) * string * float)
+                     bool Lwt.t) * string * float)
     (tlog_collection:Tlogcollection.tlog_collection)
     (lease_expiration:int)
     ~quorum_function n_nodes
@@ -199,6 +199,11 @@ struct
         self # with_blocked_collapser start_i
           (fun () ->
              Catchup.last_entries2 (module S) store tlog_collection start_i oc
+          )
+      method last_entries3 (start_i:Sn.t) (oc:Lwt_io.output_channel) =
+        self # with_blocked_collapser start_i
+          (fun () ->
+             Catchup.last_entries3 (module S) store tlog_collection start_i oc
           )
 
       method range_entries ~consistency
@@ -674,21 +679,27 @@ struct
                      ~mode
                      (fun () ->
                       S.copy_store2 (S.get_location store) head_path
-                                    ~overwrite:true ~throttling:copy_head_throttling) >>= fun () ->
+                                    ~overwrite:true
+                                    ~throttling:copy_head_throttling
+                      >>= fun _ ->
+                      Lwt.return ()) >>= fun () ->
 
             (* remove all but tlogs_to_keep last tlogs *)
             Collapser._head_i (module S) head_path >>= fun head_io ->
 
-            let head_n = match head_io with
+            let head_i, head_n = match head_io with
               | None -> failwith "impossible i for copied head"
-              | Some i -> Tlc2.get_file_number i
+              | Some i -> i, tlog_collection # get_tlog_from_i i
             in
-            let keep_bottom_n = Sn.succ (Sn.sub head_n (Sn.of_int tlogs_to_keep)) in
-            if Sn.compare keep_bottom_n Sn.zero = 1
+            let keep_bottom_n = head_n -  tlogs_to_keep + 1 in
+            if keep_bottom_n > 0 
             then
               begin
                 self # wait_for_tlog_release keep_bottom_n >>= fun () ->
-                tlog_collection # remove_below (Tlc2.get_tlog_i keep_bottom_n)
+                let keep_i = tlog_collection # get_start_i keep_bottom_n in
+                match keep_i with
+                | None        -> Lwt.return ()
+                | Some keep_i -> tlog_collection # remove_below keep_i
               end
             else
               Lwt.return ()

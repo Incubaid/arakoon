@@ -290,6 +290,7 @@ let slave_discovered_other_master (type s) constants state () =
         | Some (_, ls) -> ls +. (float_of_int constants.lease_expiration) <= Unix.gettimeofday () in
       Catchup.catchup
         ~tls_ctx
+        ~tcp_keepalive:constants.tcp_keepalive
         ~stop:constants.stop
         me other_cfgs ~cluster_id ((module S), store, tlog_coll) master >>= fun () ->
 

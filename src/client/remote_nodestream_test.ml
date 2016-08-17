@@ -33,16 +33,18 @@ let cluster_id = "baby1"
 let __wrap__ port conversation =
   let stop = ref false in
   let lease_period = 2 in
-  let make_config () = Node_cfg.make_test_config
-                         ~cluster_id
-                         ~node_name:(Printf.sprintf "sweety_%i")
-                         ~base:port
-                         1 (Master_type.Elected) lease_period
+  let make_config () =
+    Node_cfg.make_test_config
+      ~cluster_id
+      ~node_name:(Printf.sprintf "sweety_%i")
+      ~base:port
+      1 (Master_type.Elected) lease_period
+    |> Lwt.return
   in
-  let cluster_cfg = make_config () in
+
   let t0 = Node_main.test_t make_config "sweety_0" ~stop >>= fun _ -> Lwt.return () in
 
-  let client_t () =
+  let client_t cluster_cfg =
     let sp = float(lease_period) *. 0.5 in
     Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
     Logger.info_ "cluster should have reached stability" >>= fun () ->
@@ -60,7 +62,8 @@ let __wrap__ port conversation =
     Lwt_io.close oc >>= fun () ->
     Lwt.return ()
   in
-  Lwt.pick [client_t ();t0] >>= fun () ->
+  make_config () >>= fun cluster_cfg ->
+  Lwt.pick [client_t cluster_cfg;t0] >>= fun () ->
   stop := true;
   Lwt.return ()
 
