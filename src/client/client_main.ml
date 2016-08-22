@@ -24,8 +24,6 @@ let default_create_client_context = default_create_client_context
 let with_connection = with_connection
 let with_connection' = with_connection'
 
-let with_client ~tls ~tcp_keepalive node_cfg cluster_id f =
-  with_client' ~tls ~tcp_keepalive (Node_cfg.node_cfg_to_node_client_cfg node_cfg) cluster_id f
 
 let with_remote_nodestream ~tls ~tcp_keepalive node_cfg cluster_id f =
   let open Node_cfg in
@@ -52,26 +50,22 @@ let ping ~tls ~tcp_keepalive ip port cluster_id =
   run t
 
 
-
-
-let find_master ~tls cluster_cfg =
-  let cluster_cfg' = Node_cfg.to_client_cfg cluster_cfg in
-  let tcp_keepalive = cluster_cfg.Node_cfg.tcp_keepalive in
+let find_master ?tls cluster_cfg =
   let open MasterLookupResult in
-  find_master' ~tls ~tcp_keepalive cluster_cfg' >>= function
+  find_master' ?tls cluster_cfg >>= function
     | Found (node_name, _) -> return node_name
     | No_master -> Lwt.fail (Failure "No Master")
     | Too_many_nodes_down -> Lwt.fail (Failure "too many nodes down")
     | Unknown_node (n, _) -> return n (* Keep original behaviour *)
     | Exception exn -> Lwt.fail exn
 
+let retrieve_cfg cfg_url =
+  Arakoon_config_url.retrieve cfg_url >|= Arakoon_client_config.from_ini
 
 let with_master_client ~tls cfg_url f =
-  let open Node_cfg in
   retrieve_cfg cfg_url >>= fun ccfg ->
-  find_master ~tls ccfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) ccfg.cfgs) in
-  with_client ~tls ~tcp_keepalive:ccfg.tcp_keepalive master_cfg ccfg.cluster_id f
+  find_master ?tls ccfg >>= fun master_name ->
+  with_client'' ?tls ccfg master_name f
 
 let set ~tls cfg_name key value =
   let t () = with_master_client ~tls cfg_name (fun client -> client # set key value)
@@ -203,54 +197,36 @@ let statistics ~tls cfg_name =
 let who_master ~tls cfg_url () =
 
   let t () =
-    Node_cfg.retrieve_cfg cfg_url >>= fun cluster_cfg ->
-    find_master ~tls cluster_cfg >>= fun master_name ->
+    retrieve_cfg cfg_url >>= fun cluster_cfg ->
+    find_master ?tls cluster_cfg >>= fun master_name ->
     Lwt_io.printl master_name
   in
   run t
 
-let _cluster_and_node_cfg node_name' cfg_url =
-  Node_cfg.retrieve_cfg cfg_url >>= fun cluster_cfg ->
-  let _find cfgs =
-    let rec loop = function
-      | [] -> failwith (node_name' ^ " is not known in config " ^ (Arakoon_config_url.to_string cfg_url))
-      | cfg :: rest ->
-        if cfg.Node_cfg.node_name = node_name' then cfg
-        else loop rest
-    in
-    loop cfgs
-  in
-  let node_cfg = _find cluster_cfg.Node_cfg.cfgs in
-  Lwt.return (cluster_cfg, node_cfg)
-
-let node_state ~tls node_name' cfg_name =
-  let f client =
-    client # current_state () >>= fun state ->
-    Lwt_io.printl state
-  in
-
+let node_state ~tls node_name cfg_url =
   let t () =
-    _cluster_and_node_cfg node_name' cfg_name
-    >>= fun (cluster_cfg, node_cfg) ->
-    let open Node_cfg in
-    let cluster = cluster_cfg.cluster_id in
-    let tcp_keepalive = cluster_cfg.tcp_keepalive in
-    with_client ~tls ~tcp_keepalive node_cfg cluster f in
+    retrieve_cfg cfg_url >>= fun ccfg ->
+    with_client''
+      ?tls
+      ccfg node_name
+      (fun client ->
+       client # current_state () >>= fun state ->
+       Lwt_io.printl state
+      )
+  in
   run t
 
 
-
-let node_version ~tls node_name' cfg_name =
-  let open Node_cfg in
+let node_version ~tls node_name cfg_url =
   let t () =
-    _cluster_and_node_cfg node_name' cfg_name >>= fun (cluster_cfg, node_cfg) ->
-    let tcp_keepalive = cluster_cfg.tcp_keepalive in
-    let cluster = cluster_cfg.cluster_id in
-    with_client ~tls ~tcp_keepalive node_cfg cluster
+    retrieve_cfg cfg_url >>= fun ccfg ->
+    with_client''
+      ?tls
+      ccfg node_name
       (fun client ->
-         client # version () >>= fun (major,minor,patch, info) ->
-         Lwt_io.printlf "%i.%i.%i" major minor patch >>= fun () ->
-         Lwt_io.printl info
+       client # version () >>= fun (major,minor,patch, info) ->
+       Lwt_io.printlf "%i.%i.%i" major minor patch >>= fun () ->
+       Lwt_io.printl info
       )
   in
   run t

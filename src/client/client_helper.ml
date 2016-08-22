@@ -35,6 +35,18 @@ let default_create_client_context ~ca_cert ~creds ~protocol =
   ctx
 
 
+let get_tls_from_ssl_cfg (ssl_cfg : Arakoon_client_config.ssl_cfg option) =
+  let open Arakoon_client_config in
+  match ssl_cfg with
+  | None -> None
+  | Some ssl ->
+     let ca_cert = ssl.ca_cert in
+     let protocol = ssl.protocol in
+     let creds = ssl.creds in
+     let ctx = default_create_client_context ~ca_cert ~creds ~protocol in
+     Some ctx
+
+
 let with_connection ~tls ~tcp_keepalive sa do_it =
   let fd = Lwt_unix.socket (Unix.domain_of_sockaddr sa) Unix.SOCK_STREAM 0 in
   Lwt.catch
@@ -172,8 +184,13 @@ end
     applicable) exceptions, except {! Lwt.Canceled } which is passed through
     (you most likely don't want to catch that anyway).
 *)
-let find_master' ~tls ~tcp_keepalive cluster_cfg =
+let find_master' ?tls cluster_cfg =
   let open Arakoon_client_config in
+
+  let tls = match tls with
+    | None -> get_tls_from_ssl_cfg cluster_cfg.ssl_cfg
+    | Some x -> Some x
+  in
 
   let lookup_cfg n =
     let rec loop = function
@@ -211,7 +228,7 @@ let find_master' ~tls ~tcp_keepalive cluster_cfg =
                 Lwt.return None);
                with_client'
                  ~tls
-                 ~tcp_keepalive
+                 ~tcp_keepalive:cluster_cfg.tcp_keepalive
                  cfg cluster_cfg.cluster_id
                  (fun client ->
                   client # who_master ()); ]
@@ -268,10 +285,10 @@ let find_master' ~tls ~tcp_keepalive cluster_cfg =
     In some circumstances, this action could loop forever, so it's mostly
     useful in combination with {! Lwt_unix.with_timeout } or something related.
 *)
-let find_master_loop ~tls ~tcp_keepalive cluster_cfg =
+let find_master_loop cluster_cfg =
   let open MasterLookupResult in
   let rec loop () =
-    find_master' ~tls ~tcp_keepalive cluster_cfg >>= fun r -> match r with
+    find_master' cluster_cfg >>= fun r -> match r with
       | No_master
       | Too_many_nodes_down -> begin
           Logger.debug_f_ "Client_main.find_master_loop: %s" (to_string r) >>=
@@ -283,10 +300,21 @@ let find_master_loop ~tls ~tcp_keepalive cluster_cfg =
   in
   loop ()
 
-let with_master_client' ~tls ~tcp_keepalive cluster_cfg f =
+let with_client'' ?tls ccfg node_name f =
+  let open Arakoon_client_config in
+  with_client'
+    ~tls:(match tls with
+          | None -> get_tls_from_ssl_cfg ccfg.ssl_cfg
+          | Some x -> Some x)
+    ~tcp_keepalive:ccfg.tcp_keepalive
+    (get_node_cfg ccfg node_name)
+    ccfg.cluster_id
+    f
+
+let with_master_client' cluster_cfg f =
   let open MasterLookupResult in
-  find_master' ~tls ~tcp_keepalive cluster_cfg >>= function
+  find_master' cluster_cfg >>= function
   | Found (master_name, master_cfg) ->
-    with_client' ~tls ~tcp_keepalive master_cfg cluster_cfg.Arakoon_client_config.cluster_id f
+     with_client'' cluster_cfg master_name f
   | master_result ->
     Lwt.fail (Error master_result)

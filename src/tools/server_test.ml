@@ -46,7 +46,7 @@ let test_echo () =
                  ~setup_callback host port echo_protocol
                  ~teardown_callback
                  ~scheme ~stop
-                 ~tcp_keepalive:Node_cfg.default_tcp_keepalive
+                 ~tcp_keepalive:Tcp_keepalive.default_tcp_keepalive
   in
   let client () =
     Logger.debug_ "sleeping until server socket started" >>= fun () ->
@@ -100,7 +100,7 @@ let test_max_connections () =
   let server = Server.make_server_thread ~scheme
                  ~setup_callback ~teardown_callback
                  host port echo_protocol2 ~stop
-                 ~tcp_keepalive:Node_cfg.default_tcp_keepalive
+                 ~tcp_keepalive:Tcp_keepalive.default_tcp_keepalive
   in
   let n_problems = ref 0 in
   let rc_x = ref None in
