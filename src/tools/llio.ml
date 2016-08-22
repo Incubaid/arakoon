@@ -323,7 +323,14 @@ let input_kv_list ic = input_list input_string_pair ic
 let _output_list output_element oc count list =
   output_int oc count >>= fun () ->
   Client_log.debug_f "Outputting list with %d elements" count >>= fun () ->
-  Lwt_list.iter_s (output_element oc) list
+  let count2 = ref 0 in
+  Lwt_list.iter_s
+    (fun e -> incr count2;output_element oc e)
+    list
+  >>= fun () ->
+  assert (count = !count2);
+  Lwt.return_unit
+
 
 let output_counted_list output_element oc (count, list) =
   _output_list output_element oc count list
@@ -370,8 +377,13 @@ let output_string_array_reversed oc strings =
   output_array_reversed output_string oc strings
 
 let counted_list_to e_to buf list =
-  int_to buf (fst list);
-  List.iter (e_to buf) (List.rev (snd list))
+  let size = fst list in
+  int_to buf size;
+  let size2 = ref 0 in
+  List.iter
+    (fun e -> e_to buf e; incr size2)
+    (List.rev (snd list));
+  assert (size = !size2)
 
 let list_to e_to buf list =
   int_to buf (List.length list);
