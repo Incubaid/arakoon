@@ -5,8 +5,11 @@ install () {
 
     date
 
-    if [[ -e ~/cache/image.tar.gz ]];
-    then docker load -i ~/cache/image.tar.gz; fi
+    if [ "$USE_CACHE" == "1" ];
+    then
+        if [[ -e ~/cache/image.tar.gz ]];
+        then docker load -i ~/cache/image.tar.gz; fi;
+    fi
 
     START_BUILD=$(date +%s.%N)
     echo $START_BUILD
@@ -16,16 +19,19 @@ install () {
     END_BUILD=$(date +%s.%N)
     echo $END_BUILD
 
-    DIFF=$(echo "$END_BUILD - $START_BUILD" | bc)
-    if [ $DIFF \> 5 ]
+    if [ "$USE_CACHE" == "1" ];
     then
-        df -h
-        mkdir ~/cache || true
-        rm -f ~/cache/image.tar.gz
-        docker save -o ~/cache/image.tar.gz arakoon_ubuntu-16.04
-        ls -ahl ~/cache;
-    else
-        echo Building of container took only $DIFF seconds, not updating cache this time;
+        DIFF=$(echo "$END_BUILD - $START_BUILD" | bc)
+        if [ $DIFF \> 5 ]
+        then
+            df -h
+            mkdir ~/cache || true
+            rm -f ~/cache/image.tar.gz
+            docker save -o ~/cache/image.tar.gz arakoon_ubuntu-16.04
+            ls -ahl ~/cache;
+        else
+            echo Building of container took only $DIFF seconds, not updating cache this time;
+        fi;
     fi
 }
 

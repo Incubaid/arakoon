@@ -10,8 +10,11 @@ git:
 services:
   - docker
 
-cache:
-  directories:
-    - ~/cache
-  timeout:
-    1000
+# cache:
+#   directories:
+#     - ~/cache
+#   timeout:
+#     1000
+
+env:
+  - USE_CACHE=0 # set to 1 to enable
