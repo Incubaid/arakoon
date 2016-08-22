@@ -110,7 +110,7 @@ let from_ini txt =
   let node_cfgs =
     List.map
       (fun node_name ->
-       let ips = Ini.get inifile node_name "ips" Ini.p_string_list Ini.required in
+       let ips = Ini.get inifile node_name "ip" Ini.p_string_list Ini.required in
        let port = Ini.get inifile node_name "client_port" Ini.p_int Ini.required in
        (node_name, { ips; port; }))
       nodes

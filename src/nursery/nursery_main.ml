@@ -89,11 +89,7 @@ let _get_keeper_config_generic fetcher url=
   end
 
 let get_keeper_config cfg_url =
-  let fetcher =
-    match cfg_url with
-    | Arakoon_config_url.File f             -> (fun () -> Lwt_extra.read_file f)
-    | Arakoon_config_url.Etcd (peers, path) -> (fun () -> Arakoon_etcd.retrieve_value peers path)
-  in
+  let fetcher () = Arakoon_config_url.retrieve cfg_url in
   _get_keeper_config_generic fetcher cfg_url
 
 let get_nursery_client keeper_id cli_cfg =

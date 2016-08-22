@@ -153,7 +153,6 @@ let with_client'
 
 (** Result type and utilities for {! find_master' } *)
 module MasterLookupResult = struct
-  open Node_cfg
 
   (** Result type for a master lookup using {! find_master' } *)
   type t =
