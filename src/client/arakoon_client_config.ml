@@ -1,3 +1,19 @@
+(*
+Copyright 2016 iNuron NV
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ *)
+
 type cluster_id = string
 
 type tcp_keepalive_cfg = Tcp_keepalive.t = {
@@ -160,3 +176,56 @@ let from_ini txt =
     ssl_cfg;
     tcp_keepalive = tcp_keepalive_from_ini inifile;
   }
+
+
+let to_ini { cluster_id;
+             node_cfgs;
+             ssl_cfg;
+             tcp_keepalive; } =
+  let inifile = new Inifiles.inifile "[global]\ncluster_id = x" in
+
+  let node_names =
+    List.fold_left
+      (fun acc (node_name, { ips; port; }) ->
+       inifile # setval node_name "ip" (String.concat ", " ips);
+       inifile # setval node_name "client_port" (string_of_int port);
+       node_name :: acc)
+      []
+      node_cfgs
+  in
+
+  inifile # setval "global" "cluster_id" cluster_id;
+  inifile # setval "global" "cluster" (String.concat ", " node_names);
+
+  let { enable_tcp_keepalive;
+        tcp_keepalive_time;
+        tcp_keepalive_intvl;
+        tcp_keepalive_probes; } = tcp_keepalive in
+  inifile # setval "global" "enable_tcp_keepalive" (string_of_bool enable_tcp_keepalive);
+  inifile # setval "global" "tcp_keepalive_time"   (string_of_int  tcp_keepalive_time);
+  inifile # setval "global" "tcp_keepalive_intvl"  (string_of_int  tcp_keepalive_intvl);
+  inifile # setval "global" "tcp_keepalive_probes" (string_of_int  tcp_keepalive_probes);
+
+  let () = match ssl_cfg with
+    | None -> ()
+    | Some { ca_cert;
+             creds;
+             protocol; } ->
+       inifile # setval "global" "tls_ca_cert" ca_cert;
+       let () = match creds with
+         | None -> ()
+         | Some (tls_cert, tls_key) ->
+            inifile # setval "global" "tls_cert" tls_cert;
+            inifile # setval "global" "tls_key"  tls_key
+       in
+       inifile # setval
+               "global" "tls_version"
+               (match protocol with
+                | Ssl.TLSv1   -> "1.0"
+                | Ssl.TLSv1_1 -> "1.1"
+                | Ssl.TLSv1_2 -> "1.2"
+                | Ssl.SSLv23
+                | Ssl.SSLv3 -> failwith "unsupported ssl version")
+  in
+
+  inifile # to_string

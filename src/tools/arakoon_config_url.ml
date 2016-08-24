@@ -92,6 +92,7 @@ let retrieve = function
   | Arakoon { cluster_id; key; ini_location; } ->
      Lwt_extra.read_file ini_location >>= fun txt ->
      let cfg = Arakoon_client_config.from_ini txt in
+     assert (cluster_id = cfg.Arakoon_client_config.cluster_id);
      Client_helper.with_master_client'
        cfg
        (fun client -> client # get key)

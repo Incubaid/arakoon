@@ -79,6 +79,9 @@ class inifile : ?spec:specification -> string ->
         optionally save to a different file *)
     method save : Lwt_io.file_name -> unit Lwt.t
 
+    (** get a string representation of the inifile *)
+    method to_string : string
+
     (** iterates across a section. passes all key valu pairs to f
         exactly once.*)
     method iter : (string -> string -> unit) -> string -> unit

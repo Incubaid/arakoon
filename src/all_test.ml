@@ -92,4 +92,5 @@ let suite = "universe" >::: [
     Std.List.Test.suite;
     Arakoon_log_sink_test.suite;
     Arakoon_etcd_test.suite;
+    Arakoon_client_config_test.suite;
   ]
