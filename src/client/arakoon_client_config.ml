@@ -184,6 +184,8 @@ let to_ini { cluster_id;
              tcp_keepalive; } =
   let inifile = new Inifiles.inifile "[global]\ncluster_id = x" in
 
+  inifile # delval "global" "cluster_id";
+
   let node_names =
     List.fold_left
       (fun acc (node_name, { ips; port; }) ->
