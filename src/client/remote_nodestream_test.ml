@@ -48,13 +48,11 @@ let __wrap__ port conversation =
     let sp = float(lease_period) *. 0.5 in
     Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
     Logger.info_ "cluster should have reached stability" >>= fun () ->
-    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
+    Client_main.find_master cluster_cfg >>= fun master_name ->
     Logger.info_f_ "master=%S" master_name >>= fun () ->
-    let master_cfg =
-      List.hd
-        (List.filter (fun cfg -> cfg.Node_cfg.node_name = master_name) cluster_cfg.Node_cfg.cfgs)
-    in
-    let address = Unix.ADDR_INET (Unix.inet_addr_loopback, master_cfg.Node_cfg.client_port) in
+    let master_cfg = Arakoon_client_config.get_node_cfg cluster_cfg master_name in
+    let address = Unix.ADDR_INET (Unix.inet_addr_loopback,
+                                  master_cfg.Arakoon_client_config.port) in
     Lwt_io.open_connection address >>= fun (ic,oc) ->
     conversation (ic, oc) >>= fun () ->
     Logger.debug section "end_of_senario" >>= fun () ->
@@ -63,7 +61,7 @@ let __wrap__ port conversation =
     Lwt.return ()
   in
   make_config () >>= fun cluster_cfg ->
-  Lwt.pick [client_t cluster_cfg;t0] >>= fun () ->
+  Lwt.pick [ client_t (Node_cfg.to_client_cfg cluster_cfg); t0; ] >>= fun () ->
   stop := true;
   Lwt.return ()
 

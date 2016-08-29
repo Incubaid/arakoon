@@ -26,6 +26,13 @@ type t = {
     tcp_keepalive_probes : int;
   }
 
+let default_tcp_keepalive = {
+    enable_tcp_keepalive = true;
+    tcp_keepalive_time = 20;
+    tcp_keepalive_intvl = 20;
+    tcp_keepalive_probes = 3;
+  }
+
 external set_tcp_keepalive_time : socket -> int -> unit = "arakoon_tcp_set_tcp_keepalive_time"
 external set_tcp_keepalive_intvl : socket -> int -> unit = "arakoon_tcp_set_tcp_keepalive_intvl"
 external set_tcp_keepalive_probes : socket -> int -> unit = "arakoon_tcp_set_tcp_keepalive_probes"

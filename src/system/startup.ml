@@ -171,7 +171,7 @@ let post_failure () =
     lcnum = 8192;
     ncnum = 4096;
     tls = None;
-    tcp_keepalive = Node_cfg.default_tcp_keepalive;
+    tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
   }
   in
   let get_cfgs () = cluster_cfg |> Lwt.return in
@@ -233,7 +233,7 @@ let restart_slaves () =
      lcnum = Node_cfg.default_lcnum;
      ncnum = Node_cfg.default_ncnum;
      tls = None;
-     tcp_keepalive = Node_cfg.default_tcp_keepalive;
+     tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
     }
   in
   let get_cfgs () = cluster_cfg |> Lwt.return in
@@ -293,7 +293,7 @@ let ahead_master_loses_role () =
      lcnum = 8192;
      ncnum = 4096;
      tls = None;
-     tcp_keepalive = Node_cfg.default_tcp_keepalive;
+     tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
     }
   in
   let get_cfgs () = cluster_cfg |> Lwt.return in
@@ -315,7 +315,7 @@ let ahead_master_loses_role () =
   (* sleep a bit so the previous 2 slaves can make progress *)
   Lwt_unix.sleep ((float lease_period) *. 3.0) >>= fun () ->
   Lwt.catch
-    (fun () -> Client_main.find_master cluster_cfg ~tls:None >>= fun master ->
+    (fun () -> Client_main.find_master (to_client_cfg cluster_cfg) >>= fun master ->
                Lwt.return_unit)
     (fun exn ->
       Logger.fatal_f_ ~exn "NO MASTER" >>= fun () ->
@@ -377,7 +377,7 @@ let interrupted_election () =
      lcnum = 8192;
      ncnum = 4096;
      tls = None;
-     tcp_keepalive = Node_cfg.default_tcp_keepalive;
+     tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
     }
   in
   let get_cfgs () = cluster_cfg |> Lwt.return in
@@ -394,8 +394,9 @@ let interrupted_election () =
      and a timeout on all this
    *)
   let get_master_from cfg =
-    Client_main.with_client
-      cfg ~tls:None ~tcp_keepalive:Node_cfg.default_tcp_keepalive
+    Client_helper.with_client'
+      (node_cfg_to_node_client_cfg cfg)
+      ~tls:None ~tcp_keepalive:Tcp_keepalive.default_tcp_keepalive
       cluster_id
       (fun client -> client # who_master ())
   in
@@ -432,7 +433,7 @@ let interrupted_election () =
   let rec phase2 () =
     Lwt.catch
       (fun () ->
-       Client_main.find_master ~tls:None cluster_cfg >>= fun m ->
+       Client_main.find_master (to_client_cfg cluster_cfg) >>= fun m ->
        if m <> wannabe_master
        then Lwt.return true
        else Lwt.return false)

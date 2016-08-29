@@ -61,22 +61,15 @@ let __client_server_wrapper__ (real_test:real_test) =
     let sp = float(lease_period) *. 0.5 in
     Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
     Logger.info_ "cluster should have reached stability" >>= fun () ->
-    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
+    Client_main.find_master cluster_cfg >>= fun master_name ->
     Logger.info_f_ "master=%S" master_name >>= fun () ->
-    let master_cfg =
-      List.hd
-        (List.filter (fun cfg -> cfg.Node_cfg.node_name = master_name) cluster_cfg.Node_cfg.cfgs)
-    in
-    Client_main.with_client
-      ~tls:None ~tcp_keepalive:default_tcp_keepalive
-      master_cfg
-      cluster_cfg.Node_cfg.cluster_id
-      real_test
+    Client_helper.with_client'' cluster_cfg master_name real_test
   in
   let main () =
     make_config () >>= fun cluster_cfg ->
     Lwt.pick [(t0 >>= fun () -> Lwt.return false);
-              (client_t cluster_cfg >>= fun () -> Lwt.return true);] >>= fun succeeded ->
+              (client_t (Node_cfg.to_client_cfg cluster_cfg) >>= fun () ->
+               Lwt.return true);] >>= fun succeeded ->
     stop := true;
     OUnit.assert_bool "client thread should finish before server" succeeded;
     Lwt.return ()

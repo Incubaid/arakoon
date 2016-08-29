@@ -432,7 +432,7 @@ let main () =
   let interface = actions @ options in
 
   let make_config () = Node_cfg.retrieve_cfg !config_url in
-  let tcp_keepalive = default_tcp_keepalive in
+  let tcp_keepalive = Tcp_keepalive.default_tcp_keepalive in
 
   let do_local ~tls = function
     | ShowUsage -> print_endline usage;0

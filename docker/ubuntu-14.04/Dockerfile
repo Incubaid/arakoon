@@ -52,6 +52,7 @@ RUN eval `${opam_env}` && \
 RUN eval `${opam_env}` && \
     opam update && \
     opam install -y \
+        oasis.0.4.6 \
         ocamlfind \
         ssl.0.5.2 \
         camlbz2 \
