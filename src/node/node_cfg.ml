@@ -706,9 +706,7 @@ module Node_cfg = struct
            Logger.ign_warning_ msg
       in
       let tlog_max_entries = _tlog_max_entries inifile in
-      let () = Printf.printf "before\n" in
       let tlog_max_size    = _tlog_max_size inifile in
-      let () = Printf.printf "tlog_max_size:%i\n" tlog_max_size in
       let max_value_size = _max_value_size inifile in
       let max_buffer_size = _max_buffer_size inifile in
       let client_buffer_capacity = _client_buffer_capacity inifile in
