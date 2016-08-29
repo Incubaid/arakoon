@@ -617,6 +617,10 @@ let _main_2 (type s)
                     | None -> failwith (Printf.sprintf "empty tlx:%s" tlx)
                     | Some e -> e
                   in
+                  (if not !head_copied
+                  then File_system.unlink db_name
+                   else Lwt.return_unit)
+                  >>= fun () ->
                   Lwt_io.with_file
                     ~mode:Lwt_io.output tlog
                     (fun oc ->
