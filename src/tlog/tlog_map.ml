@@ -632,7 +632,6 @@ module TlogMap = struct
     let num_tlogs = List.length tlog_names in
     let maybe_fold (cnt,low) fn =
       let fn_start = get_start_i t (get_number fn) in
-
       let low_n = Sn.succ low in
       match fn_start with
       | Some fn_start ->
@@ -641,16 +640,15 @@ module TlogMap = struct
            let should_fold =
              match fn_next with
              | None -> fn_start <= low_n
-             | Some next -> fn_start <= low_n && low_n < next
+             | Some next -> fn_start <= low_n && low_n <= next
            in
            if should_fold
            then
              begin
-               Logger.debug_f_ "fold over: %s: [%s,...) "
-                               fn (Sn.string_of fn_start)
-               >>= fun () ->
                let first = fn_start in
-               Logger.info_f_ "Replaying tlog file: %s (%d/%d)" fn cnt num_tlogs  >>= fun () ->
+               Logger.info_f_ "Replaying tlog file: %s [%s,...] (%d/%d)"
+                              fn (Sn.string_of fn_start) cnt num_tlogs
+               >>= fun () ->
                let t1 = Unix.gettimeofday () in
                fold_read t fn ~index low (Some too_far_i) ~first low acc_entry >>= fun low' ->
                Logger.info_f_ "Completed replay of %s, took %f seconds, %i to go"
