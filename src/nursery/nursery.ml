@@ -443,7 +443,7 @@ let nursery_test_main () =
   let () = NCFG.add_cluster nursery_cfg "left" left_cfg in
   let () = NCFG.add_cluster nursery_cfg "right" right_cfg in
   let keeper = "left" in
-  let nc = NC.make nursery_cfg keeper Node_cfg.default_tcp_keepalive in
+  let nc = NC.make nursery_cfg keeper Tcp_keepalive.default_tcp_keepalive in
   (*
   let test k v =
     NC.set client k v >>= fun () ->

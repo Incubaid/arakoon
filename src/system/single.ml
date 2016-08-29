@@ -34,14 +34,9 @@ let all_same_master (_tn, make_cluster_cfg, all_t) =
     Lwt_unix.sleep q >>= fun () ->
     Logger.debug_ "start of scenario" >>= fun () ->
     let set_one client = client # set "key" "value" in
-    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
-    let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name)
-                                cluster_cfg.cfgs)
-    in
-
-    Client_main.with_client
-      ~tls:None ~tcp_keepalive:Node_cfg.default_tcp_keepalive
-      master_cfg cluster_cfg.cluster_id set_one >>= fun () ->
+    Client_helper.with_master_client'
+      (to_client_cfg cluster_cfg)
+      set_one >>= fun () ->
     let masters = ref [] in
     let do_one cfg =
       let nn = node_name cfg in
@@ -51,9 +46,7 @@ let all_same_master (_tn, make_cluster_cfg, all_t) =
           masters := master :: !masters;
           Logger.info_f_ "Client:%s got: %s" nn (Log_extra.string_option2s master)
       in
-      Client_main.with_client
-        ~tls:None ~tcp_keepalive:Node_cfg.default_tcp_keepalive
-        cfg cluster_cfg.cluster_id f
+      Client_helper.with_client'' (to_client_cfg cluster_cfg) nn f
     in
     let cfgs = cluster_cfg.cfgs in
     Lwt_list.iter_s do_one cfgs >>= fun () ->
@@ -84,7 +77,7 @@ let nothing_on_slave (_tn, make_cluster_cfg, all_t) =
   make_cluster_cfg () >>= fun cluster_cfg ->
   let cfgs = cluster_cfg.cfgs in
   let find_slaves cfgs =
-    Client_main.find_master ~tls:None cluster_cfg >>= fun m ->
+    Client_main.find_master (to_client_cfg cluster_cfg) >>= fun m ->
     let slave_cfgs = List.filter (fun cfg -> cfg.node_name <> m) cfgs in
     Lwt.return slave_cfgs
   in
@@ -117,9 +110,9 @@ let nothing_on_slave (_tn, make_cluster_cfg, all_t) =
       with_client delete_on_slave >>= fun () ->
       with_client test_and_set_on_slave
     in
-    f (fun client_action -> Client_main.with_client
-                              ~tls:None ~tcp_keepalive:Node_cfg.default_tcp_keepalive
-                              cfg cluster_id client_action)
+    f (fun client_action -> Client_helper.with_client''
+                              (to_client_cfg cluster_cfg) cfg.node_name
+                              client_action)
   in
   let test_slaves ccfg =
     find_slaves cfgs >>= fun slave_cfgs ->
@@ -134,16 +127,13 @@ let nothing_on_slave (_tn, make_cluster_cfg, all_t) =
 
 let dirty_on_slave (_tn, make_cluster_cfg,_) =
   make_cluster_cfg () >>= fun cluster_cfg ->
+  let client_cluster_cfg = to_client_cfg cluster_cfg in
   Lwt_unix.sleep (float (cluster_cfg._lease_period)) >>= fun () ->
   Logger.debug_ "dirty_on_slave" >>= fun () ->
   let cfgs = cluster_cfg.cfgs in
-  Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name)
-                              cluster_cfg.cfgs)
-  in
-  Client_main.with_client
-    ~tls:None ~tcp_keepalive:Node_cfg.default_tcp_keepalive
-    master_cfg cluster_cfg.cluster_id
+  Client_main.find_master client_cluster_cfg >>= fun master_name ->
+  Client_helper.with_master_client'
+    client_cluster_cfg
     (fun client -> client # set "xxx" "xxx")
   >>= fun () ->
 
@@ -162,8 +152,9 @@ let dirty_on_slave (_tn, make_cluster_cfg,_) =
         "dirty get should fail with not found"
         "dirty get failed with not found as intended"
     in
-    Client_main.with_client ~tls:None ~tcp_keepalive:Node_cfg.default_tcp_keepalive
-                            cfg cluster_id dirty_get
+    Client_helper.with_client''
+      client_cluster_cfg cfg.node_name
+      dirty_get
   in
   let do_slaves ccfg =
     find_slaves cfgs >>= fun slave_cfgs ->
@@ -567,8 +558,6 @@ let find_master ~tls cluster_cfg =
   let go () =
     let open Client_helper.MasterLookupResult in
     Client_helper.find_master_loop
-      ~tls
-      ~tcp_keepalive:Node_cfg.default_tcp_keepalive
       (Node_cfg.Node_cfg.to_client_cfg cluster_cfg) >>= function
       | Found (name, cfg) -> return name
       | No_master -> Lwt.fail (Failure "No Master")
@@ -585,14 +574,9 @@ let _with_master ((_tn:string), make_cluster_cfg, _) f =
   Logger.info_ "cluster should have reached stability" >>= fun () ->
   find_master ~tls:None cluster_cfg >>= fun master_name ->
   Logger.info_f_ "master=%S" master_name >>= fun () ->
-  let master_cfg =
-    List.hd
-      (List.filter (fun cfg -> cfg.node_name = master_name) cluster_cfg.cfgs)
-  in
-  Client_main.with_client
-    ~tls:None
-    ~tcp_keepalive:Node_cfg.default_tcp_keepalive
-    master_cfg cluster_cfg.cluster_id f
+  Client_helper.with_master_client'
+    (to_client_cfg cluster_cfg)
+    f
 
 
 let trivial_master tpl =

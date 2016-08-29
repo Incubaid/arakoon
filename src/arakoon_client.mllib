@@ -39,3 +39,4 @@ Typed_ssl
 Unix_fd
 Tcp_keepalive
 Lwt_buffer
+To_string

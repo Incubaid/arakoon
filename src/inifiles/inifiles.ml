@@ -135,6 +135,23 @@ let write_inifile oc tbl =
      Lwt_io.write oc "\n"
     ) sections
 
+let ini_to_string tbl =
+  let buf = Buffer.create 20 in
+  Hashtbl.iter
+    (fun k v ->
+       Buffer.add_string buf "[";
+       Buffer.add_string buf k;
+       Buffer.add_string buf "]\n";
+       (Hashtbl.iter
+          (fun k v ->
+             Buffer.add_string buf k;
+             Buffer.add_string buf " = ";
+             Buffer.add_string buf v;
+             Buffer.add_string buf "\n") v);
+       Buffer.add_string buf "\n")
+    tbl;
+  Buffer.contents buf
+
 class inifile ?(spec=[]) txt =
   object (self)
     val data = Hashtbl.create 50
@@ -254,6 +271,9 @@ class inifile ?(spec=[]) txt =
       Lwt_io.with_file
         Lwt_io.Output file
         (fun oc -> write_inifile oc data)
+
+    method to_string =
+      ini_to_string data
   end
 
 let readdir path =
