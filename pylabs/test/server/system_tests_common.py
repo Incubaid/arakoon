@@ -392,9 +392,9 @@ def stopOne(name):
     rc = cluster.stopOne(name)
     assert (rc == 0)
 
-def startOne(name):
+def startOne(name, extraParams = None):
     cluster = _getCluster()
-    cluster.startOne(name)
+    cluster.startOne(name, extraParams)
 
 def dropMaster(name):
     cluster = _getCluster()
@@ -760,20 +760,20 @@ def setup_2_nodes_forced_master (home_dir):
     setup_n_nodes( 2, True, home_dir, witness_nodes = True)
 
 def setup_2_nodes_forced_master_mini (home_dir):
-    extra = {'tlog_max_entries':'1000'}
+    extra = {'tlog_max_entries':'500'}
     setup_n_nodes( 2, True, home_dir, extra)
 
 def setup_3_nodes_forced_master_mini_rollover_on_size(home_dir):
     extra = {'tlog_max_entries': '100_000',
              'tlog_max_size'   : '64000'
             }
-    
+
     setup_n_nodes( 3, True, home_dir, extra)
-    
+
 def setup_3_nodes_forced_master_mini (home_dir):
     extra = {'tlog_max_entries':'1000'}
     setup_n_nodes( 3, True, home_dir, extra)
-    
+
 def setup_2_nodes_forced_master_normal_slaves (home_dir):
     setup_n_nodes( 2, True, home_dir)
 
@@ -1050,7 +1050,7 @@ def retrying_set_get_and_delete( client, key, value ):
               )
     def validate_ex ( ex, tryCnt ):
         ex_msg = "%s" % ex
-        
+
         validEx = isinstance(ex, valids)
         if validEx:
             logging.debug( "Ignoring exception: %s", ex_msg )

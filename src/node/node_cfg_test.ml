@@ -22,8 +22,11 @@ let test_correctness () =
 
   let t =
     Node_cfg.retrieve_cfg !config_url >>= fun cfg ->
-    let r = OUnit.assert_equal cfg.cluster_id "ricky" in
-    Lwt.return r
+    let () = OUnit.assert_equal cfg.cluster_id "ricky" in
+    let printer = string_of_int in
+    let () = OUnit.assert_equal ~printer 5_000_000 cfg.tlog_max_size in
+    let () = OUnit.assert_equal ~printer 64 cfg.client_buffer_capacity in
+    Lwt.return_unit
   in
   Lwt_main.run t
 

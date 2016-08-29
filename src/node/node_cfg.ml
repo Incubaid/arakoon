@@ -355,7 +355,7 @@ module Node_cfg = struct
     Ini.get inifile node_name "ip" Ini.p_string_list Ini.required
 
   let _tlog_max_entries inifile = _global_int inifile "tlog_max_entries"       50_000
-  let _tlog_max_size    inifile = _global_int inifile "tlog_max_size"    32*1024*1024
+  let _tlog_max_size    inifile = _global_int inifile "tlog_max_size"    (32*1024*1024)
 
   let _tlog_entries_overwrite inifile =
     Ini.get inifile "global" "__tainted_tlog_entries_per_file"
@@ -684,8 +684,6 @@ module Node_cfg = struct
       let cluster_id = _get_cluster_id inifile in
       let m_n_cfg = get_nursery_cfg inifile in
       let overwrite_tlog_entries = _tlog_entries_overwrite inifile in
-      let tlog_max_entries = _tlog_max_entries inifile in
-      let tlog_max_size    = _tlog_max_size inifile in
       let () = match overwrite_tlog_entries with
         | None -> ()
         | Some _ ->
@@ -694,6 +692,8 @@ module Node_cfg = struct
            in
            Logger.ign_warning_ msg
       in
+      let tlog_max_entries = _tlog_max_entries inifile in
+      let tlog_max_size    = _tlog_max_size inifile in
       let max_value_size = _max_value_size inifile in
       let max_buffer_size = _max_buffer_size inifile in
       let client_buffer_capacity = _client_buffer_capacity inifile in

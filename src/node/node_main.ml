@@ -603,7 +603,34 @@ let _main_2 (type s)
                   Tlc2._truncate_tlog fn >>= fun ()->
                   clean_up_retry fn
                 end
-
+             | Tlogcommon.TLogSabotage ->
+                begin
+                  Logger.warning_ ~exn "AUTOFIX: no .tlog file" >>= fun () ->
+                  Tlog_map._get_tlog_names me.tlog_dir me.tlx_dir >>= fun tlog_names ->
+                  let tlx = List.hd (List.rev tlog_names) |> Filename.concat me.tlx_dir in
+                  let tlx_base = Filename.basename tlx in
+                  let tlx_number = Tlog_map.get_number tlx_base in
+                  let tlog_base = Tlog_map.file_name (tlx_number+1) in
+                  let tlog = Filename.concat me.tlog_dir tlog_base in
+                  Tlog_main._last_entry tlx >>= fun e_o ->
+                  let e = match e_o with
+                    | None -> failwith (Printf.sprintf "empty tlx:%s" tlx)
+                    | Some e -> e
+                  in
+                  (if not !head_copied
+                  then File_system.unlink db_name
+                   else Lwt.return_unit)
+                  >>= fun () ->
+                  Lwt_io.with_file
+                    ~mode:Lwt_io.output tlog
+                    (fun oc ->
+                      let marker = Tlog_map._make_close_marker me.node_name in
+                      let open Tlogcommon.Entry in
+                      Tlogcommon.write_marker oc e.i e.v (Some marker)
+                    )
+                  >>= fun () ->
+                  _open_tlc_and_store()
+                end
              | _ ->
                 Logger.fatal_f_ ~exn "AUTOFIX: can't autofix this" >>= fun () ->
                 Lwt.fail exn
