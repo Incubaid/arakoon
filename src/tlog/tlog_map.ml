@@ -280,13 +280,12 @@ let _validate_one
         if (not check_sabotage) || (ext = ".tlog" && get_number base = 0)
         then Lwt.return (None, new_index, 0)
         else (*
-         somebody sabotaged us:
-         (s)he deleted the .tlog file but we have .tlf's
-         meaning rotation happened correctly.
-         This means the marker can not be present.
-         Let the node die; they should fix this manually.
-              *)
-          Logger.fatal_f_ "not found: %s. %s was removed?!" tlog_name base >>= fun () ->
+         somebody sabotaged us (deleting the tlog file),
+         or (more likely?) the previous incarnation died
+         in catchup while it was downloading .tlx files.
+
+         *)
+          Logger.warning_f_ "not found: %s. %s was removed?!" tlog_name base >>= fun () ->
           Lwt.fail TLogSabotage
       | exn -> Lwt.fail exn
     )
@@ -337,7 +336,9 @@ module TlogMap = struct
 
 
   let _init tlog_dir tlx_dir node_id tlog_max_entries tlog_max_size ~check_marker ~check_sabotage =
-    Logger.info_f_ "_init ~check_marker:%b" check_marker >>= fun () ->
+    Logger.info_f_ "_init ~check_marker:%b ~check_sabotage:%b"
+                   check_marker check_sabotage
+    >>= fun () ->
     _get_tlog_names tlog_dir tlx_dir >>= fun tlog_names ->
     let tlog_number = get_count tlog_names in
     Logger.info_f_ "tlog_number:%i" tlog_number >>= fun () ->
@@ -400,7 +401,7 @@ module TlogMap = struct
     let tlog_max_entries = with_default tlog_max_entries 100_000 in
     let tlog_max_size    = with_default tlog_max_size 32_000_000 in
     _init
-      tlog_dir tlx_dir node_id ~check_marker ~check_sabotage:false
+      tlog_dir tlx_dir node_id ~check_marker ~check_sabotage:true
       tlog_max_entries tlog_max_size
     >>= fun ((tlog_entries, tlog_size,tlog_number,i_to_tlog_number, should_roll), last, index ) ->
 
@@ -411,6 +412,7 @@ module TlogMap = struct
     Lwt.return (t, last, index)
 
   let reinit t =
+    Logger.debug_f_ "tlog_map.reinit" >>= fun () ->
     _init
       t.tlog_dir t.tlx_dir t.node_id ~check_marker:false ~check_sabotage:false
       t.tlog_max_entries t.tlog_max_size
