@@ -69,6 +69,7 @@ let make s =
      let peers = [ host, port ] in
      Etcd (peers, path)
   | Some "arakoon" ->
+     let path = Str.string_after path 1 in
      let cluster_id = match Uri.host uri with
        | None -> failwith "host/cluster_id is required"
        | Some h -> h
