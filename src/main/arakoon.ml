@@ -39,7 +39,9 @@ type local_action =
   | BENCHMARK
   | LOAD
   | SET
+  | SET_RAW
   | GET
+  | GET_RAW
   | DELETE
   | DELETE_PREFIX
   | NOP
@@ -65,6 +67,7 @@ type local_action =
   | NODE_STATE
   | RANGE_ENTRIES
   | REV_RANGE_ENTRIES
+  | VerifyStore
 
 type server_action =
   | Node
@@ -287,10 +290,20 @@ let main () =
     ("--set", Arg.Tuple [set_laction SET;
                          Arg.Set_string key;
                          Arg.Set_string value;
-                        ], "<key> <value> : arakoon[<key>] = <value>");
+                        ], "<key> : arakoon[<key>] = <value> (explicit)");
+    ("--set-raw", Arg.Tuple [set_laction SET_RAW;
+                         Arg.Set_string key;
+                        ], "<key> : arakoon[<key>] = <stdin>"
+
+    );
     ("--get", Arg.Tuple [set_laction GET;
                          Arg.Set_string key
                         ],"<key> : arakoon[<key>]");
+    ("--get-raw", Arg.Tuple [set_laction GET_RAW;
+                             Arg.Set_string key;
+                            ],
+     "same as get, but doesn't escape the value"
+    );
     ("--delete", Arg.Tuple[set_laction DELETE;
                            Arg.Set_string key;
                           ], "<key> : delete arakoon[<key>]");
@@ -368,6 +381,11 @@ let main () =
                               Arg.Set_string location;
                              ],
      "<cluster_id> <ip> <port> <location> requests the node to stream over its database (only works on slaves)");
+    ("--verify-db", Arg.Tuple [set_laction VerifyStore;
+                               Arg.Set_string filename;
+                              ],
+     "<filename>"
+    );
     ("--optimize-db", Arg.Tuple[set_laction Optimize_db;
                                 Arg.Set_string cluster_id;
                                 Arg.Set_string ip;
@@ -449,11 +467,14 @@ let main () =
     | CloseTlog -> Tlog_main.mark_tlog !filename (Tlog_map._make_close_marker !node_id)
     | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !tlf_dir !filename !end_i
     | DumpStore -> Dump_store.dump_store !filename
+    | VerifyStore -> Dump_store.verify_store !filename None
     | TruncateTlog -> Tlc2.truncate_tlog !filename
     | CompressTlog -> Tlog_main.compress_tlog !filename !archive_type
     | UncompressTlog -> Tlog_main.uncompress_tlog !filename
-    | SET -> Client_main.set ~tls !config_url !key !value
+    | SET -> Client_main.set ~tls !config_url !key (Some !value)
+    | SET_RAW -> Client_main.set ~tls !config_url !key None
     | GET -> Client_main.get ~tls !config_url !key
+    | GET_RAW -> Client_main.get ~tls !config_url !key ~raw:true
     | PREFIX -> Client_main.prefix ~tls !config_url !key !max_results
     | DELETE_PREFIX -> Client_main.delete_prefix ~tls !config_url !key
     | NOP -> Client_main.nop ~tls !config_url

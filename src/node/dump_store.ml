@@ -153,3 +153,45 @@ let inject_as_head fn node_id cfg_url ~force ~in_place =
   with
     | ExitWithCode i -> i
     | exn -> raise exn
+
+
+let verify_store fn start_key =
+  let open Camltc in
+  let open Local_store in
+  let read_only = true in
+  let t () =
+    Local_store.make_store ~lcnum:1024 ~ncnum:512 read_only fn >>= fun ls ->
+    let go () =
+      Bdb.with_cursor
+        (Hotc.get_bdb ls.db)
+        (fun bdb cursor ->
+          let () = Bdb.first bdb cursor in
+          let () = match start_key with
+            | None -> ()
+            | Some key -> Bdb.jump bdb cursor key
+          in
+          let rec loop i =
+            let key = Bdb.key bdb cursor in
+            let _value = Bdb.value bdb cursor in
+            begin
+              if (i < 10 || i mod 20000 = 0)
+              then Lwt_io.eprintlf "%10i: %S\tok%!" i key
+              else Lwt.return_unit
+            end
+            >>= fun ()->
+            let cont =
+              try
+                Bdb.next bdb cursor;
+                true
+              with Not_found -> false
+            in
+            if cont
+            then loop (i+1)
+            else Lwt.return 0
+          in
+          loop 0
+        )
+    in
+    go ()
+  in
+  Lwt_extra.run t
