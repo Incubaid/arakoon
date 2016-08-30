@@ -65,8 +65,8 @@ let with_connection ~tls ~tcp_keepalive sa do_it =
   >>= fun () ->
   begin
   match tls with
-  | None -> 
-     let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd 
+  | None ->
+     let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd
      and oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
      let conn = (ic,oc)
      and fin = fun () -> Lwt_unix.close fd
@@ -76,7 +76,7 @@ let with_connection ~tls ~tcp_keepalive sa do_it =
      Typed_ssl.Lwt.ssl_connect fd ctx >>= fun (_, sock) ->
      let ic = Lwt_ssl.in_channel_of_descr sock
      and oc = Lwt_ssl.out_channel_of_descr sock in
-     let conn = (ic,oc) 
+     let conn = (ic,oc)
      and fin = fun () -> Lwt_ssl.close sock
      in
      Lwt.return (conn,fin)
@@ -85,7 +85,7 @@ let with_connection ~tls ~tcp_keepalive sa do_it =
   Lwt.finalize
     (fun () -> do_it conn)
     fin
-  
+
 exception No_connection
 
 let with_connection' ~tls ~tcp_keepalive addrs f =
@@ -205,7 +205,7 @@ let find_master' ?tls cluster_cfg =
 
   let open MasterLookupResult in
 
-  let rec loop down unknown = function
+  let rec loop unknown = function
     | [] -> begin
         let res =
           if unknown = []
@@ -235,7 +235,7 @@ let find_master' ?tls cluster_cfg =
                 | None -> begin
                     Logger.debug_f_
                       "Client_main.find_master': %S doesn't know" node_name >>= fun () ->
-                    loop down ((node_name, cfg) :: unknown) rest
+                    loop ((node_name, cfg) :: unknown) rest
                 end
                 | Some n -> begin
                     Logger.debug_f_ "Client_main.find_master': %S thinks %S" node_name n >>= fun () ->
@@ -248,7 +248,7 @@ let find_master' ?tls cluster_cfg =
                       else
                         match lookup_cfg n with
                           | Some ncfg ->
-                              loop down unknown ((n, ncfg) :: rest)
+                              loop unknown ((n, ncfg) :: rest)
                           | None -> begin
                               let res = Unknown_node (n, (node_name, cfg)) in
                               Logger.warning_f_
@@ -257,21 +257,16 @@ let find_master' ?tls cluster_cfg =
                           end
                 end)
           (function
-            | Unix.Unix_error(Unix.ECONNREFUSED, _, _) ->
-                Logger.debug_f_
-                  "Client_main.find_master': Connection to %S refused" node_name >>= fun () ->
-                loop (cfg :: down) unknown rest
-            | Lwt.Canceled as exn ->
-                Lwt.fail exn
-            | exn -> begin
-                let res = Exception exn in
-                Logger.debug_f_
-                  "Client_main.find_master': %s" (to_string res) >>= fun () ->
-                return res
-            end)
+           | Lwt.Canceled as exn ->
+              Lwt.fail exn
+           | exn ->
+              Logger.debug_f_ ~exn
+                "Client_main.find_master': problem with %S" node_name >>= fun () ->
+              loop unknown rest
+          )
     end
   in
-  loop [] [] (cluster_cfg.node_cfgs)
+  loop [] (cluster_cfg.node_cfgs)
 
 
 (** Lookup the master of a cluster in a loop
