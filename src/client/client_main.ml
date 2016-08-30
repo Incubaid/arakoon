@@ -67,14 +67,21 @@ let with_master_client ~tls cfg_url f =
   find_master ?tls ccfg >>= fun master_name ->
   with_client'' ?tls ccfg master_name f
 
-let set ~tls cfg_name key value =
-  let t () = with_master_client ~tls cfg_name (fun client -> client # set key value)
+let set ~tls cfg_name key value_option =
+  let t () =
+    (match value_option with
+    | Some value -> Lwt.return value
+    | None -> Lwt_io.read Lwt_io.stdin
+    ) >>= fun value ->
+    with_master_client ~tls cfg_name (fun client -> client # set key value)
   in run t
 
-let get ~tls cfg_name key =
+let get ?(raw=false)~tls cfg_name key =
   let f (client:Arakoon_client.client) =
     client # get key >>= fun value ->
-    Lwt_io.printlf "%S%!" value
+    if raw
+    then Lwt_io.print value
+    else Lwt_io.printlf "%S%!" value
   in
   let t () = with_master_client ~tls cfg_name f in
   run t
