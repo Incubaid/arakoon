@@ -93,4 +93,5 @@ let suite = "universe" >::: [
     Arakoon_log_sink_test.suite;
     Arakoon_etcd_test.suite;
     Arakoon_client_config_test.suite;
+    Arakoon_config_url_test.suite;
   ]
