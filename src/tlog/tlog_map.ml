@@ -308,6 +308,7 @@ module TlogMap = struct
 
       mutable i_to_tlog_number : item list; (* sorted: most recent first *)
       mutable should_roll: bool;
+      lock: Lwt_mutex.t;
     }
 
   let show_map t =
@@ -404,24 +405,28 @@ module TlogMap = struct
       tlog_dir tlx_dir node_id ~check_marker ~check_sabotage:true
       tlog_max_entries tlog_max_size
     >>= fun ((tlog_entries, tlog_size,tlog_number,i_to_tlog_number, should_roll), last, index ) ->
-
+    let lock = Lwt_mutex.create () in
     let t = {node_id; tlog_dir;tlx_dir;tlog_max_entries; tlog_max_size;
              tlog_entries; tlog_size; tlog_number; i_to_tlog_number;should_roll;
+             lock;
             }
     in
     Lwt.return (t, last, index)
 
   let reinit t =
-    Logger.debug_f_ "tlog_map.reinit" >>= fun () ->
-    _init
-      t.tlog_dir t.tlx_dir t.node_id ~check_marker:false ~check_sabotage:false
-      t.tlog_max_entries t.tlog_max_size
-    >>= fun ((tlog_entries, tlog_size, tlog_number,i_to_tlog_number,should_roll), last,_) ->
-    t.tlog_size   <- tlog_size;
-    t.tlog_number <- tlog_number;
-    t.i_to_tlog_number <- i_to_tlog_number;
-    t.should_roll <- should_roll;
-    Lwt.return last
+    Lwt_mutex.with_lock
+      t.lock
+      (fun () ->
+        Logger.info_f_ "tlog_map.reinit" >>= fun () ->
+        _init
+          t.tlog_dir t.tlx_dir t.node_id ~check_marker:false ~check_sabotage:false
+          t.tlog_max_entries t.tlog_max_size
+        >>= fun ((tlog_entries, tlog_size, tlog_number,i_to_tlog_number,should_roll), last,_) ->
+        t.tlog_size   <- tlog_size;
+        t.tlog_number <- tlog_number;
+        t.i_to_tlog_number <- i_to_tlog_number;
+        t.should_roll <- should_roll;
+        Lwt.return last)
 
   let get_last_tlog t =
     Logger.debug_ "get_last_tlog" >>= fun () ->
@@ -555,28 +560,32 @@ module TlogMap = struct
     loop canonicals
 
   let remove_below t i =
-    Logger.debug_f_ "remove_below %s tlog_map:%s" (Sn.string_of i) (show_map t)
-    >>= fun () ->
-    let rec find_start to_remove_rev = function
-      | [] -> ([],[])
-      | item :: rest when item.i >= i -> (List.rev to_remove_rev), (item :: rest)
-      | x :: rest -> find_start (x::to_remove_rev) rest
-    in
-    let to_remove,to_keep_rev = find_start [] (List.rev t.i_to_tlog_number) in
-    t.i_to_tlog_number <- List.rev to_keep_rev;
+    Lwt_mutex.with_lock
+      t.lock
+      (fun () ->
+        Logger.debug_f_ "remove_below %s tlog_map:%s" (Sn.string_of i) (show_map t)
+        >>= fun () ->
+        let rec find_start to_remove_rev = function
+          | [] -> ([],[])
+          | item :: rest when item.i >= i -> (List.rev to_remove_rev), (item :: rest)
+          | x :: rest -> find_start (x::to_remove_rev) rest
+        in
+        let to_remove,to_keep_rev = find_start [] (List.rev t.i_to_tlog_number) in
+        t.i_to_tlog_number <- List.rev to_keep_rev;
 
-    let remove item  =
-      which_tlog_file  t item.n >>= function
-      | None -> Lwt.return_unit
-      | Some canonical ->
-         begin
-           Logger.debug_f_ "Unlinking %s" canonical >>= fun () ->
-           File_system.unlink canonical
-         end
-    in
-    Lwt_list.iter_s remove to_remove >>= fun () ->
-    Logger.debug_f_ "after remove_below %s tlog_map:%s" (Sn.string_of i) (show_map t) >>= fun () ->
-    Lwt.return_unit
+        let remove item  =
+          which_tlog_file  t item.n >>= function
+          | None -> Lwt.return_unit
+          | Some canonical ->
+             begin
+               Logger.debug_f_ "Unlinking %s" canonical >>= fun () ->
+               File_system.unlink canonical
+             end
+        in
+        Lwt_list.iter_s remove to_remove >>= fun () ->
+        Logger.debug_f_ "after remove_below %s tlog_map:%s" (Sn.string_of i) (show_map t) >>= fun () ->
+        Lwt.return_unit
+      )
 
   let is_rollover_point t i =
     let rec find = function
