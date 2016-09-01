@@ -144,7 +144,18 @@ def test_collapse_during_catchup():
     Common.startOne(zero)
     time.sleep(5)
     Common.collapse(zero, n=5)
-    Common.assert_running_nodes(3)
+    cluster = Common._getCluster()
+    status = cluster.getStatusOne(zero)
+    ok = status == X.AppStatusType.RUNNING
+    if not ok:
+        cfg = Common.getConfig(zero)
+        log_dir = cfg['log_dir']
+        log_file = '/'.join([log_dir, "%s.log" % (zero) ])
+        tail = subprocess.check_output("tail -50 %s" % log_file, shell = True)
+        for line in tail.split('\n'):
+            logging.info("%s:%s" % (zero, line))
+
+    assert_true(ok)
 
 @Common.with_custom_setup(Common.setup_2_nodes_mini, Common.basic_teardown)
 def test_remote_collapse_client():

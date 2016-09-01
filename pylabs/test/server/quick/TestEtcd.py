@@ -148,7 +148,7 @@ class TestEtcd(TestCase):
         self._server.start()
         cfg = self._config()
         cfg_s = X.cfg2str(cfg)
-        logging.debug("cfg_s=%s",cfg_s)
+        logging.debug("cfg_s='%s'",cfg_s)
         self._etcdClient.set(self._cluster_id,cfg_s)
 
 
@@ -191,7 +191,7 @@ class TestEtcd(TestCase):
         logging.debug('calling: %s', ' '.join(cmd))
         r = subprocess.check_output(cmd).strip()
         logging.debug("node state:%s", r)
-        self.assertEquals(r, 'Stable_master')
+        assert_true(r in ['Stable_master','Master_dictate'])
         # cli crud
 
         key = "some_key"
@@ -215,7 +215,7 @@ class TestEtcd(TestCase):
         node = 'etcd_ara0'
         cfg.set(node, 'log_level','debug')
         cfg_s = X.cfg2str(cfg)
-        logging.debug("cfg_s= %s", cfg_s)
+        logging.debug("cfg_s= '%s'", cfg_s)
         self._etcdClient.set(self._cluster_id, cfg_s)
         cmd = ["fuser","-n","tcp", "4000","-k", "-%s" % 'USR1' ]
         subprocess.call(cmd)
