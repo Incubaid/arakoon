@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:14.04.3
 
 RUN useradd jenkins -u 1500 -g root
 
