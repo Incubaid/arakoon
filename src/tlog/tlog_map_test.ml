@@ -1,5 +1,5 @@
 open Tlog_map.TlogMap
-       
+
 let test_tlogs_to_collapse () =
   let make_item (i,n,is_archive) = {i;n;is_archive} in
   let tlog_map = {
@@ -15,9 +15,9 @@ let test_tlogs_to_collapse () =
                              ( 5000L, 5,false);
                              ( 4000L, 4,false);
                              ( 3000L, 3,false);
-                             ( 2000L, 2,false); 
+                             ( 2000L, 2,false);
                              ( 1000L, 1,false);
-                             (    0L, 0,false);  
+                             (    0L, 0,false);
                            ];
       tlog_dir = "tlog_dir";
       tlx_dir = "tlx_dir";
@@ -28,6 +28,7 @@ let test_tlogs_to_collapse () =
       tlog_entries = 393;
       tlog_number = 12;
       should_roll = false;
+      lock = Lwt_mutex.create ();
     }
   in
   let head_i = 0L in
@@ -38,9 +39,9 @@ let test_tlogs_to_collapse () =
   let printer = To_string.option (pair string_of_int Sn.string_of) in
   let expected = Some (12,12_002L) in
   OUnit.assert_equal expected r ~printer
-                     
+
 open OUnit
-       
+
 let suite =
   "tlog_map">:::[
       "tlogs_to_collapse">:: test_tlogs_to_collapse;
