@@ -231,6 +231,8 @@ let collapse_out_of_band cfg name tlogs_to_keep =
   let me, _ = split name cfg.cfgs in
   let head_location = Filename.concat me.head_dir Tlc2.head_fname in
 
+  Plugin_loader.load me.home cfg.plugins >>= fun () ->
+
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   Tlc2.make_tlc2 ~compressor:me.compressor
                  me.tlog_dir me.tlx_dir me.head_dir
