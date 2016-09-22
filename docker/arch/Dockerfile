@@ -60,7 +60,7 @@ RUN eval `${opam_env}` && \
         quickcheck.1.0.2 \
         conf-libev \
         core.113.33.02+4.03 \
-        redis.0.3.1 \
+        redis.0.3.3 \
         uri.1.9.2
 
 # Install etcd:
