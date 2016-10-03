@@ -24,7 +24,7 @@ from Compat import X
 
 @Common.with_custom_setup(Common.setup_2_nodes_mini, Common.basic_teardown)
 def test_learner():
-    op_count = 5432
+    op_count = 54321
     Common.iterate_n_times(op_count, Common.simple_set)
     cluster = Common._getCluster(Common.cluster_id)
     logging.info("adding learner")
@@ -54,5 +54,15 @@ def test_learner():
     time.sleep(op_count / 1000 + 1 ) # 1000/s in catchup should be no problem
     #use a client ??"
     Common.stop_all()
+    i1 = int(Common.get_last_i_tlog(name))
+    assert_true(i1 >= op_count - 1)
+
+    Common.start_all()
+    time.sleep(1.0)
+    Common.iterate_n_times(1000, Common.simple_set)
+    Common.stop_all()
+
     i2 = int(Common.get_last_i_tlog(name))
-    assert_true(i2 >= op_count - 1)
+    assert_true(i2 >= i1 + 900)
+    i_normal_node = int(Common.get_last_i_tlog(Common.node_names[0]))
+    assert_true (i2 >= i_normal_node - 100) # it should approximately follow the normal node
