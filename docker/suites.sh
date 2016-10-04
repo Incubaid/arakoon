@@ -35,6 +35,11 @@ case "${1-bash}" in
     package_rpm)
         ./jenkins/package_rpm.sh
         ;;
+    nose)
+        shift
+        echo "parameters=$@"
+        ./jenkins/nose.sh $@
+        ;;
     *)
         echo "invalid test suite specified"
 esac
