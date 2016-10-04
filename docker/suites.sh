@@ -1,6 +1,6 @@
 #!/bin/bash -xue
 
-export TEST_HOME='/home/tests'
+export TEST_HOME='/home/jenkins/arakoon/TESTS'
 
 case "${1-bash}" in
     bash)
