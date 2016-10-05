@@ -13,6 +13,7 @@ clean:
 	rm -rf ./debian/tmp/*
 	rm -rf ./debian/libarakoon-ocaml-dev/*
 	ocamlbuild -clean
+	rm -f  ./arakoon.byte ./arakoon.native
 
 build:
 	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi

@@ -1,6 +1,6 @@
 #!/bin/bash -xue
 
-export TEST_HOME='/home/tests'
+export TEST_HOME='/home/jenkins/arakoon/TESTS'
 
 case "${1-bash}" in
     bash)
@@ -34,6 +34,11 @@ case "${1-bash}" in
         ;;
     package_rpm)
         ./jenkins/package_rpm.sh
+        ;;
+    nose)
+        shift
+        echo "parameters=$@"
+        ./jenkins/nose.sh $@
         ;;
     *)
         echo "invalid test suite specified"
