@@ -168,7 +168,9 @@ class TestEtcd(TestCase):
     def testEtcdUsage(self):
         logging.debug("testUsage")
         url = self._server.url(self._cluster_id)
-        subprocess.call("pgrep -a arakoon", shell = True)
+
+        subprocess.call("for x in $(pgrep arakoon); do cat /proc/$x/cmdline; echo; done",
+                        shell = True)
 
         # startup
         def _arakoon_cli(x, tail = None):
