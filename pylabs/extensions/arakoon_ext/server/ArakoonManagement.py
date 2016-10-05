@@ -1303,9 +1303,20 @@ class ArakoonCluster:
 
     def _stopOne(self, name):
         line = self._cmdLine(name)
-        cmd = ['pkill', '-f',  line]
+
+        use_fuser = True
+        cmd = None
+        if use_fuser:
+            config = self._getConfigFile()
+            port = int(config.get(name, "client_port"))
+            cmd = ("fuser -s -n tcp %i -k -SIGTERM" % port ).split(' ')
+        else:
+            #This flavour gave problems on jenkins 14.04.3 docker containers
+            cmd = ['pkill', '-f',  line]
+
         logging.debug("stopping '%s' with: %s",name, string.join(cmd, ' '))
         rc = subprocess.call(cmd, close_fds = True)
+
         logging.debug("%s=>rc=%i" % (cmd,rc))
         i = 0
         while(self._getStatusOne(name) == X.AppStatusType.RUNNING):
