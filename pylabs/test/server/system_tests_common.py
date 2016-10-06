@@ -651,10 +651,10 @@ def setup_n_nodes_base(c_id, node_names, force_master,
                        witness_nodes = False, useIPV6=False,
                        slowCollapser = False):
 
-    running_arakoons = X.subprocess.check_output("pgrep -a arakoon || true",
-                                                 shell = True)
-    print "running_arakoons\n", running_arakoons
-    logging.info("running_arakoons=%s", running_arakoons)
+    running_arakoons = X.subprocess.check_output("pgrep -c arakoon || true",
+                                                 shell = True).strip()
+    print "\n\tpgrep -c arakoon =>%s" % running_arakoons
+    logging.info("pgrep -c arakoon =>%s", running_arakoons)
 
     X.subprocess.check_call("sudo /sbin/iptables -F".split(' ') )
 

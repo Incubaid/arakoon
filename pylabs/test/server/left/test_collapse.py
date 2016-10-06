@@ -20,7 +20,7 @@ from Compat import X
 import arakoon
 import time
 import logging
-import subprocess
+
 from threading import Thread
 from nose.tools import *
 
@@ -94,7 +94,7 @@ def test_remote_collapse_under_load():
     cluster = Common._getCluster()
     path = cluster._getConfigFileName() + ".cfg"
     f = open("./outputFile", 'wb')
-    bench = subprocess.Popen([Common.CONFIG.binary_full_path,
+    bench = X.subprocess.Popen([Common.CONFIG.binary_full_path,
                               '-config', path ,'--benchmark',
                               '-scenario','master, set, set_tx, get',
                               '-max_n', '60000'],
@@ -113,9 +113,9 @@ def test_remote_collapse_under_load():
     args = [Common.CONFIG.binary_full_path,
                                  '--collapse-remote', cluster_id,
                                  ip,port,str(5)]
-    collapse = subprocess.Popen(args,
-                                stdout = f2,
-                                stderr = f2)
+    collapse = X.subprocess.Popen(args,
+                                  stdout = f2,
+                                  stderr = f2)
 
     time.sleep(5)
     #but stop while collapsing.
@@ -133,6 +133,10 @@ def test_remote_collapse_under_load():
     m = client.whoMaster()
     logging.info("master is:%s", m)
     assert_true(m in Common.node_names)
+
+    #
+    bench.wait()
+    collapse.wait()
 
 @Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown)
 def test_collapse_during_catchup():

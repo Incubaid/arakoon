@@ -19,7 +19,7 @@ import os
 import ArakoonRemoteControl
 import os.path
 import itertools
-import subprocess
+
 import time
 import types
 import signal
@@ -1108,7 +1108,7 @@ class ArakoonCluster:
                '--node',
                nodeName,
                '-catchup-only']
-        return subprocess.call(cmd)
+        return X.subprocess.call(cmd)
 
     def stopOne(self, nodeName):
         """
@@ -1179,7 +1179,7 @@ class ArakoonCluster:
         if inPlace:
             cmd.append('--inplace')
 
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        p = X.subprocess.check_call(cmd, stdout = X. subprocess.PIPE)
         output = p.communicate()[0]
         rc = p.returncode
         logging.debug("injectAsHead returned [%d] %s", rc, output)
@@ -1288,7 +1288,7 @@ class ArakoonCluster:
             cmd.extend(extraParams)
         cmd.append('-daemonize')
         logging.debug('calling: %s', ' '.join(cmd))
-        return subprocess.call(cmd, close_fds = True)
+        return X.subprocess.call(cmd, close_fds = True)
 
     def _getIp(self,ip_mess):
         t_mess = type(ip_mess)
@@ -1312,15 +1312,15 @@ class ArakoonCluster:
             cmd = ("fuser -s -n tcp %i -k -SIGTERM" % port ).split(' ')
         else:
             #This flavour gave problems on jenkins 14.04.3 docker containers
-            cmd = ['pkill', '-f',  line]
+            cmd = ['pkill', '-fn',  line]
 
         logging.debug("stopping '%s' with: %s",name, string.join(cmd, ' '))
-        rc = subprocess.call(cmd, close_fds = True)
+        rc = X.subprocess.call(cmd, close_fds = True)
 
         logging.debug("%s=>rc=%i" % (cmd,rc))
         i = 0
         while(self._getStatusOne(name) == X.AppStatusType.RUNNING):
-            rc = subprocess.call(cmd, close_fds = True)
+            rc = X.subprocess.call(cmd, close_fds = True)
             logging.debug("%s=>rc=%i" % (cmd,rc))
             time.sleep(1)
             i += 1
@@ -1369,10 +1369,11 @@ class ArakoonCluster:
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
         cmd = ['pgrep','-fn', line]
-        proc = subprocess.Popen(cmd,
-                                close_fds = True,
-                                stdout=subprocess.PIPE)
+        proc = X.subprocess.Popen(cmd,
+                                  close_fds = True,
+                                  stdout = X.subprocess.PIPE)
         pids = proc.communicate()[0]
+        proc.wait()
         pid_list = pids.split()
         lenp = len(pid_list)
         result = None
