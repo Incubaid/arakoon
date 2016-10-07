@@ -70,12 +70,12 @@ def test_start_stop_wrapper():
         C.assert_running_nodes(0)
         cluster.start()
         time.sleep(1)
+
         C.assert_running_nodes(1)
         cluster.stop()
         C.assert_running_nodes(0)
     finally:
         cluster.remove()
-
 
 def test_start_arakoon383():
     cluster = C._getCluster()
