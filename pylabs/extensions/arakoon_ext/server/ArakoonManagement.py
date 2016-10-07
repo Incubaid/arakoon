@@ -1286,9 +1286,9 @@ class ArakoonCluster:
         cmd.extend(command)
         if extraParams:
             cmd.extend(extraParams)
-        cmd.append('-daemonize')
+        #cmd.append('-daemonize') # daemonize & docker don't play nice
         logging.debug('calling: %s', ' '.join(cmd))
-        return X.subprocess.call(cmd, close_fds = True)
+        return X.subprocess.Popen(cmd, close_fds = True)
 
     def _getIp(self,ip_mess):
         t_mess = type(ip_mess)
@@ -1333,6 +1333,7 @@ class ArakoonCluster:
                 time.sleep(1)
 
                 logging.debug("stopping '%s' with kill -9" % name)
+                rc = X.subprocess.call(['pkill', '--signal', 'SIGCHLD' '-f', line], close_fds = True)
                 rc = X.subprocess.call(['pkill', '-9', '-f', line], close_fds = True)
                 if rc == 0:
                     rc = 9

@@ -1112,8 +1112,10 @@ def assert_running_nodes(n):
                                            stderr = X.subprocess.STDOUT
         )
         lines = output.strip().split('\n')
-        logging.info(lines)
-        count = len(lines)
+        logging.info("assert_running_nodes:%s", lines)
+        lines2=filter(lambda x : x.find('/bin/bash') == -1, lines)
+        logging.info("lines2:%s", lines2)
+        count = len(lines2)
     except subprocess.CalledProcessError,ex:
         logging.info("ex:%s => count = 0" % ex)
         count = 0
