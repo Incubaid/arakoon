@@ -1179,8 +1179,10 @@ class ArakoonCluster:
         if inPlace:
             cmd.append('--inplace')
 
-        p = X.subprocess.check_call(cmd, stdout = X. subprocess.PIPE)
+
+        p = X.subprocess.Popen(cmd, stdout = X. subprocess.PIPE)
         output = p.communicate()[0]
+        p.wait()
         rc = p.returncode
         logging.debug("injectAsHead returned [%d] %s", rc, output)
         return rc
