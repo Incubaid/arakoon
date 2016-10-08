@@ -155,7 +155,7 @@ def test_collapse_during_catchup():
         cfg = Common.getConfig(zero)
         log_dir = cfg['log_dir']
         log_file = '/'.join([log_dir, "%s.log" % (zero) ])
-        tail = subprocess.check_output("tail -50 %s" % log_file, shell = True)
+        tail = X.subprocess.check_output("tail -50 %s" % log_file, shell = True)
         for line in tail.split('\n'):
             logging.info("%s:%s" % (zero, line))
 

@@ -887,6 +887,9 @@ def test_rev_range_entries_arakoon368():
 
 @C.with_custom_setup( C.setup_3_nodes, C.basic_teardown )
 def test_statistics():
+    cluster = C._getCluster()
+    _wait_for_master(cluster)
+
     cli = C.get_client()
     stat_dict = cli.statistics()
 
