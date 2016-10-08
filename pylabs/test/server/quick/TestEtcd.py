@@ -185,16 +185,34 @@ class TestEtcd(TestCase):
         logging.debug('calling: %s', ' '.join(cmd))
         r = subprocess.call(cmd, close_fds = True)
 
-        time.sleep(1.)
-
         # cli node-state, & verify server's running
+        def wait_for_master():
+            time.sleep(1.0)
+            have_master = False
+            count = 0
+            master_states = [
+                'Stable_master',
+                'Master_dictate',
+                'Accepteds_check_done'
+            ]
 
-        cmd = _arakoon_cli(['--node-state','etcd_ara0'])
-        logging.debug('calling: %s', ' '.join(cmd))
-        r = subprocess.check_output(cmd).strip()
-        logging.debug("node state:%s", r)
-        assert_true(r in ['Stable_master','Master_dictate'])
-        # cli crud
+            while (not have_master) and (count < 10) :
+                cmd = _arakoon_cli(['--node-state','etcd_ara0'])
+                logging.debug('calling: %s', ' '.join(cmd))
+                r = subprocess.check_output(cmd).strip()
+                logging.debug("node state:%s", r)
+
+                if r in master_states:
+                    have_master = True
+                else:
+                    count = count + 1
+
+            if have_master:
+                return
+            else:
+                raise Exception("no master");
+
+        wait_for_master()
 
         key = "some_key"
         value = "some_value"
