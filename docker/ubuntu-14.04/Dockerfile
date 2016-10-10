@@ -67,7 +67,11 @@ RUN eval `${opam_env}` && \
         redis.0.3.3 \
         uri.1.9.2
 
-
+#
+RUN wget https://www.python.org/ftp/python/2.7.12/Python-2.7.12.tar.xz
+RUN tar -Jxvf ./Python-2.7.12.tar.xz
+RUN cd /Python-2.7.12 && ./configure && make && sudo make install
+RUN curl https://bootstrap.pypa.io/get-pip.py | python
 RUN pip install fabric junit-xml nose simplejson python-etcd
 
 RUN mkdir /home/tests
@@ -93,4 +97,5 @@ RUN su - -c "echo 'eval `${opam_env}`' >> /home/jenkins/.profile"
 RUN echo "jenkins ALL=NOPASSWD: ALL" >/etc/sudoers.d/jenkins
 
 
-ENTRYPOINT ["/home/jenkins/arakoon/docker/docker-entrypoint.sh"]
+
+ENTRYPOINT ["/bin/bash", "-c", "set -e && /home/jenkins/arakoon/docker/docker-entrypoint.sh $@"]

@@ -19,7 +19,7 @@ import os
 import ArakoonRemoteControl
 import os.path
 import itertools
-import subprocess
+
 import time
 import types
 import signal
@@ -1108,7 +1108,7 @@ class ArakoonCluster:
                '--node',
                nodeName,
                '-catchup-only']
-        return subprocess.call(cmd)
+        return X.subprocess.call(cmd)
 
     def stopOne(self, nodeName):
         """
@@ -1179,8 +1179,10 @@ class ArakoonCluster:
         if inPlace:
             cmd.append('--inplace')
 
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+
+        p = X.subprocess.Popen(cmd, stdout = X. subprocess.PIPE)
         output = p.communicate()[0]
+        p.wait()
         rc = p.returncode
         logging.debug("injectAsHead returned [%d] %s", rc, output)
         return rc
@@ -1286,9 +1288,9 @@ class ArakoonCluster:
         cmd.extend(command)
         if extraParams:
             cmd.extend(extraParams)
-        cmd.append('-daemonize')
+        #cmd.append('-daemonize') # daemonize & docker don't play nice
         logging.debug('calling: %s', ' '.join(cmd))
-        return subprocess.call(cmd, close_fds = True)
+        return X.subprocess.Popen(cmd, close_fds = True)
 
     def _getIp(self,ip_mess):
         t_mess = type(ip_mess)
@@ -1303,13 +1305,24 @@ class ArakoonCluster:
 
     def _stopOne(self, name):
         line = self._cmdLine(name)
-        cmd = ['pkill', '-f',  line]
+
+        use_fuser = True
+        cmd = None
+        if use_fuser:
+            config = self._getConfigFile()
+            port = int(config.get(name, "client_port"))
+            cmd = ("fuser -s -n tcp %i -k -SIGTERM" % port ).split(' ')
+        else:
+            #This flavour gave problems on jenkins 14.04.3 docker containers
+            cmd = ['pkill', '-fn',  line]
+
         logging.debug("stopping '%s' with: %s",name, string.join(cmd, ' '))
-        rc = subprocess.call(cmd, close_fds = True)
+        rc = X.subprocess.call(cmd, close_fds = True)
+
         logging.debug("%s=>rc=%i" % (cmd,rc))
         i = 0
         while(self._getStatusOne(name) == X.AppStatusType.RUNNING):
-            rc = subprocess.call(cmd, close_fds = True)
+            rc = X.subprocess.call(cmd, close_fds = True)
             logging.debug("%s=>rc=%i" % (cmd,rc))
             time.sleep(1)
             i += 1
@@ -1322,6 +1335,7 @@ class ArakoonCluster:
                 time.sleep(1)
 
                 logging.debug("stopping '%s' with kill -9" % name)
+                rc = X.subprocess.call(['pkill', '--signal', 'SIGCHLD' '-f', line], close_fds = True)
                 rc = X.subprocess.call(['pkill', '-9', '-f', line], close_fds = True)
                 if rc == 0:
                     rc = 9
@@ -1358,10 +1372,11 @@ class ArakoonCluster:
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
         cmd = ['pgrep','-fn', line]
-        proc = subprocess.Popen(cmd,
-                                close_fds = True,
-                                stdout=subprocess.PIPE)
+        proc = X.subprocess.Popen(cmd,
+                                  close_fds = True,
+                                  stdout = X.subprocess.PIPE)
         pids = proc.communicate()[0]
+        proc.wait()
         pid_list = pids.split()
         lenp = len(pid_list)
         result = None

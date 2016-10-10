@@ -651,6 +651,11 @@ def setup_n_nodes_base(c_id, node_names, force_master,
                        witness_nodes = False, useIPV6=False,
                        slowCollapser = False):
 
+    running_arakoons = X.subprocess.check_output("pgrep -c arakoon || true",
+                                                 shell = True).strip()
+    print "\n\tpgrep -c arakoon =>%s" % running_arakoons
+    logging.info("pgrep -c arakoon =>%s", running_arakoons)
+
     X.subprocess.check_call("sudo /sbin/iptables -F".split(' ') )
 
     cluster = _getCluster( c_id )
@@ -1107,8 +1112,10 @@ def assert_running_nodes(n):
                                            stderr = X.subprocess.STDOUT
         )
         lines = output.strip().split('\n')
-        logging.info(lines)
-        count = len(lines)
+        logging.info("assert_running_nodes:%s", lines)
+        lines2=filter(lambda x : x.find('/bin/bash') == -1, lines)
+        logging.info("lines2:%s", lines2)
+        count = len(lines2)
     except subprocess.CalledProcessError,ex:
         logging.info("ex:%s => count = 0" % ex)
         count = 0

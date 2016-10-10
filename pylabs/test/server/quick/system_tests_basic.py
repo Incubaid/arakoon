@@ -55,35 +55,47 @@ def test_start_stop_three_nodes_forced () :
 
 def test_start_stop_wrapper():
     cluster = C._getCluster()
-    fn = "/tmp/my_wrapper.sh"
-    with open(fn,'w') as f:
-        f.write('#!/bin/bash\n')
-        f.write("logger wrapper called with '$@'\n")
-        f.write('$@\n')
-    subprocess.call(['chmod','+x',fn])
-    nn = "wrapper"
-    cluster.addNode(nn, "127.0.0.1", 8000, wrapper = fn)
-    cluster.addLocalNode(nn)
-    cluster.createDirs(nn)
-    C.assert_running_nodes(0)
-    cluster.start()
-    C.assert_running_nodes(1)
-    cluster.stop()
-    C.assert_running_nodes(0)
-    cluster.tearDown()
+    fn = "%s/my_wrapper.sh" % X.tmpDir
+    X.createDir(X.tmpDir)
+    try:
+        with open(fn,'w') as f:
+            f.write('#!/bin/bash -xue\n')
+            f.write("logger wrapper called with '$@'\n")
+            f.write('$@\n')
+        subprocess.call(['chmod','+x',fn])
+        nn = "wrapper"
+        cluster.addNode(nn, "127.0.0.1", 8000, wrapper = fn)
+        cluster.addLocalNode(nn)
+        cluster.createDirs(nn)
+        C.assert_running_nodes(0)
+        cluster.start()
+        time.sleep(1)
+
+        C.assert_running_nodes(1)
+        cluster.stop()
+        C.assert_running_nodes(0)
+    finally:
+        cluster.remove()
 
 def test_start_arakoon383():
     cluster = C._getCluster()
-    wrapper = 'false'
-    name = 'wrapper'
-    cluster.addNode(name, '127.0.0.1', 8000, wrapper=wrapper)
-    cluster.addLocalNode(name)
-    C.assert_running_nodes(0)
-    assert_equals(cluster.startOne(name), 1)
-    C.assert_running_nodes(0)
-    assert_equals(cluster.restartOne(name), 1)
-    C.assert_running_nodes(0)
-    cluster.tearDown()
+    try:
+        wrapper = 'false'
+        name = 'wrapper'
+        cluster.addNode(name, '127.0.0.1', 8000, wrapper=wrapper)
+        cluster.addLocalNode(name)
+        C.assert_running_nodes(0)
+        p = cluster.startOne(name)
+        rc = p.wait()
+        assert_equals(rc, 1)
+        C.assert_running_nodes(0)
+        p = cluster.restartOne(name)
+        rc = p.wait()
+        assert_equals(rc, 1)
+        C.assert_running_nodes(0)
+    finally:
+        cluster.remove()
+
 
 @C.with_custom_setup(C.setup_1_node, C.basic_teardown)
 def test_max_value_size_tinkering ():
@@ -494,7 +506,7 @@ def test_consistency():
     v = client.get('x')
     assert_equals(v,'X')
 
-    
+
     m2 = X.arakoon_client.AtLeast(1000)
     client.setConsistency(m2)
     try:
@@ -875,6 +887,9 @@ def test_rev_range_entries_arakoon368():
 
 @C.with_custom_setup( C.setup_3_nodes, C.basic_teardown )
 def test_statistics():
+    cluster = C._getCluster()
+    _wait_for_master(cluster)
+
     cli = C.get_client()
     stat_dict = cli.statistics()
 
