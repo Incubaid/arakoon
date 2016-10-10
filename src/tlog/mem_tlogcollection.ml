@@ -90,6 +90,7 @@ class mem_tlog_collection _name =
     method is_rollover_point _ = false
     method next_rollover _ = Some Int64.max_int
 
+    method invalidate () = ()
     method log_value_explicit i (v:Value.t) ~sync marker =
       let entry = Entry.make i v 0L marker in
       let () = data <- entry::data in

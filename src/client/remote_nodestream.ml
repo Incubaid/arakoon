@@ -27,7 +27,7 @@ class type nodestream = object
   method iterate:
     Sn.t -> (Sn.t * Value.t -> unit Lwt.t) ->
     Tlogcollection.tlog_collection ->
-    head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
+    head_saved_cb:(string -> unit Lwt.t) -> bool Lwt.t
 
   method collapse: int -> unit Lwt.t
 
@@ -55,7 +55,7 @@ class remote_nodestream ((ic,oc) as conn) =
         (object
   method iterate (i:Sn.t) (f: Sn.t * Value.t -> unit Lwt.t)
     (tlog_coll: Tlogcollection.tlog_collection)
-    ~head_saved_cb
+    ~(head_saved_cb:(string -> unit Lwt.t)) : bool Lwt.t
     =
     let outgoing buf =
       command_to buf LAST_ENTRIES3;
@@ -84,14 +84,16 @@ class remote_nodestream ((ic,oc) as conn) =
             end
         end
       in
-      let rec loop_parts () =
+      let rec loop_parts messed_with_fs =
         Llio.input_int ic >>= function
-        | (-2) -> Logger.info_f_ "loop_parts done"
+        | (-2) ->
+           Logger.info_f_ "loop_parts done" >>= fun () ->
+           Lwt.return messed_with_fs
         | 1 ->
           begin
             Logger.info_f_ "loop_entries" >>= fun () ->
             loop_entries () >>= fun () ->
-            loop_parts ()
+            loop_parts messed_with_fs
           end
         | 2 ->
           begin
@@ -99,7 +101,7 @@ class remote_nodestream ((ic,oc) as conn) =
             save_head () >>= fun () ->
             let hf_name = tlog_coll # get_head_name () in
             head_saved_cb hf_name >>= fun () ->
-            loop_parts ()
+            loop_parts true
           end
         | 3 ->
            begin
@@ -111,11 +113,11 @@ class remote_nodestream ((ic,oc) as conn) =
                             (Sn.string_of start_i) extension length
              >>= fun () ->
              tlog_coll # save_tlog_file start_i extension length ic >>= fun () ->
-             loop_parts ()
+             loop_parts true
            end
         | x  -> Llio.lwt_failfmt "don't know what %i means" x
       in
-      loop_parts() 
+      loop_parts false
     in
     request  oc outgoing >>= fun () ->
     response ic incoming
@@ -138,7 +140,7 @@ class remote_nodestream ((ic,oc) as conn) =
             | 0 ->
                Llio.input_int64 ic >>= fun total ->
                Logger.debug_f_ "%i:collapsed one file. (total = %Li)" i total >>= fun () ->
-                                    
+
                loop (i-1)
             | e ->
                Llio.input_string ic >>= fun msg ->

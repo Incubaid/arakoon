@@ -398,6 +398,8 @@ class tlc2
       Logger.info_ "done: save_head"
 
 
+    method invalidate () = invalidate_previous_entry ()
+
     method get_last_i () =
       get_previous_entry () >>= function
       | None ->

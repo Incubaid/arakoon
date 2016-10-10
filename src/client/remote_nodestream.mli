@@ -23,7 +23,7 @@ class type nodestream = object
   method iterate:
     Sn.t -> (Sn.t * Value.t -> unit Lwt.t) ->
     Tlogcollection.tlog_collection ->
-    head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
+    head_saved_cb:(string -> unit Lwt.t) -> bool Lwt.t
 
   method collapse: int -> unit Lwt.t
 

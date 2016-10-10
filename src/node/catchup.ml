@@ -95,7 +95,13 @@ let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_i
       tlog_coll # log_value_explicit i value ~sync:false None >>= fun _ ->
       stop_fuse stop
     in
-    client # iterate current_i f tlog_coll ~head_saved_cb 
+    client # iterate current_i
+           f
+           tlog_coll
+           ~head_saved_cb
+    >>= fun fs_changed ->
+    if fs_changed then tlog_coll # invalidate();
+    Lwt.return_unit
   in
 
   Lwt.catch
@@ -299,7 +305,7 @@ let last_entries2
   Logger.debug_f_ "last_entries2 %s" (Sn.string_of start_i) >>= fun () ->
   let consensus_i = S.consensus_i store in
   (* This version is kept for mixed setups were non-flexible nodes
-     are catching up from flexible ones 
+     are catching up from flexible ones
    *)
   begin
     match consensus_i with
@@ -354,7 +360,7 @@ let last_entries2
          Logger.info_f_ "done with_last_entries2"
        end
   end
-         
+
 let last_entries3
       (type s) (module S : Store.STORE with type t = s)
       store
