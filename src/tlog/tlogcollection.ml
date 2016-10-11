@@ -28,21 +28,21 @@ class type tlog_collection =
   method log_value : Sn.t -> Value.t -> int Lwt.t
   method log_value_explicit : Sn.t -> Value.t ->
                               sync:bool -> string option -> int Lwt.t
-  
-  
+
+
   method tlogs_to_collapse:
            head_i:Sn.t ->
            last_i:Sn.t ->
            tlogs_to_keep:int ->
            (int * Sn.t) option
-               
+
   method close : ?wait_for_compression : bool -> unit -> unit Lwt.t
   method get_infimum_i : unit -> Sn.t Lwt.t
   method dump_head : Lwt_io.output_channel -> Sn.t Lwt.t
   method save_head : Lwt_io.input_channel -> unit Lwt.t
 
   (**
-     returns file number & starting i of next file  
+     returns file number & starting i of next file
    *)
   method complete_file_to_deliver: Sn.t -> (int * Sn.t) option
 
@@ -56,7 +56,7 @@ class type tlog_collection =
   method get_tlog_from_i : Sn.t -> int
   method get_tlog_count: unit -> int Lwt.t
   method remove_below : Sn.t -> unit Lwt.t
-                                     
+
   method get_start_i : int -> Sn.t option
 
   method get_last_i: unit -> Sn.t Lwt.t
@@ -66,7 +66,8 @@ class type tlog_collection =
   method is_rollover_point: Sn.t -> bool
   method next_rollover: Sn.t -> Sn.t option
   method which_tlog_file : int -> (string option) Lwt.t
-  
+
+  method invalidate : unit -> unit
   end
 
 type tlc_factory =

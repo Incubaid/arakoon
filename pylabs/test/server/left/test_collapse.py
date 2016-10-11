@@ -141,14 +141,44 @@ def test_remote_collapse_under_load():
 @Common.with_custom_setup(Common.setup_3_nodes_mini, Common.basic_teardown)
 def test_collapse_during_catchup():
     n = 54321
+    t0 = time.time()
     Common.iterate_n_times(n, Common.set_get_and_delete)
+    t1 = time.time()
+    duration = t1 - t0
     zero = Common.node_names[0]
     Common.stopOne(zero)
     Common.iterate_n_times(n, Common.set_get_and_delete)
     Common.startOne(zero)
-    time.sleep(5)
+    logging.info("duration = %d", duration)
+
+    time.sleep(duration / 3)
+
     Common.collapse(zero, n=5)
     cluster = Common._getCluster()
+
+
+    client = cluster.getClient()
+
+    def zero_state():
+        state = client.getCurrentState(zero)
+        return state
+
+    state = None
+    count = 0
+
+    # collapsing and catchup will be racing.
+    # the most annoying scenario is when catchup wins,
+    # but whatever happens, the node needs to become a slave
+    #
+
+    try:
+        while count < 100 and state != 'Slave_steady_state' :
+            state = zero_state()
+            logging.info("%i zero state:%s", count, state)
+            count = count + 1
+    except Exception,e :
+        logging.info("Exception:", e)
+
     status = cluster.getStatusOne(zero)
     ok = status == X.AppStatusType.RUNNING
     if not ok:
@@ -158,6 +188,7 @@ def test_collapse_during_catchup():
         tail = X.subprocess.check_output("tail -50 %s" % log_file, shell = True)
         for line in tail.split('\n'):
             logging.info("%s:%s" % (zero, line))
+
 
     assert_true(ok)
 
