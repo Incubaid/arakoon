@@ -238,7 +238,7 @@ class tlc2
       Lwt_mutex.with_lock _write_lock
         (fun () ->
            begin
-             self # _prelude i >>= fun file ->
+             self # _prelude i >>= fun (file, maybe_add_to_compression) ->
              let p = F.file_pos file in
              let oc = F.oc_of file in
              Tlogcommon.write_entry oc i value >>= fun total_size ->
@@ -249,6 +249,12 @@ class tlc2
                else Lwt.return ()
              end
              >>= fun () ->
+             begin
+               match maybe_add_to_compression with
+               | None -> Lwt.return_unit
+               | Some old_outer -> self # _add_compression_job old_outer
+             end
+             >>= fun ()->
              let entry = Entry.make i value p marker in
              set_previous_entry (Some entry);
              Index.note entry _index;
@@ -289,7 +295,7 @@ class tlc2
             _init_file fsync_tlog_dir tlog_map  >>= fun file ->
             _file <- Some file;
             _index <- Index.make (F.fn_of file);
-            Lwt.return file
+            Lwt.return (file, None)
           end
         | Some (file:F.t) ->
           if TlogMap.should_roll tlog_map
@@ -302,11 +308,12 @@ class tlc2
                              old_outer
                              new_outer
               >>= fun () ->
-              self # _jump_to_tlog file old_outer new_outer
+              self # _jump_to_tlog file new_outer >>= fun file ->
+              Lwt.return (file, Some old_outer)
             in
             do_jump ()
           else
-            Lwt.return file
+            Lwt.return (file, None)
 
     method private _add_compression_job old_outer =
       let open Compression in
@@ -322,7 +329,7 @@ class tlc2
          end
       | No -> Lwt.return ()
 
-    method private _jump_to_tlog file old_outer new_outer =
+    method private _jump_to_tlog file new_outer =
       F.close file >>= fun () ->
       _init_file fsync_tlog_dir tlog_map >>= fun new_file ->
       _file <- Some new_file;
@@ -332,7 +339,6 @@ class tlc2
         Index.make full_name
       in
       _index <- index;
-      self # _add_compression_job old_outer >>= fun () ->
       Lwt.return new_file
 
 
