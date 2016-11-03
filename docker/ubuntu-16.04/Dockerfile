@@ -56,7 +56,7 @@ RUN eval `${opam_env}` && \
         snappy \
         bisect \
         lwt.2.5.2 \
-        camltc.0.9.3 \
+        camltc.0.9.4 \
         ocplib-endian.1.0 \
         quickcheck.1.0.2 \
         conf-libev \
