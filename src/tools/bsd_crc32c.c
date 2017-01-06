@@ -776,29 +776,22 @@ static uint32_t _crc32c_sse4_2_byte(uint32_t crc,
                             unsigned char const *buffer,
                             size_t length){
           while (length--) {
-                  __asm__ __volatile__(
-                          "crc32b %%cl,%%esi\n\t"
-                          :"=S"(crc)
-                          :"0"(crc), "c"(*buffer)
-                  );
+                  __builtin_ia32_crc32qi(crc, *buffer);
                   buffer++;
           }
           return crc;
   }
 
+#ifdef __LP64__
 static uint32_t crc32c_sse4_2(uint32_t crc,
 			      unsigned char const *p,
 			      size_t len){
     unsigned int q = len >> 3;
     unsigned int rem = len & 0x7;
-    unsigned long *ptmp = (unsigned long *)p;
+    unsigned long long *ptmp = (unsigned long long *)p;
 
     while (q--) {
-	__asm__ __volatile__(
-			     "crc32q %%rcx,%%rsi\n\t"
-			     :"=S"(crc)
-			     :"0"(crc), "c"(*ptmp)
-			     );
+	__builtin_ia32_crc32di(crc, *ptmp);
 	ptmp++;
     }
 
@@ -808,6 +801,25 @@ static uint32_t crc32c_sse4_2(uint32_t crc,
 
     return crc;
 }
+#else
+static uint32_t crc32c_sse4_2(uint32_t crc,
+                              unsigned char const *p,
+                              size_t len) {
+    unsigned int q = len >> 2;
+    unsigned int rem = len & 0x03;
+    unsigned int *ptmp = (unsigned int *)p;
+
+    while(q--) {
+        __builtin_ia32_crc32si(crc, *ptmp);
+        ptmp++;
+    }
+
+    if(rem)
+        crc = _crc32c_sse4_2_byte(crc, (unsigned char *)ptmp, rem);
+
+    return crc;
+}
+#endif
 
 uint32_t sse4_2_crc32c(const unsigned char* buffer,
 				uint32_t length){
