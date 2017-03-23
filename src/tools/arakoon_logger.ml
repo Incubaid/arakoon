@@ -67,28 +67,42 @@ let console_logger =
 
 
 let format_message
-      ~hostname ~pid ~component
-      ~ts ~seqnum
+      ~hostname ~pid ~thread_id ~component
+      ~(ts:Core.Time.t) ~seqnum
       ~section ~level ~lines
   =
-
-  let d =
-    let (f : float) = Obj.magic ts in
-    let df = mod_float f 1.0 in
-    let udf = df *. 1_000_000. in
-    int_of_float udf
-  in
-  let tz_diff = "+0000" in
+  let thread_id = 0 in
   Printf.sprintf
-    "%s %6d %s %s - %i/0 - %s - %i - %s - %s"
+    "%s - %s - %i/%i - %s - %i - %s - %s"
     (let open Unix in
-     let open Core in
-     Time.format ts "%Y/%m/%d %T" Time.Zone.utc
+
+     let (fts:float) = Core.Time.to_span_since_epoch ts
+                       |> Core.Time.Span.to_sec
+     in
+     let tm = Unix.localtime fts in
+     let offset =
+       let zone = Lazy.force Core.Time.Zone.local in
+       Core.Time.utc_offset ~zone ts
+       |> Core.Time.Span.to_parts
+     in
+     Printf.sprintf
+       "%04d-%02d-%02d %02d:%02d:%02d %d %c%02d%02d"
+       (tm.tm_year + 1900)
+       (tm.tm_mon + 1)
+       tm.tm_mday
+       tm.tm_hour
+       tm.tm_min
+       tm.tm_sec
+       (int_of_float ((mod_float fts 1.) *. 1_000_000.))
+       (let open Core in
+        match offset.Time.Span.Parts.sign with
+        | Sign.Neg -> '-'
+        | Sign.Pos | Sign.Zero -> '+')
+       offset.Core.Time.Span.Parts.hr
+       offset.Core.Time.Span.Parts.min
     )
-    d
-    tz_diff
     hostname
-    pid
+    pid thread_id
     component
     seqnum
     (Lwt_log.string_of_level level)
@@ -118,9 +132,10 @@ let setup_log_sinks log_sinks =
                           let seqnum' = !seqnum in
                           let () = incr seqnum in
                           let ts = Core.Time.now () in
+                          let thread_id = 0 in
                           let logline =
                             format_message
-                              ~hostname ~pid ~component
+                              ~hostname ~pid ~thread_id ~component
                               ~ts ~seqnum:seqnum'
                               ~section ~level ~lines
                           in
