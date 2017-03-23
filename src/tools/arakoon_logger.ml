@@ -71,30 +71,22 @@ let format_message
       ~ts ~seqnum
       ~section ~level ~lines
   =
+
+  let d =
+    let (f : float) = Obj.magic ts in
+    let df = mod_float f 1.0 in
+    let udf = df *. 1_000_000. in
+    int_of_float udf
+  in
+  let tz_diff = "+0000" in
   Printf.sprintf
-    "%s - %s - %i/0 - %s - %i - %s - %s"
+    "%s %6d %s %s - %i/0 - %s - %i - %s - %s"
     (let open Unix in
-     let tm = Core.Time_internal.to_tm ts in
-     let offset =
-       Core.Time.utc_offset ~zone:Core.Time.Zone.local ts
-       |> Core.Span.to_parts
-     in
-     Printf.sprintf
-       "%04d-%02d-%02d %02d:%02d:%02d %d %c%02d%02d"
-       (tm.tm_year + 1900)
-       (tm.tm_mon + 1)
-       tm.tm_mday
-       tm.tm_hour
-       tm.tm_min
-       tm.tm_sec
-       (int_of_float ((mod_float (Core.Time.to_float ts) 1.) *. 1_000_000.))
-       (let open Core_kernel in
-        match offset.Core.Span.Parts.sign with
-        | Sign.Neg -> '-'
-        | Sign.Pos | Sign.Zero -> '+')
-       offset.Core.Span.Parts.hr
-       offset.Core.Span.Parts.min
+     let open Core in
+     Time.format ts "%Y/%m/%d %T" Time.Zone.utc
     )
+    d
+    tz_diff
     hostname
     pid
     component
