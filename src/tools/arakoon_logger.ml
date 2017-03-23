@@ -67,36 +67,41 @@ let console_logger =
 
 
 let format_message
-      ~hostname ~pid ~component
-      ~ts ~seqnum
+      ~hostname ~pid ~thread_id ~component
+      ~(ts:Core.Time.t) ~seqnum
       ~section ~level ~lines
   =
   Printf.sprintf
-    "%s - %s - %i/0 - %s - %i - %s - %s"
+    "%s - %s - %i/%04i - %s - %i - %s - %s"
     (let open Unix in
-     let tm = Core.Time_internal.to_tm ts in
+
+     let (fts:float) = Core.Time.to_span_since_epoch ts
+                       |> Core.Time.Span.to_sec
+     in
+     let tm = Unix.localtime fts in
      let offset =
-       Core.Time.utc_offset ~zone:Core.Time.Zone.local ts
-       |> Core.Span.to_parts
+       let zone = Lazy.force Core.Time.Zone.local in
+       Core.Time.utc_offset ~zone ts
+       |> Core.Time.Span.to_parts
      in
      Printf.sprintf
-       "%04d-%02d-%02d %02d:%02d:%02d %d %c%02d%02d"
+       "%04d-%02d-%02d %02d:%02d:%02d %06d %c%02d%02d"
        (tm.tm_year + 1900)
        (tm.tm_mon + 1)
        tm.tm_mday
        tm.tm_hour
        tm.tm_min
        tm.tm_sec
-       (int_of_float ((mod_float (Core.Time.to_float ts) 1.) *. 1_000_000.))
-       (let open Core_kernel in
-        match offset.Core.Span.Parts.sign with
+       (int_of_float ((mod_float fts 1.) *. 1_000_000.))
+       (let open Core in
+        match offset.Time.Span.Parts.sign with
         | Sign.Neg -> '-'
         | Sign.Pos | Sign.Zero -> '+')
-       offset.Core.Span.Parts.hr
-       offset.Core.Span.Parts.min
+       offset.Core.Time.Span.Parts.hr
+       offset.Core.Time.Span.Parts.min
     )
     hostname
-    pid
+    pid thread_id
     component
     seqnum
     (Lwt_log.string_of_level level)
@@ -126,9 +131,10 @@ let setup_log_sinks log_sinks =
                           let seqnum' = !seqnum in
                           let () = incr seqnum in
                           let ts = Core.Time.now () in
+                          let thread_id = 0 in
                           let logline =
                             format_message
-                              ~hostname ~pid ~component
+                              ~hostname ~pid ~thread_id ~component
                               ~ts ~seqnum:seqnum'
                               ~section ~level ~lines
                           in
