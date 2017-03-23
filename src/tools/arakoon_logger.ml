@@ -71,9 +71,8 @@ let format_message
       ~(ts:Core.Time.t) ~seqnum
       ~section ~level ~lines
   =
-  let thread_id = 0 in
   Printf.sprintf
-    "%s - %s - %i/%i - %s - %i - %s - %s"
+    "%s - %s - %i/%04i - %s - %i - %s - %s"
     (let open Unix in
 
      let (fts:float) = Core.Time.to_span_since_epoch ts
@@ -86,7 +85,7 @@ let format_message
        |> Core.Time.Span.to_parts
      in
      Printf.sprintf
-       "%04d-%02d-%02d %02d:%02d:%02d %d %c%02d%02d"
+       "%04d-%02d-%02d %02d:%02d:%02d %06d %c%02d%02d"
        (tm.tm_year + 1900)
        (tm.tm_mon + 1)
        tm.tm_mday
