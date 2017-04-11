@@ -74,25 +74,30 @@ module Update = struct
       | None -> "None"
       | Some s -> if values then s else "..."
     in
-    let rec _inner = function
+    let rec _sequence2s typ updates =
+      let buf = Buffer.create (64 * List.length updates) in
+      let add s = Buffer.add_string buf s in
+      let () = add typ in
+      let () = add "([" in
+      let rec loop = function
+        | [] -> add "])"
+        | u::us ->
+           let () = add (_inner u) in
+           let () = if (us <> []) then add "; "
+           in
+           loop us
+      in
+      let () = loop updates in
+      Buffer.contents buf
+    and
+      _inner = function
       | Set (k,v)                 -> Printf.sprintf "Set            ;%S;%i;%S" k (String.length v) (maybe v)
       | Delete k                  -> Printf.sprintf "Delete         ;%S" k
       | MasterSet (m,i)           -> Printf.sprintf "MasterSet      ;%S;%f" m i
       | TestAndSet (k, _, wo) ->
         let ws = _size_of wo in      Printf.sprintf "TestAndSet     ;%S;%i;%S" k ws (maybe_o wo)
       | Sequence updates ->
-        let buf = Buffer.create (64 * List.length updates) in
-        let () = Buffer.add_string buf "Sequence([" in
-        let rec loop = function
-          | [] -> Buffer.add_string buf "])"
-          | u::us ->
-            let () = Buffer.add_string buf (_inner u) in
-            let () = if (us <> []) then Buffer.add_string buf "; "
-            in
-            loop us
-        in
-        let () = loop updates in
-        Buffer.contents buf
+         _sequence2s "Sequence" updates
       | SetInterval range ->      Printf.sprintf "SetInterval     ;%s" (Interval.to_string range)
       | SetRouting routing ->     Printf.sprintf "SetRouting      ;%s" (Routing.to_s routing)
       | SetRoutingDelta (left,sep,right) -> Printf.sprintf "SetRoutingDelta %s < '%s' <= %s" left sep right
@@ -108,7 +113,8 @@ module Update = struct
         let ps = _size_of param in
         Printf.sprintf "UserFunction;%s;%i" name ps
       | AdminSet (key,vo)      -> Printf.sprintf "AdminSet        ;%S;%i;%S" key (_size_of vo) (maybe_o vo)
-      | SyncedSequence _us     -> Printf.sprintf "SyncedSequence  ;..."
+      | SyncedSequence updates     ->
+         _sequence2s "SyncedSequence" updates
       | DeletePrefix prefix    -> Printf.sprintf "DeletePrefix    ;%S" prefix
       | Replace(k,vo) ->
          Printf.sprintf "Replace            ;%S;%i" k (_size_of vo)
