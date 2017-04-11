@@ -30,6 +30,7 @@ type local_action =
   | StripTlog
   | ReplayTlogs
   | DumpStore
+  | InspectStore
   | MakeTlog
   | MarkTlog
   | CloseTlog
@@ -279,6 +280,9 @@ let main () =
     ("--dump-store", Arg.Tuple [ set_laction DumpStore;
                                  Arg.Set_string filename],
      "<filename> : dump a store");
+    ("--inspect-store", Arg.Tuple [ set_laction InspectStore;
+                                    Arg.Set_string filename],
+     "<filename> : inspect a (tokyo cabinet) store (also use -left and -max_results)");
     ("--compress-tlog", Arg.Tuple[set_laction CompressTlog;
                                   Arg.Set_string filename],
      "<filename> : compress a tlog file");
@@ -467,6 +471,7 @@ let main () =
     | CloseTlog -> Tlog_main.mark_tlog !filename (Tlog_map._make_close_marker !node_id)
     | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !tlf_dir !filename !end_i
     | DumpStore -> Dump_store.dump_store !filename
+    | InspectStore -> Dump_store.inspect_store !filename !left !max_results
     | VerifyStore -> Dump_store.verify_store !filename None
     | TruncateTlog -> Tlc2.truncate_tlog !filename
     | CompressTlog -> Tlog_main.compress_tlog !filename !archive_type
