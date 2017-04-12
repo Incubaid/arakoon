@@ -114,11 +114,11 @@ let with_tmp_file tmp dest f =
 
 let copy_file source target ~overwrite ~throttling =
   (* LOOKS LIKE Clone.copy_stream ... *)
-  let bs = Lwt_io.default_buffer_size () in
+  let bs = 1024 * 1024 in
   Logger.info_f_ "copy_file %s %s (overwrite=%b,throttling=%f) buffer_size:%i"
                  source target overwrite throttling bs >>= fun () ->
 
-  let buffer = String.make bs 'a' in
+  let buffer = Bytes.create bs in
   let throttle =
     match throttling with
     | 0.0   -> fun f  -> f ()
