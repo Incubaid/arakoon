@@ -139,7 +139,8 @@ let copy_file source target ~overwrite ~throttling =
          if bytes_read > 0
          then
            begin
-             Lwt_io.write oc buffer >>= fun () ->
+             Lwt_io.write_from_exactly oc buffer 0 bytes_read
+             >>= fun () ->
              Lwt.return `Continue
            end
          else
