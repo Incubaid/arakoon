@@ -79,10 +79,14 @@ def test_catchup_mixed_config():
                                          "test_catchup_mixed_config"])
 
     def setup(c_id,tlog_max_entries):
-            c_nodes = ["%s_0" % c_id]
+            node_0 = "%s_0" % c_id
+            c_nodes = [node_0]
             c_home = "/".join([Common.data_base_dir, c_id])
+            node_dir = "/".join([Common.data_base_dir, node_0])
+            X.removeDirTree(node_dir)
             c = Common.setup_n_nodes_base(c_id, c_nodes,False, c_home,
-                                          Common.node_msg_base_port, Common.node_client_base_port,
+                                          Common.node_msg_base_port,
+                                          Common.node_client_base_port,
                                           extra = {'tlog_max_entries':str(tlog_max_entries)}
             )
             return c
