@@ -175,10 +175,8 @@ let verify_store fn start_key =
             let _value = Bdb.value bdb cursor in
             begin
               if (i < 10 || i mod 20000 = 0)
-              then Lwt_io.eprintlf "%10i: %S\tok%!" i key
-              else Lwt.return_unit
-            end
-            >>= fun ()->
+              then Lwt_io.eprintlf "%10i: %S\tok%!" i key |> Lwt.ignore_result
+            end;
             let cont =
               try
                 Bdb.next bdb cursor;
@@ -187,11 +185,53 @@ let verify_store fn start_key =
             in
             if cont
             then loop (i+1)
-            else Lwt.return 0
+            else 0
           in
           loop 0
         )
+      |> Lwt.return
     in
     go ()
   in
   Lwt_extra.run t
+
+let inspect_store fn left max_results =
+  let t () =
+    let open Camltc in
+    let open Local_store in
+    make_store ~lcnum:1024 ~ncnum:512 true fn >>= fun ls ->
+    Bdb.with_cursor
+      (Hotc.get_bdb ls.db)
+      (fun bdb cursor ->
+        let () = match left with
+          | None -> Bdb.first bdb cursor
+          | Some left -> Bdb.jump bdb cursor left
+        in
+        let rec loop i =
+          if i < max_results
+          then
+            begin
+              let key = Bdb.key bdb cursor in
+              let value = Bdb.value bdb cursor in
+              Lwt_io.printlf "%i: key=%S value=%S" i key value |> Lwt.ignore_result;
+              let continue =
+                try Bdb.next bdb cursor; true
+                with Not_found -> false
+              in
+              if continue
+              then loop (i + 1)
+              else Lwt_io.printlf "Finished iterating over db" |> Lwt.ignore_result
+            end
+        in
+        loop 0
+      );
+    Lwt.return 0
+  in
+  Lwt_extra.run
+    (fun () ->
+      Lwt.catch
+        t
+        (fun exn ->
+          Lwt_io.printlf "Got exception during inspect store: %s" (Printexc.to_string exn) >>= fun () ->
+          Lwt.return 1
+    ))
