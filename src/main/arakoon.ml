@@ -163,10 +163,12 @@ let main () =
   Ssl_threads.init ();
   Ssl.init ~thread_safe:true ();
 
-  let () =Lwt.async_exception_hook :=
+  let () =
+    Lwt.async_exception_hook :=
     (fun exn -> Logger.ign_info_f_ ~exn "Caught async exception")
   in
   let _ = Bz2.version in
+  let () = Lwt_io.set_default_buffer_size 65536 in
   let () = Sys.set_signal Sys.sigpipe Sys.Signal_ignore in
   let () = Random.self_init () in
   let () = Client_log.enable_lwt_logging_for_client_lib_code () in

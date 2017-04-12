@@ -41,7 +41,7 @@ let copy_store2 old_location new_location
   if not src_exists
   then
     Logger.info_f_ "File at %s does not exist" old_location >>= fun () ->
-    raise Not_found
+    Lwt.fail Not_found
   else
     File_system.copy_file old_location new_location ~overwrite ~throttling
 

@@ -14,8 +14,10 @@ case "${1-bash}" in
         ;;
     unit)
         make build
-        ./arakoon.native --run-all-tests-xml testresults.xml || true
+        ./arakoon.native --run-all-tests-xml testresults.xml
+        x=$?
         cat testresults.xml
+        exit ${x}
         ;;
     kwik)
         ./jenkins/kwik.sh
