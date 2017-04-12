@@ -392,7 +392,6 @@ let _main_2 (type s)
       ~lock
     : int Lwt.t
   =
-  Lwt_io.set_default_buffer_size 32768;
   make_config () >>= fun cluster_cfg ->
   let cfgs = cluster_cfg.cfgs in
   let me, others = Node_cfg.Node_cfg.split name cfgs in
