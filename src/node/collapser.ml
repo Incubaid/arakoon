@@ -212,7 +212,11 @@ let collapse_many
   get_head_i () >>= fun head_i ->
   let todo = tlog_coll # tlogs_to_collapse ~head_i ~last_i ~tlogs_to_keep in
   match todo with
-  | None -> Logger.info_f_ "Nothing to collapse..." >>= fun () -> cb' 0
+  | None ->
+     Logger.info_f_ "Nothing to collapse..." >>= fun () ->
+     get_head_i () >>= fun head_i ->
+     tlog_coll # remove_below head_i >>= fun () ->
+     cb' 0
   | Some (n, too_far_i) ->
     begin
       Logger.info_f_ "Going to collapse %d tlogs" n >>= fun () ->
