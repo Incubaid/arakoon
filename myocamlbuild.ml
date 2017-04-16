@@ -121,7 +121,6 @@ let _ = dispatch & function
             A"-ccopt"; A"-Wall";
             A"-ccopt"; A"-Wextra";
             A"-ccopt"; A"-Werror";
-            A"-ccopt"; A"-pedantic";
             A"-ccopt"; A"-ggdb3";
             A"-ccopt"; A"-O2";
             (* Optionally add something like -march=core2 -mtune=corei7-avx for

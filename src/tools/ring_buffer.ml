@@ -43,7 +43,7 @@ end = struct
 
     @param size Size of the ring-buffer *)
     let create ~size =
-        let buffer = Array.create size E.zero in
+        let buffer = Array.make size E.zero in
         { buffer; pos = 0; }
 
     (** Insert an element in the ring-buffer *)
