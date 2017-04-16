@@ -35,7 +35,7 @@ import types
 FILTER = ''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
 ARA_CFG_TRY_CNT = 1
-ARA_CFG_CONN_TIMEOUT = 60
+ARA_CFG_CONN_TIMEOUT = 10
 ARA_CFG_CONN_BACKOFF = 5
 ARA_CFG_NO_MASTER_RETRY = 60
 
