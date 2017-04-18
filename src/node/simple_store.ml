@@ -45,6 +45,7 @@ let __j_key = "*j"
 let __interval_key = "*interval"
 let __routing_key = "*routing"
 let __master_key  = "*master"
+let __cluster_id_key = "*cluster_id"
 (* let __lease_key = "*lease" *)
 (* let __lease_key2 = "*lease2" *)
 let __prefix = "@"

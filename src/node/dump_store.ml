@@ -39,6 +39,8 @@ let _dump_routing store =  try_fetch "routing" (fun () -> S.get_routing store) R
 
 let _dump_interval store = try_fetch "interval" (fun () -> S.get_interval store) Interval.to_string
 
+let _dump_cluster_id store = try_fetch "cluster_id" (fun () -> S.get_cluster_id store) Log_extra.string_option2s
+
 let summary store =
   let consensus_i = S.consensus_i store
   and mdo = S.who_master store
@@ -52,7 +54,8 @@ let summary store =
   Lwt_io.printlf "master: %s" s
   >>= fun () ->
   _dump_routing store >>= fun () ->
-  _dump_interval store
+  _dump_interval store >>= fun () ->
+  _dump_cluster_id store
 
 let dump_store filename =
   let t () =

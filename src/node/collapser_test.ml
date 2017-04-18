@@ -23,6 +23,7 @@ open Tlog_map
 
 let section = Logger.Section.main
 let compressor = Compression.Snappy
+let cluster_id = Some "cluster_id"
 
 module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
@@ -62,6 +63,7 @@ let test_collapse_until (dn, tlx_dir, head_dir) =
                  ~tlog_max_entries:1000
                  dn tlx_dir head_dir
                  ~fsync:false node_id ~fsync_tlog_dir:false
+                 ~cluster_id:""
   >>= fun tlc ->
   _make_values tlc 0 1111 >>= fun () ->
   tlc # close () >>= fun () ->
@@ -73,14 +75,14 @@ let test_collapse_until (dn, tlx_dir, head_dir) =
   in
   let future_i = Sn.of_int 1001 in
   let cb = fun _s -> Lwt.return () in
-  Collapser.collapse_until tlc (module S) store_methods future_i cb None >>= fun () ->
+  Collapser.collapse_until tlc (module S) store_methods future_i cb None ~cluster_id >>= fun () ->
   (* some verification ? *)
 
   (* try to do it a second time, it should *)
   let future_i2 = Sn.of_int 1000 in
   _should_fail
     (fun () ->
-       Collapser.collapse_until tlc (module S) store_methods future_i2 cb None)
+       Collapser.collapse_until tlc (module S) store_methods future_i2 cb None ~cluster_id)
     "this should fail"
     "great, it indeed refuses to do this"
   >>= fun ()->
@@ -97,6 +99,7 @@ let test_collapse_many (dn, tlx_dir, head_dir) =
     Tlc2.make_tlc2 ~compressor ~tlog_max_entries:100
                  dn tlx_dir head_dir
                  ~fsync:false node_id ~fsync_tlog_dir:false
+                 ?cluster_id
   in
   make_tlc () >>= fun tlc ->
   _make_values tlc 0 632 >>= fun () ->
@@ -108,11 +111,11 @@ let test_collapse_many (dn, tlx_dir, head_dir) =
   let cb' = fun _ -> Lwt.return () in
   File_system.unlink storename >>= fun () ->
   let store_methods = (Batched_store.Local_store.copy_store2, storename, 0.0) in
-  Collapser.collapse_many tlc (module S) store_methods 6 cb' cb None >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 6 cb' cb None ?cluster_id >>= fun () ->
   Logger.debug_ "collapsed 000" >>= fun () ->
-  Collapser.collapse_many tlc (module S) store_methods 4 cb' cb None >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 4 cb' cb None ?cluster_id >>= fun () ->
   Logger.debug_ "collapsed 001 & 002" >>= fun () ->
-  Collapser.collapse_many tlc (module S) store_methods 1 cb' cb None >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 1 cb' cb None ?cluster_id >>= fun () ->
   Logger.debug_ "collapsed 003 & 004" >>= fun () -> (* ends @ 510 *)
   Lwt.return ()
 
@@ -124,6 +127,7 @@ let test_repeated_collapse (dn,tlx_dir, head_dir) =
   Tlc2.make_tlc2 ~compressor ~tlog_max_entries:100
                  dn tlx_dir head_dir
                  ~fsync:false node_id ~fsync_tlog_dir:false
+                 ?cluster_id
   >>= fun tlc ->
   let head_location= Filename.concat dn "head.db" in
   let count = ref 0 in
@@ -143,13 +147,13 @@ let test_repeated_collapse (dn,tlx_dir, head_dir) =
   let n_entries = 520 in
   _make_values tlc 0 n_entries >>= fun () ->
   let collapse_slowdown = None in
-  Collapser.collapse_many tlc (module S) store_methods 1 cb' cb collapse_slowdown >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 1 cb' cb collapse_slowdown ?cluster_id >>= fun () ->
   Logger.debug_f_"post collapse: count=%i" !count >>= fun () ->
   OUnit.assert_equal 0 !count ~printer:string_of_int ~msg:"count should be zero";
   Logger.debug_f_ "adding %i more entries" n_entries >>= fun () ->
   _make_values tlc n_entries (2 * n_entries) >>= fun () ->
   Lwt_unix.sleep 2.0 >>= fun () -> (* just to make debugging less messy *)
-  Collapser.collapse_many tlc (module S) store_methods 1 cb' cb collapse_slowdown >>= fun () ->
+  Collapser.collapse_many tlc (module S) store_methods 1 cb' cb collapse_slowdown ?cluster_id >>= fun () ->
   Logger.debug_f_"post collapse: count=%i" !count >>= fun () ->
   OUnit.assert_equal 0 !count ~printer:string_of_int ~msg:"count should be zero";
   tlc # close ~wait_for_compression:true () >>= fun () ->

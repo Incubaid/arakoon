@@ -108,7 +108,8 @@ struct
     ~(read_only:bool)
     ~max_value_size
     ~collapse_slowdown
-    ~act_not_preferred ->
+    ~act_not_preferred
+    ~cluster_id ->
     let my_name =  Node_cfg.node_name cfg in
     let locked_tlogs = Hashtbl.create 8 in
     let blockers_cond = Lwt_condition.create() in
@@ -581,7 +582,8 @@ struct
                Logger.info_ "Starting collapse" >>= fun () ->
                Collapser.collapse_many tlog_collection (module S)
                                        store_methods n cb' new_cb
-                                       collapse_slowdown >>= fun () ->
+                                       collapse_slowdown
+                                       ~cluster_id >>= fun () ->
                Logger.info_ "Collapse completed")
 
       method get_routing () =
@@ -685,7 +687,7 @@ struct
                       Lwt.return ()) >>= fun () ->
 
             (* remove all but tlogs_to_keep last tlogs *)
-            Collapser._head_i (module S) head_path >>= fun head_io ->
+            Collapser._head_i (module S) head_path ~cluster_id >>= fun head_io ->
 
             let head_i, head_n = match head_io with
               | None -> failwith "impossible i for copied head"

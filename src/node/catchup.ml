@@ -34,15 +34,18 @@ let _with_client_connection ~tls_ctx ~tcp_keepalive (ips,port) f =
     (fun _ -> f)
 
 
-let head_saved_epilogue hfn tlog_coll =
+let head_saved_epilogue ~cluster_id hfn tlog_coll =
   (* maybe some tlogs must be thrown away because
      they were already collapsed into
      the received head
   *)
   Logger.info_f_ "head_saved_epilogue %s" hfn >>= fun () ->
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
-  S.make_store ~lcnum:default_lcnum
-    ~ncnum:default_ncnum ~read_only:true hfn >>= fun store ->
+  S.make_store
+    ~lcnum:default_lcnum
+    ~ncnum:default_ncnum ~read_only:true
+    ~cluster_id
+    hfn >>= fun store ->
   let hio = S.consensus_i store in
   S.close store ~flush:false ~sync:false >>= fun () ->
   Logger.info_ "closed head" >>= fun () ->
@@ -78,7 +81,7 @@ let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_i
   in
   let head_saved_cb hfn =
     Logger.info_f_ "head_saved_cb %s" hfn >>= fun () ->
-    head_saved_epilogue hfn tlog_coll >>= fun () ->
+    head_saved_epilogue ~cluster_id hfn tlog_coll >>= fun () ->
     let when_closed () =
       Logger.debug_ "when_closed" >>= fun () ->
       let target_name = S.get_location store in
