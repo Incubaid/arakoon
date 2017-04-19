@@ -28,6 +28,8 @@ let section = Logger.Section.main
 
 module LS = (val (Store.make_store_module (module Mem_store)))
 
+let cluster_id = "cluster_id"
+
 let _make_log_cfg () =
   ("log_cfg",
    {
@@ -76,6 +78,7 @@ let _make_cfg name n lease_period =
   }
 
 let _make_tlog_coll
+      ?cluster_id
       ~tlcs ~values
       ~compressor ?(tlog_max_entries:int option) ?(tlog_max_size:int option)
       tlc_name tlf_dir head_dir
@@ -85,6 +88,7 @@ let _make_tlog_coll
   Mem_tlogcollection.make_mem_tlog_collection
     ?tlog_max_entries ?tlog_max_size
     tlc_name tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir
+    ?cluster_id
   >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return ()
@@ -107,8 +111,8 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
       include LS
       let make_store
             ~lcnum ~ncnum
-            ?(read_only=false) (db_name:string) =
-        LS.make_store ~lcnum ~ncnum ~read_only db_name >>= fun store ->
+            ?(read_only=false) ?cluster_id (db_name:string) =
+        LS.make_store ~lcnum ~ncnum ~read_only db_name ?cluster_id >>= fun store ->
         LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () ->
         Hashtbl.add stores db_name store;
         Lwt.return store

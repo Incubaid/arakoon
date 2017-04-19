@@ -115,12 +115,12 @@ let _init_file fsync_dir tlog_map =
 
 
 class tlc2
+        ?cluster_id
         ?(compressor=Compression.Snappy)
         (head_dir:string)
         (last:Entry.t option) (index:Index.index) (file:F.t option)
         (tlog_map: TlogMap.t)
         (node_id:string) ~(fsync:bool) ~(fsync_tlog_dir:bool)
-
   =
   let _previous_entry = ref (Some last) in
   let set_previous_entry e =
@@ -371,8 +371,11 @@ class tlc2
       >>= fun () ->
       Lwt_io.flush oc >>= fun () ->
       let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
-      S.make_store ~lcnum:Node_cfg.default_lcnum
-        ~ncnum:Node_cfg.default_ncnum head_name >>= fun store ->
+      S.make_store
+        ~lcnum:Node_cfg.default_lcnum
+        ~ncnum:Node_cfg.default_ncnum
+        ?cluster_id
+        head_name >>= fun store ->
       let io = S.consensus_i store in
       S.close ~flush:false ~sync:false store >>= fun () ->
       Logger.debug_f_ "head has consensus_i=%s" (Log_extra.option2s Sn.string_of io)
@@ -567,12 +570,12 @@ class tlc2
 
 
 
-let make_tlc2 ~compressor
+let make_tlc2 ?cluster_id
+              ~compressor
               ?tlog_max_entries ?tlog_max_size
               ?(check_marker=true)
               tlog_dir tlf_dir
               head_dir ~fsync node_id ~fsync_tlog_dir
-
   =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   TlogMap.make ?tlog_max_entries ?tlog_max_size
@@ -613,7 +616,9 @@ let make_tlc2 ~compressor
   end >>= fun file ->
   let col = new tlc2 head_dir last index
                 file tlog_map
-                ~compressor node_id ~fsync ~fsync_tlog_dir in
+                ~compressor node_id ~fsync ~fsync_tlog_dir
+                ?cluster_id
+  in
   Lwt.return col
 
 let _truncate_tlog filename =

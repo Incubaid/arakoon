@@ -71,10 +71,12 @@ class type tlog_collection =
   end
 
 type tlc_factory =
+  ?cluster_id:string ->
   compressor:Compression.compressor ->
   ?tlog_max_entries:int ->
   ?tlog_max_size:int ->
   string ->
   string ->
   string ->
-  fsync:bool -> string -> fsync_tlog_dir:bool -> tlog_collection Lwt.t
+  fsync:bool -> string -> fsync_tlog_dir:bool ->
+  tlog_collection Lwt.t

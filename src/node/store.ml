@@ -40,7 +40,7 @@ module type STORE =
 sig
   type ss
   type t
-  val make_store : lcnum:int -> ncnum:int -> ?read_only:bool -> string -> t Lwt.t
+  val make_store : lcnum:int -> ncnum:int -> ?read_only:bool -> ?cluster_id:string -> string -> t Lwt.t
   val consensus_i : t -> Sn.t option
   val flush : t -> unit Lwt.t
   val close : ?flush : bool -> ?sync:bool -> t -> unit Lwt.t
@@ -89,6 +89,7 @@ sig
 
   val get_fringe :  t -> string option -> Routing.range_direction -> (Key.t * string) counted_list
 
+  val get_cluster_id : t -> string option
   val get_interval : t -> Interval.t
   val get_routing : t -> Routing.t
 
@@ -113,7 +114,7 @@ struct
              mutable quiesced : Quiesce.Mode.t;
              mutable closed : bool;
              mutable _tx_lock : transaction_lock option;
-             _tx_lock_mutex : Lwt_mutex.t
+             _tx_lock_mutex : Lwt_mutex.t;
            }
 
   let _get_interval store =
@@ -152,11 +153,38 @@ struct
     store.interval <- _get_interval store.s;
     store.routing <- _get_routing store.s
 
+  let _get_cluster_id simple_store =
+    try Some (S.get simple_store __cluster_id_key)
+    with Not_found -> None
+
+  let get_cluster_id store =
+    _get_cluster_id store.s
+
   let make_store
       ~lcnum
       ~ncnum
-      ?(read_only=false) db_name =
+      ?(read_only=false)
+      ?cluster_id
+      db_name =
     S.make_store ~lcnum ~ncnum read_only db_name >>= fun simple_store ->
+
+    begin
+      match cluster_id with
+      | None -> Lwt.return_unit
+      | Some cluster_id ->
+         try
+           let cluster_id' = S.get simple_store __cluster_id_key in
+           if cluster_id' <> cluster_id
+           then failwith (Printf.sprintf "Cluster_id mismatch: expected %s, but got %s instead" cluster_id cluster_id');
+           Lwt.return_unit
+         with Not_found ->
+           S.with_transaction
+             simple_store
+             (fun tx ->
+               S.set simple_store tx __cluster_id_key cluster_id;
+               Lwt.return_unit)
+    end >>= fun () ->
+
     let store =
       { s = simple_store;
         store_i = None;

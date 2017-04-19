@@ -47,7 +47,7 @@ let collapse_local make_config node_id n_tlogs =
       (fun() ->
         let open Lwt.Infix in
         make_config () >>= fun cfg ->
-        Collapser.collapse_out_of_band cfg node_id n_tlogs >>= fun () ->
+        Collapser.collapse_out_of_band cfg node_id n_tlogs ~cluster_id:cfg.Node_cfg.Node_cfg.cluster_id >>= fun () ->
         Lwt.return 0
 
       )

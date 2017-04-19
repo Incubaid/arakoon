@@ -32,7 +32,9 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
     )
     (too_far_i:Sn.t)
     (cb: int -> unit Lwt.t)
-    (slowdown : float option)=
+    (slowdown : float option)
+    ~cluster_id
+  =
 
   let new_location = head_location ^ ".clone" in
   Logger.info_f_ "Creating db clone at %s (throttling:%f)"
@@ -51,8 +53,10 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
   )
   >>= fun () ->
   Logger.debug_f_ "Creating store at %s" new_location >>= fun () ->
-  S.make_store ~lcnum:Node_cfg.default_lcnum
+  S.make_store
+    ~lcnum:Node_cfg.default_lcnum
     ~ncnum:Node_cfg.default_ncnum
+    ?cluster_id
     new_location >>= fun new_store ->
   Lwt.finalize (
     fun () ->
@@ -176,13 +180,14 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
       (fun exn -> Logger.warning_f_ ~exn "ignoring failure in cleanup")
     )
 
-let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
+let _head_i (type s) (module S : Store.STORE with type t = s) ?cluster_id head_location =
   Lwt.catch
     (fun () ->
        let read_only=true in
        S.make_store
          ~lcnum:Node_cfg.default_lcnum
          ~ncnum:Node_cfg.default_ncnum
+         ?cluster_id
          ~read_only head_location >>= fun head ->
        let head_io = S.consensus_i head in
        S.close head ~sync:false ~flush:false >>= fun () ->
@@ -194,6 +199,7 @@ let _head_i (type s) (module S : Store.STORE with type t = s) head_location =
     )
 
 let collapse_many
+      ?cluster_id
       (type s) tlog_coll
       (module S : Store.STORE with type t = s)
       (store_fs: 'b * string * float)
@@ -203,7 +209,7 @@ let collapse_many
   let (_,(head_location:string), _) = store_fs in
   tlog_coll # get_last_i () >>= fun last_i ->
   let get_head_i () =
-    _head_i (module S) head_location >>= fun head_io ->
+    _head_i (module S) head_location ?cluster_id >>= fun head_io ->
     Logger.debug_f_ "head @ %s : last_i %s " (Log_extra.option2s Sn.string_of head_io) (Sn.string_of last_i)
     >>= fun () ->
     let head_i = match head_io with None -> Sn.start | Some i -> i in
@@ -222,13 +228,13 @@ let collapse_many
       Logger.info_f_ "Going to collapse %d tlogs" n >>= fun () ->
       cb' (n + 2) >>= fun () ->
       Logger.debug_f_ "too_far_i = %s" (Sn.string_of too_far_i) >>= fun () ->
-      collapse_until tlog_coll (module S) store_fs too_far_i cb slowdown >>= fun () ->
+      collapse_until tlog_coll (module S) store_fs too_far_i cb slowdown ~cluster_id >>= fun () ->
       get_head_i () >>= fun head_i ->
       tlog_coll # remove_below head_i >>= fun () ->
       cb n
     end
 
-let collapse_out_of_band cfg name tlogs_to_keep =
+let collapse_out_of_band ?cluster_id cfg name tlogs_to_keep =
   let open Lwt.Infix in
   let open Node_cfg.Node_cfg in
 
@@ -242,6 +248,7 @@ let collapse_out_of_band cfg name tlogs_to_keep =
                  me.tlog_dir me.tlx_dir me.head_dir
                  ~fsync:true name ~fsync_tlog_dir:true
                  ~check_marker:false
+                 ?cluster_id
   >>= fun tlog_coll ->
 
   collapse_many
@@ -254,5 +261,6 @@ let collapse_out_of_band cfg name tlogs_to_keep =
     (fun sn -> Lwt_log.debug_f "sn' = %i" sn)
     (fun n -> Lwt_log.debug_f "n = %i" n)
     me.collapse_slowdown
+    ?cluster_id
   >>= fun () ->
   Lwt.return ()

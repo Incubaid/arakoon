@@ -208,13 +208,16 @@ let only_catchup
 
   S.make_store ~lcnum:cluster_cfg.lcnum
                ~ncnum:cluster_cfg.ncnum
-               db_name >>= fun store ->
+               db_name
+               ~cluster_id
+  >>= fun store ->
   let compressor = me.compressor in
   make_tlog_coll ~compressor
                  ~tlog_max_entries:cluster_cfg.tlog_max_entries
                  ~tlog_max_size:cluster_cfg.tlog_max_size
                  me.tlog_dir me.tlx_dir me.head_dir
                  ~fsync:false name ~fsync_tlog_dir:false
+                 ~cluster_id
   >>= fun tlc ->
   let try_catchup mr_name =
     Lwt.catch
@@ -566,11 +569,12 @@ let _main_2 (type s)
                          ~tlog_max_size:cluster_cfg.tlog_max_size
                          me.tlog_dir me.tlx_dir me.head_dir
                          ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir
+                         ~cluster_id
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           let lcnum = cluster_cfg.lcnum
           and ncnum = cluster_cfg.ncnum
           in
-          S.make_store ~lcnum ~ncnum db_name >>= fun (store:S.t) ->
+          S.make_store ~lcnum ~ncnum db_name ~cluster_id >>= fun (store:S.t) ->
           Lwt.return (tlog_coll, store)
         in
         Lwt.catch
@@ -692,6 +696,7 @@ let _main_2 (type s)
               ~max_value_size:cluster_cfg.max_value_size
               ~collapse_slowdown:me.collapse_slowdown
               ~act_not_preferred
+              ~cluster_id
           in
           let backend = (sb :> Backend.backend) in
 
@@ -1056,9 +1061,9 @@ let main_t (make_config: unit -> 'a Lwt.t)
 
 let test_t make_config name ~stop =
   let module S = (val (Store.make_store_module (module Mem_store))) in
-  let make_tlog_coll ~compressor =
+  let make_tlog_coll ?cluster_id ~compressor =
     ignore compressor;
-    Mem_tlogcollection.make_mem_tlog_collection
+    Mem_tlogcollection.make_mem_tlog_collection ?cluster_id
   in
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false

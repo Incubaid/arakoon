@@ -27,6 +27,7 @@ module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
 let _dir_name = "/tmp/catchup_test"
 let _tlx_dir = "/tmp/catchup_test/tlx"
+let cluster_id = "cluster_id"
 
 let _fill tlog_coll n =
   let sync = false in
@@ -110,11 +111,13 @@ let test_common () =
   Logger.info_ "test_common" >>= fun () ->
   Tlc2.make_tlc2 ~compressor:Compression.Snappy
                  _dir_name _tlx_dir _tlx_dir
-                 ~fsync:false "node_name" ~fsync_tlog_dir:true >>= fun tlog_coll ->
+                 ~fsync:false "node_name" ~fsync_tlog_dir:true
+                 ~cluster_id:""
+  >>= fun tlog_coll ->
   _fill tlog_coll 1000 >>= fun () ->
   let me = "" in
   let db_name = _dir_name ^ "/my_store1.db" in
-  S.make_store ~lcnum:1024 ~ncnum:512 db_name >>= fun store ->
+  S.make_store ~lcnum:1024 ~ncnum:512 db_name ~cluster_id >>= fun store ->
   Catchup.catchup_store ~stop:(ref false) me ((module S),store,tlog_coll) 500L >>= fun() ->
   Logger.info_ "TODO: validate store after this" >>= fun ()->
   S.close store >>= fun () ->
@@ -141,10 +144,11 @@ let _tic filler_function n name verify_store =
   Tlc2.make_tlc2 ~compressor:Compression.Snappy
                  ~tlog_max_entries:101
                  _dir_name _tlx_dir _tlx_dir
+                 ~cluster_id
                  ~fsync:false node_id ~fsync_tlog_dir:true >>= fun tlog_coll ->
   filler_function tlog_coll n >>= fun () ->
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
-  S.make_store ~lcnum:1024 ~ncnum:512 db_name >>= fun store ->
+  S.make_store ~lcnum:1024 ~ncnum:512 db_name ~cluster_id >>= fun store ->
   let me = "??me??" in
   Catchup.verify_n_catchup_store ~stop:(ref false) me ((module S), store, tlog_coll)
   >>= fun () ->

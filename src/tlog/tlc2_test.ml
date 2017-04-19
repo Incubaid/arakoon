@@ -25,6 +25,7 @@ open Tlogcollection_test
 
 let section = Logger.Section.main
 let node_id = "node_id"
+let cluster_id = "cluster_id"
 
 let create_test_tlc ?tlog_max_entries ?tlog_max_size dn =
   let tlx_dir = (dn ^ "_tlx") in
@@ -34,6 +35,7 @@ let create_test_tlc ?tlog_max_entries ?tlog_max_size dn =
     ?tlog_max_entries ?tlog_max_size tlx_dir tlx_dir
     ~compressor ~fsync:false ~fsync_tlog_dir:false
     ~check_marker:true
+    ~cluster_id
 
 let wrap_tlc = Tlogcollection_test.wrap create_test_tlc
 

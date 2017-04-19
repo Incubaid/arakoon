@@ -107,6 +107,7 @@ class mem_tlog_collection _name =
   end
 
 let make_mem_tlog_collection
+      ?cluster_id
       ?tlog_max_entries ?tlog_max_size _tlog_dir _tlf_dir _head_dir ~fsync name ~fsync_tlog_dir =
   let () = ignore fsync in
   let () = ignore fsync_tlog_dir in
