@@ -42,8 +42,8 @@ let find_master cluster_cfg =
       Client_main.find_master cluster_cfg >>= fun m ->
       Lwt.return (Some m))
     (function
-    | Failure "too many nodes down"
-    | Failure "No Master" ->
+    | Failure x when (x = "too many nodes down" || x = "No Master")
+      ->
       Lwt.return None
     | exn ->
       Lwt.fail exn)

@@ -301,7 +301,7 @@ let ahead_master_loses_role () =
     }
   in
   let get_cfgs () = cluster_cfg |> Lwt.return in
-  
+
   let v0 = Value.create_master_value ~lease_start:0. node0 in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let v2 = Value.create_client_value [Update.Set("invalidkey", "shouldnotbepresent")] false in
@@ -442,7 +442,7 @@ let interrupted_election () =
        then Lwt.return true
        else Lwt.return false)
       (function
-        | Failure "No Master" ->
+        | Failure x when x = "No Master" ->
            Lwt.return false
         | exn -> Lwt.fail exn) >>= fun continue ->
     if continue

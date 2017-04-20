@@ -667,6 +667,8 @@ struct
         Logger.info_ "get_db: All done"
 
       method copy_db_to_head tlogs_to_keep =
+        Logger.info_f_ "copy_db_to_head tlogs_to_keep:%i" tlogs_to_keep
+        >>= fun () ->
         if tlogs_to_keep < 1 then
           let rc = Arakoon_exc.E_UNKNOWN_FAILURE
           and msg = Printf.sprintf "tlogs_to_keep=%i is not acceptable" tlogs_to_keep
@@ -694,7 +696,7 @@ struct
               | Some i -> i, tlog_collection # get_tlog_from_i i
             in
             let keep_bottom_n = head_n -  tlogs_to_keep + 1 in
-            if keep_bottom_n > 0 
+            if keep_bottom_n > 0
             then
               begin
                 self # wait_for_tlog_release keep_bottom_n >>= fun () ->
