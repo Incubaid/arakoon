@@ -481,8 +481,11 @@ let defrag_db (ic,oc) =
   request oc outgoing >>= fun () ->
   response ic nothing
 
-let copy_db_to_head (ic, oc) =
-  let outgoing buf = command_to buf COPY_DB_TO_HEAD in
+let copy_db_to_head (ic, oc) tlogs_to_keep =
+  let outgoing buf =
+    command_to buf COPY_DB_TO_HEAD;
+    Llio.int_to buf tlogs_to_keep
+  in
   request oc outgoing >>= fun () ->
   response ic nothing
 

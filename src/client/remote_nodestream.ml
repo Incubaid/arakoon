@@ -37,7 +37,7 @@ class type nodestream = object
 
   method optimize_db: unit -> unit Lwt.t
   method defrag_db: unit -> unit Lwt.t
-  method copy_db_to_head : unit -> unit Lwt.t
+  method copy_db_to_head : int -> unit Lwt.t
   method get_db: string -> unit Lwt.t
 
   method get_fringe: string option -> Routing.range_direction -> ((string * string) list) Lwt.t
@@ -166,7 +166,8 @@ class remote_nodestream ((ic,oc) as conn) =
 
   method defrag_db () = Protocol_common.defrag_db conn
 
-  method copy_db_to_head () = Protocol_common.copy_db_to_head conn
+  method copy_db_to_head tlogs_to_keep =
+    Protocol_common.copy_db_to_head conn tlogs_to_keep
 
   method get_db db_location =
 

@@ -408,8 +408,9 @@ let main () =
                               Arg.Set_string cluster_id;
                               Arg.Set_string ip;
                               Arg.Set_int port;
+                              Arg.Set_int n_tlogs;
                              ],
-     "<cluster_id> <ip> <port> requests the node to copy its database to the head location");
+     "<cluster_id> <ip> <port> <tlogs_to_keep> requests the node to copy its database to the head location, after which it will remove old tlogs");
     ("--n-values", set_laction NumberOfValues,
      "returns the number of values in the store");
     ("--ping", Arg.Tuple[set_laction PING;
@@ -513,6 +514,7 @@ let main () =
     | Copy_db_to_head -> Nodestream_main.copy_db_to_head
                            ~tls ~tcp_keepalive
                            !ip !port !cluster_id
+                           ~tlogs_to_keep:!n_tlogs
     | NumberOfValues -> Client_main.get_key_count ~tls !config_url ()
     | InitNursery -> Nursery_main.init_nursery !config_url !cluster_id
     | MigrateNurseryRange -> Nursery_main.migrate_nursery_range
