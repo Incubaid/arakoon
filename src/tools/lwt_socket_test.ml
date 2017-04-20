@@ -22,8 +22,9 @@ open OUnit
 let test_leak () =
   let listening_socket = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
   let () = Lwt_unix.setsockopt listening_socket Unix.SO_REUSEADDR true in
-  let () = Lwt_unix.bind listening_socket (Unix.ADDR_INET (Unix.inet_addr_any,
-                                                           6688)) in
+  Lwt_unix.bind listening_socket (Unix.ADDR_INET (Unix.inet_addr_any,
+                                                  6688))
+  >>= fun () ->
   let () = Lwt_unix.listen listening_socket 10 in
   Lwt.join
     [

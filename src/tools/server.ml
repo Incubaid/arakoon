@@ -155,22 +155,27 @@ let make_server_thread
       host port protocol =
 
   let socket_address = Network.make_address host port in
+  let maybe_take,release = scheme in
+  let connection_counter = make_counter () in
+  let client_threads = Hashtbl.create 10 in
+  let _condition = Lwt_condition.create () in
+  let bind () =
+      let listening_socket = new_socket socket_address in
+      Lwt_unix.setsockopt listening_socket Unix.SO_REUSEADDR true;
+      Lwt_unix.bind listening_socket socket_address >>= fun () ->
+      Lwt_unix.listen listening_socket 1024;
+      let () =
+        match ssl_context with
+        | None -> ()
+        | Some _ctx ->
+           let _ = Typed_ssl.embed_socket
+                     (Lwt_unix.unix_file_descr listening_socket)
+           in
+           ()
+      in
+      Lwt.return listening_socket
+  in
   begin
-    let listening_socket = new_socket socket_address in
-    Lwt_unix.setsockopt listening_socket Unix.SO_REUSEADDR true;
-    Lwt_unix.bind listening_socket socket_address;
-    Lwt_unix.listen listening_socket 1024;
-    let () = match ssl_context with
-      | None -> ()
-      | Some _ctx ->
-          let _ = Typed_ssl.embed_socket (Lwt_unix.unix_file_descr listening_socket) in
-          ()
-    in
-    let maybe_take,release = scheme in
-    let connection_counter = make_counter () in
-    let client_threads = Hashtbl.create 10 in
-    let _condition = Lwt_condition.create () in
-
     let possible_denial cid plain_fd cl_socket_address =
       make_socket plain_fd ssl_context >>= fun sock ->
       match !stop, maybe_take () with
@@ -205,7 +210,7 @@ let make_server_thread
            Lwt.return (Some t)
          end
     in
-    let rec server_loop () =
+    let rec server_loop listening_socket =
       let serve () =
         Lwt.catch
           (fun () ->
@@ -257,13 +262,15 @@ let make_server_thread
            )
       in
       serve () >>= fun () ->
-      server_loop ()
+      server_loop listening_socket
     in
     let r  = fun () ->
+      bind () >>= fun listening_socket ->
+
       Lwt.finalize
         (fun ()  ->
            setup_callback () >>= fun () ->
-           server_loop ())
+           server_loop listening_socket)
         (fun () ->
            Lwt.catch
              (fun () ->

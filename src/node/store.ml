@@ -655,7 +655,7 @@ struct
         let valid =
           try
             k.[0] = __prefix.[0]
-          with Invalid_argument "index out of bounds" ->
+          with Invalid_argument x when x = "index out of bounds" ->
             false in
         if valid
         then
