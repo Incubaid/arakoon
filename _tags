@@ -4,7 +4,7 @@ true: thread
 true: package(lwt)
 true: package(lwt.preemptive)
 true: package(lwt.unix)
-true: package(lwt.ssl)
+true: package(lwt_ssl)
 true: package(oUnit)
 true: package(bz2)
 true: package(str)
