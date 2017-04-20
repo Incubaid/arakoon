@@ -44,7 +44,7 @@ RUN opam init --root=${opam_root} --comp ${ocaml_version}
 
 RUN git clone git://github.com/janestreet/opam-repository.git /janestreet-opam-repo && \
     cd /janestreet-opam-repo && \
-    git checkout 49a87b492c6d5e8a2c76bb8ac1956aac484c2f40
+    git checkout 18e10bbe6fd876523fe38216ae827f26bf46e677
 RUN eval `${opam_env}` && \
     opam repo --root=${opam_root} -k local add janestreet /janestreet-opam-repo
 
@@ -63,7 +63,7 @@ RUN eval `${opam_env}` && \
         ocplib-endian.1.0 \
         quickcheck.1.0.2 \
         conf-libev \
-        core.114.35+03 \
+        core.v0.9.114.41+37 \
         redis.0.3.3 \
         uri.1.9.2
 
