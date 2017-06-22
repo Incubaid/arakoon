@@ -560,9 +560,17 @@ module TlogMap = struct
     loop canonicals
 
   let  _find_start i items =
+    let i' =
+      let rec _start_of_tlog = function
+        | [] -> Sn.zero
+        | item :: _ when item.i <= i-> item.i
+        | _ :: items -> _start_of_tlog items
+      in
+      _start_of_tlog items
+    in
     let rec aux to_remove_rev = function
       | [] -> ([],[])
-      | item :: rest when item.i >= i ->
+      | item :: rest when item.i >= i' ->
          (List.rev to_remove_rev), (item :: rest)
       | x :: rest -> aux (x::to_remove_rev) rest
     in
