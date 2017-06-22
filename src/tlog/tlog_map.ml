@@ -559,18 +559,22 @@ module TlogMap = struct
     in
     loop canonicals
 
+  let  _find_start i items =
+    let rec aux to_remove_rev = function
+      | [] -> ([],[])
+      | item :: rest when item.i >= i ->
+         (List.rev to_remove_rev), (item :: rest)
+      | x :: rest -> aux (x::to_remove_rev) rest
+    in
+    aux [] (List.rev items)
+
   let remove_below t i =
     Lwt_mutex.with_lock
       t.lock
       (fun () ->
         Logger.debug_f_ "remove_below %s tlog_map:%s" (Sn.string_of i) (show_map t)
         >>= fun () ->
-        let rec find_start to_remove_rev = function
-          | [] -> ([],[])
-          | item :: rest when item.i >= i -> (List.rev to_remove_rev), (item :: rest)
-          | x :: rest -> find_start (x::to_remove_rev) rest
-        in
-        let to_remove,to_keep_rev = find_start [] (List.rev t.i_to_tlog_number) in
+        let to_remove,to_keep_rev = _find_start i t.i_to_tlog_number in
         t.i_to_tlog_number <- List.rev to_keep_rev;
 
         let remove item  =
