@@ -194,7 +194,11 @@ let _head_i (type s) (module S : Store.STORE with type t = s) ?cluster_id head_l
        Lwt.return head_io
     )
     (fun exn ->
-       Logger.info_f_ ~exn "returning assuming no I %S" head_location >>= fun () ->
+      Logger.info_f_
+        "returning assuming no I %S: %S"
+        head_location
+        (Printexc.to_string exn)
+      >>= fun () ->
        Lwt.return None
     )
 

@@ -165,7 +165,9 @@ let main () =
 
   let () =
     Lwt.async_exception_hook :=
-    (fun exn -> Logger.ign_info_f_ ~exn "Caught async exception")
+      (fun exn -> Logger.ign_info_f_
+                    "Caught async exception: %S"
+                    (Printexc.to_string exn))
   in
   let _ = Bz2.version in
   let () = Lwt_io.set_default_buffer_size 65536 in

@@ -56,6 +56,7 @@ let _config_log_levels me cluster_cfg cfg =
   let () = set_level Multi_paxos.section log_config.paxos in
   let () = set_level Tcp_messaging.section log_config.tcp_messaging in
   let () = set_level Tlog_map.section log_config.tlog_map in
+  let () = set_level Server.section log_config.server in
   Lwt.return ()
 
 let _config_logging me get_cfgs =
@@ -229,7 +230,11 @@ let only_catchup
        tlc # close () >>= fun () ->
        Lwt.return true)
       (fun exn ->
-       Logger.warning_f_ ~exn "Catchup from %s failed" mr_name >>= fun () ->
+        Logger.warning_f_
+          "Catchup from %s failed: %S"
+          mr_name
+          (Printexc.to_string exn)
+        >>= fun () ->
        Lwt.return false)
   in
   let rec try_nodes = function

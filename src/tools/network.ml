@@ -72,7 +72,9 @@ let __open_connection ?(ssl_context : [> `Client ] Typed_ssl.t option)
              Lwt.return (socket, ic, oc)
        )
     (fun exn ->
-       Logger.info_f_ ~exn "__open_connection to %s failed" (a2s socket_address)
+      Logger.info_f_ "__open_connection to %s failed: %S"
+                     (a2s socket_address)
+                     (Printexc.to_string exn)
        >>= fun () ->
        Lwt_unix.close socket >>= fun () ->
        Lwt.fail exn)

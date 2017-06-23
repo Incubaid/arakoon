@@ -396,7 +396,10 @@ class tcp_messaging
         Lwt.catch
           (fun () -> loop (Bytes.create 1024))
           (fun exn ->
-             Logger.info_f_ ~exn "going to drop outgoing connection as well" >>= fun () ->
+            Logger.info_f_
+              "going to drop outgoing connection as well: %S"
+              (Printexc.to_string exn)
+            >>= fun () ->
              self # _drop_connection address >>= fun () ->
              Lwt.fail exn)
       in
