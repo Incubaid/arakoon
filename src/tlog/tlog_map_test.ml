@@ -1,7 +1,8 @@
 open Tlog_map.TlogMap
 
+let make_item (i,n,is_archive) = {i;n;is_archive}
+
 let test_tlogs_to_collapse () =
-  let make_item (i,n,is_archive) = {i;n;is_archive} in
   let tlog_map = {
       i_to_tlog_number = List.map
                            make_item [
@@ -40,9 +41,50 @@ let test_tlogs_to_collapse () =
   let expected = Some (12,12_002L) in
   OUnit.assert_equal expected r ~printer
 
+let test_find_start () =
+  let i_to_tlog_number =
+    List.map
+      make_item [
+        (12000L,12,false);
+        (11000L,11,false);
+        (10000L,10,false);
+        ( 9000L, 9,false);
+        ( 8000L, 8,false);
+        ( 7000L, 7,false);
+        ( 6000L, 6,false);
+        ( 5000L, 5,false);
+        ( 4000L, 4,false);
+        ( 3000L, 3,false);
+        ( 2000L, 2,false);
+        ( 1000L, 1,false);
+        (    0L, 0,false);
+      ]
+  in
+  let printer items =
+    let itemss = List.map (fun item -> Printf.sprintf "{i:%Li;...}" item.i) items
+    in Printf.sprintf "[%s]" (String.concat "; " itemss)
+  in
+  let to_remove, to_keep =
+    _find_start 12000L i_to_tlog_number
+  in
+  let expected = List.tl i_to_tlog_number |> List.rev in
+  OUnit.assert_equal expected to_remove ~printer ~msg:"test1";
+  let to_remove2, to_keep2 =
+    _find_start 11002L i_to_tlog_number
+  in
+  let expected2 = i_to_tlog_number |> List.tl |> List.tl |> List.rev in
+  OUnit.assert_equal expected2 to_remove2 ~printer ~msg:"test2";
+
+  let to_remove3, to_keep3 =
+    _find_start 12002L i_to_tlog_number
+  in
+  OUnit.assert_equal expected to_remove3 ~printer ~msg:"test3";
+  ()
+
 open OUnit
 
 let suite =
   "tlog_map">:::[
       "tlogs_to_collapse">:: test_tlogs_to_collapse;
+      "find_start" >:: test_find_start;
     ]
