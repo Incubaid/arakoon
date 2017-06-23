@@ -238,3 +238,30 @@ let inspect_store fn left max_results =
           Lwt_io.printlf "Got exception during inspect store: %s" (Printexc.to_string exn) >>= fun () ->
           Lwt.return 1
     ))
+
+let set_store_i fn new_i =
+  let t () =
+    Local_store.make_store ~lcnum:1024 ~ncnum:512 false fn >>= fun store ->
+    let current_i =
+      try
+        let s = Local_store.get store Simple_store.__i_key in
+        Some (Sn.sn_from (Llio.make_buffer s 0))
+      with Not_found ->
+        None
+    in
+    Lwt_io.printlf
+      "Current store i:%s, replacing with %i"
+      (Log_extra.option2s Int64.to_string current_i)
+      new_i >>= fun () ->
+
+    let buf = Buffer.create 8 in
+    Sn.sn_to buf (Int64.of_int new_i);
+    Local_store.with_transaction
+      store
+      (fun tx ->
+        Local_store.set store tx Simple_store.__i_key (Buffer.contents buf);
+        Lwt.return ()) >>= fun () ->
+
+    Lwt.return 0
+  in
+  Lwt_extra.run t
