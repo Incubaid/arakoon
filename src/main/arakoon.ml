@@ -31,6 +31,7 @@ type local_action =
   | ReplayTlogs
   | DumpStore
   | InspectStore
+  | FiddleStoreI
   | MakeTlog
   | MarkTlog
   | CloseTlog
@@ -223,6 +224,7 @@ let main () =
   and rinc = ref false
   and scenario = ref (String.concat ", " Benchmark.default_scenario)
   and autofix = ref false
+  and i = ref 0
   in
   let set_action a = Arg.Unit (fun () -> action := a) in
   let set_laction a = set_action (LocalAction a) in
@@ -285,6 +287,10 @@ let main () =
     ("--inspect-store", Arg.Tuple [ set_laction InspectStore;
                                     Arg.Set_string filename],
      "<filename> : inspect a (tokyo cabinet) store (also use -left and -max_results)");
+    ("--dev-fiddle-store-i", Arg.Tuple [ set_laction FiddleStoreI;
+                                     Arg.Set_string filename;
+                                     Arg.Set_int i; ],
+     "<filename> <i> : fiddle with the i value stored in a (tokyo cabinet) store. Be careful, this is dangerous!");
     ("--compress-tlog", Arg.Tuple[set_laction CompressTlog;
                                   Arg.Set_string filename],
      "<filename> : compress a tlog file");
@@ -475,6 +481,7 @@ let main () =
     | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !tlf_dir !filename !end_i
     | DumpStore -> Dump_store.dump_store !filename
     | InspectStore -> Dump_store.inspect_store !filename !left !max_results
+    | FiddleStoreI -> Dump_store.set_store_i !filename !i
     | VerifyStore -> Dump_store.verify_store !filename None
     | TruncateTlog -> Tlc2.truncate_tlog !filename
     | CompressTlog -> Tlog_main.compress_tlog !filename !archive_type
