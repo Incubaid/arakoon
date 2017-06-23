@@ -116,7 +116,8 @@ let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_i
       | None ->
          Logger.warning_f_ "catchup tlog from unknown node:%S is config up to date?" mr_name
     )
-    (fun exn -> Logger.warning_ ~exn "catchup_tlog failed")
+    (fun exn -> Logger.warning_f_ "catchup_tlog failed: %S"
+                                  (Printexc.to_string exn))
   >>= fun () ->
   tlog_coll # get_last_i ()
 

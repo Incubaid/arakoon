@@ -103,10 +103,14 @@ let handle_exception oc exn=
       | Server.FOOBAR ->
         Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, Logger.Error)
       | Canceled ->
-        Lwt.fail Canceled
+         Lwt.fail Canceled
+      | Unix.Unix_error(Unix.ECONNRESET, _, _) ->
+         Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE,
+                     "ECONNRESET because the client disconnected",
+                    true, Logger.Debug)
       | End_of_file ->
         Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "end of file because the client disconnected",
-                    true, Logger.Info)
+                    true, Logger.Debug)
       | _ ->
         Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", true, Logger.Error)
   end

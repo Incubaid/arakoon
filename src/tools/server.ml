@@ -18,7 +18,10 @@ limitations under the License.
 
 open Lwt
 
-let section = Logger.Section.main
+let section =
+  let s = Logger.Section.make "server" in
+  let () = Logger.Section.set_level s Logger.Debug in
+  s
 
 let no_callback = Lwt.return
 
@@ -67,7 +70,9 @@ let session_thread (sid:string) cid protocol fd =
       | Canceled ->
         Lwt.fail Canceled
       | exn ->
-        Logger.info_f_ ~exn "exiting session (%s) connection=%s" sid cid)
+         Logger.info_f_
+           "exiting session (%s) connection=%s: %S"
+           sid cid (Printexc.to_string exn))
 
 let create_connection_allocation_scheme max =
   let counter = ref 0 in
@@ -142,7 +147,11 @@ let _socket_closer cid sock f =
             let level = match exn with
               | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
               | _ -> Logger.Info in
-            Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid))
+            Logger.log_
+              section level
+              (fun () -> Printf.sprintf "Exception while closing client fd %s: %S"
+                                        cid (Printexc.to_string exn))
+       )
     )
 
 let make_server_thread
@@ -235,7 +244,11 @@ let make_server_thread
                         finalize ()
                       )
                       (fun exn ->
-                        Logger.info_f_ ~exn "Exception in client thread %s" cid >>= fun () ->
+                        Logger.info_f_
+                          "Exception in client thread %s: %S"
+                          cid
+                          (Printexc.to_string exn)
+                        >>= fun () ->
                         finalize ()))
               | None -> ()
             end;
@@ -253,9 +266,8 @@ let make_server_thread
                  "OUT OF FDS during accept (%s,%s) on port %i => sleeping %.1fs"
                  s0 s1 port timeout >>= fun () ->
                Lwt_unix.sleep timeout
-            | Ssl.Accept_error _ as exn ->
-               Logger.warning_f_ ~exn
-                                 "Ssl.Accept_error in server_loop: %s"
+            | Ssl.Accept_error _ ->
+               Logger.warning_f_ "Ssl.Accept_error in server_loop: %s"
                                  (Ssl.get_error_string ())
 
             | e -> Lwt.fail e
@@ -278,7 +290,10 @@ let make_server_thread
                 Lwt_unix.close listening_socket >>= fun () ->
                 Logger.debug_ "closed listening socket")
              (fun exn ->
-                Logger.info_f_ ~exn "exception while closing listening socket") >>= fun () ->
+               Logger.info_f_ "exception while closing listening socket: %S"
+                              (Printexc.to_string exn)
+             )
+           >>= fun () ->
 
            let cancel _ t =
              try
