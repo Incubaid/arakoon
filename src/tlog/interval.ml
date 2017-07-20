@@ -53,6 +53,10 @@ module Interval = struct
     so2 buf t.pr_b;
     so2 buf t.pr_e
 
+  let serialized_size t =
+    let sos = Llio.string_option_ssize in
+    sos t.pu_b + sos t.pu_e + sos t.pr_b + sos t.pr_e
+
   let interval_from b =
     let sof () = Llio.string_option_from b in
     let pu_b = sof () in

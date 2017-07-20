@@ -41,7 +41,9 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
   let inject_e = EGen (fun () ->
       match v with
         | Value.Vm _ ->
-          let event = Multi_paxos.FromClient [(Update.Nop, fun _ -> Lwt.return ())] in
+           let open Update in
+           let event = Multi_paxos.FromClient
+                         [Nop, serialized_size Nop, fun _ -> Lwt.return_unit] in
           Lwt.ignore_result (constants.inject_event event);
           Lwt.return ()
         | Value.Vc _ ->
@@ -135,7 +137,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
       end
     | FromClient ufs ->
       begin
-        let updates, finished_funs = List.split ufs in
+        let updates, _, finished_funs = Std.List.split3 ufs in
         let synced = List.fold_left (fun acc u -> acc || Update.is_synced u) false updates in
         let v = Value.create_client_value updates synced in
         let ms = {mo = Some finished_funs;v;n;i = new_i;

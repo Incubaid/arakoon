@@ -86,7 +86,7 @@ let update_votes (nones, somes) = function
     |> fun s -> (nones, s)
 
 type paxos_event =
-  | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
+  | FromClient of ((Update.Update.t) * int * (Store.update_result -> unit Lwt.t)) list
   | FromNode of (MPMessage.t * Messaging.id)
   | LeaseExpired of (float)
   | Quiesce of (Quiesce.Mode.t * Quiesce.Result.t Lwt.t * Quiesce.Result.t Lwt.u)
@@ -131,6 +131,7 @@ type 'a constants =
    mutable election_timeout : (Sn.t * Sn.t * float) option;
    mutable lease_expiration_id : int;
    mutable respect_run_master : (string * float) option;
+   max_buffer_size: int;
   }
 
 let am_forced_master constants me =
@@ -147,6 +148,7 @@ let make (type s) ~catchup_tls_ctx ~tcp_keepalive me is_learner others send get_
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
       other_cfgs lease_expiration inject_event is_alive ~cluster_id
+      ~max_buffer_size
       stop =
   {
     me=me;
@@ -174,6 +176,7 @@ let make (type s) ~catchup_tls_ctx ~tcp_keepalive me is_learner others send get_
     election_timeout = None;
     lease_expiration_id = 0;
     respect_run_master = None;
+    max_buffer_size;
   }
 
 let mcast constants msg =

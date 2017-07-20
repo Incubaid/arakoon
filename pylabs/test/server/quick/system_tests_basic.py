@@ -885,6 +885,23 @@ def test_rev_range_entries_arakoon368():
     correct = [("key2","value2"), ("key1","value1"), ("key0","value0") ]
     assert_equals(l1, correct)
 
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_harvest_limited():
+    logging.info("test_harvest_limited")
+    c = C.get_client()
+    value = 'xxxxxxxxxx' * (1000 * 1000)
+    seq = c.makeSequence()
+    for i in range(4):
+        seq.addSet("key_%02i" % i, value)
+    try:
+        logging.info("very fat sequence")
+        c.sequence(seq)
+        raise Exception("should not get here")
+    except X.arakoon_client.ArakoonBadInput as ex:
+        print "Exception:"
+        logging.info("ok:%s ", ex)
+
+
 @C.with_custom_setup( C.setup_3_nodes, C.basic_teardown )
 def test_statistics():
     cluster = C._getCluster()

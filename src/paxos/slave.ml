@@ -246,7 +246,7 @@ let slave_steady_state (type s) constants state event =
            that allows clients to get through before the node became a slave
            but I know I'm a slave now, so I let the update fail.
         *)
-        let finished_funs = List.map snd ufs in
+        let finished_funs = List.map (fun (_,_,f) -> f) ufs in
         let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
         let rec loop = function
           | []       -> Lwt.return ()
