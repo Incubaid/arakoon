@@ -700,6 +700,7 @@ let _main_2 (type s)
               ~read_only
               ~max_value_size:cluster_cfg.max_value_size
               ~collapse_slowdown:me.collapse_slowdown
+              ~optimize_db_slowdown:me.optimize_db_slowdown
               ~act_not_preferred
               ~cluster_id
           in

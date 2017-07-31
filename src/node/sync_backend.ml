@@ -108,6 +108,7 @@ struct
     ~(read_only:bool)
     ~max_value_size
     ~collapse_slowdown
+    ~optimize_db_slowdown
     ~act_not_preferred
     ~cluster_id ->
     let my_name =  Node_cfg.node_name cfg in
@@ -642,7 +643,12 @@ struct
       method optimize_db () =
         Logger.info_ "optimize_db: enter" >>= fun () ->
         let mode = Quiesce.Mode.ReadOnly in
-        self # try_quiesced ~mode (fun () -> Lwt.map ignore (S.optimize store)) >>= fun () ->
+        self # try_quiesced
+             ~mode
+             (fun () ->
+               S.optimize store ~slowdown_factor:(Some optimize_db_slowdown)
+               >|= ignore)
+        >>= fun () ->
         Logger.info_ "optimize_db: All done"
 
       method defrag_db () =
