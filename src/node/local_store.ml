@@ -283,7 +283,7 @@ let make_store ~lcnum ~ncnum read_only db_name  =
                lcnum;}
 
 
-let optimize ls ~quiesced ~stop =
+let optimize ls ~quiesced ~stop ~slowdown_factor =
   let open Camltc in
   let batch_size = 10_000 in
   let log_size = 1_000_000 in
@@ -302,17 +302,25 @@ let optimize ls ~quiesced ~stop =
           Bdb.first source cursor;
           let max = Some batch_size in
           let rec loop i =
+            let t0 = Unix.gettimeofday () in
             let count =
               Bdb.copy_from_cursor
                 ~source
                 ~cursor
                 ~target
                 ~max in
+            let t1 = Unix.gettimeofday () in
+            let dt = t1 -. t0 in
             if !stop
             then
               false
             else if count = batch_size
             then
+              let () =
+                match slowdown_factor with
+                | None -> ()
+                | Some factor -> Unix.sleepf (factor *. dt)
+              in
               begin
                 if i = log_batch_count
                 then

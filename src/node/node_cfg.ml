@@ -27,6 +27,7 @@ let default_client_buffer_capacity = 32
 let default_lcnum = 16384
 let default_ncnum = 8192
 let default_head_copy_throttling = 0.0
+let default_optimize_db_slowdown = 0.0
 
 open Master_type
 open Client_cfg
@@ -143,7 +144,8 @@ module Node_cfg = struct
             reporting: int;
             node_tls : TLSConfig.Node.t option;
             collapse_slowdown : float option;
-            head_copy_throttling: float;
+            head_copy_throttling : float;
+            optimize_db_slowdown : float;
            }
 
   let string_of t =
@@ -175,6 +177,7 @@ module Node_cfg = struct
            ; "node_tls", option TLSConfig.Node.to_string t.node_tls
            ; "collapse_slowdown", option To_string.float t.collapse_slowdown
            ; "head_copy_throttling", To_string.float t.head_copy_throttling
+           ; "optimize_db_slowdown", To_string.float t.optimize_db_slowdown;
            ]
 
   type log_cfg =
@@ -312,6 +315,7 @@ module Node_cfg = struct
         node_tls = None;
         collapse_slowdown = None;
         head_copy_throttling = default_head_copy_throttling;
+        optimize_db_slowdown = default_optimize_db_slowdown;
       }
     in
     let rec loop acc = function
@@ -610,6 +614,10 @@ module Node_cfg = struct
       Ini.get inifile node_name "head_copy_throttling"
               Ini.p_float (Ini.default default_head_copy_throttling)
     in
+    let optimize_db_slowdown =
+      Ini.get inifile node_name "optimize_db_slowdown"
+              Ini.p_float (Ini.default default_optimize_db_slowdown)
+    in
     {node_name;
      ips;
      client_port;
@@ -637,6 +645,7 @@ module Node_cfg = struct
      node_tls;
      collapse_slowdown;
      head_copy_throttling;
+     optimize_db_slowdown;
     }
 
 

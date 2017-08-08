@@ -53,7 +53,7 @@ sig
   val quiesced : t -> bool
   val quiesce : Quiesce.Mode.t -> t -> unit Lwt.t
   val unquiesce : t -> unit Lwt.t
-  val optimize : t -> bool Lwt.t
+  val optimize : t -> slowdown_factor:float option -> bool Lwt.t
   val defrag : t -> unit Lwt.t
   val copy_store : t -> Lwt_io.output_channel -> unit Lwt.t
   val copy_store2 : string -> string ->
@@ -292,11 +292,11 @@ struct
     store.quiesced <- Quiesce.Mode.NotQuiesced;
     reopen store (fun () -> Lwt.return ())
 
-  let optimize store =
+  let optimize store ~slowdown_factor =
     let m = match store.quiesced with
       | Quiesce.Mode.NotQuiesced | Quiesce.Mode.Writable -> false
       | Quiesce.Mode.ReadOnly -> true in
-    S.optimize store.s ~quiesced:m ~stop:(ref false)
+    S.optimize store.s ~quiesced:m ~stop:(ref false) ~slowdown_factor
 
   let set_master store tx master lease_start =
     _wrap_exception store "SET_MASTER" Server.FOOBAR (fun () ->

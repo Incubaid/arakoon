@@ -76,6 +76,7 @@ let _make_cfg name n lease_period =
     node_tls = None;
     collapse_slowdown = None;
     head_copy_throttling = 0.0;
+    optimize_db_slowdown = 0.0;
   }
 
 let _make_tlog_coll
