@@ -16,6 +16,7 @@ limitations under the License.
 
 open Interval
 open Routing
+let section = Logger.Section.main
 
 module Range_assertion = struct
   type t =
@@ -36,6 +37,9 @@ module Range_assertion = struct
         let ss = Llio.list_from Llio.string_from buf in
         ContainsExactly ss
       | k -> failwith (Printf.sprintf "%i: invalid Range_assertion" k)
+  let serialized_size = function
+    | ContainsExactly keys ->
+       8 + List.fold_left (fun acc x -> acc + Llio.string_ssize x) 0 keys
 end
 
 module Update = struct
@@ -178,7 +182,7 @@ module Update = struct
       | DeletePrefix prefix ->
         Llio.int_to b 14;
         Llio.string_to b prefix
-      | Assert_exists (k) ->
+      | Assert_exists k ->
         Llio.int_to b 15;
         Llio.string_to b k
       | Replace (k,vo) ->
@@ -285,4 +289,31 @@ module Update = struct
     | Replace _
     | Assert_range _ -> false
 
+  let rec serialized_size update =
+    let () = Logger.ign_debug_f_ "serialize_size %s " (update2s update) in
+    let sos = Llio.string_option_ssize in
+    let ss = Llio.string_ssize in
+    let seq_ssize seq =
+      4 + List.fold_left (fun acc u -> acc + serialized_size u) 0 seq
+    in
+    let inner = function
+    | Set(k,v)                -> ss k + ss v
+    | Delete k                -> ss k
+    | MasterSet(m, f)         -> ss m + 8
+    | TestAndSet(k,e,w)       -> ss k + sos e + sos w
+    | Sequence us             -> seq_ssize us
+    | Nop                     -> 0
+    | UserFunction (n, p)     -> ss n + sos p
+    | Assert (k, vo)          -> ss k + sos vo
+    | AdminSet(k, vo)         -> ss k + sos vo
+    | SetInterval i           -> Interval.serialized_size i
+    | SetRouting r            -> Routing.serialized_size r
+    | SetRoutingDelta (l,s,r) -> ss l + ss s + ss r
+    | SyncedSequence us       -> seq_ssize us
+    | DeletePrefix p          -> ss p
+    | Assert_exists k         -> ss k
+    | Replace (k,vo)          -> ss k  + sos vo
+    | Assert_range (p,a)      -> ss p  + Range_assertion.serialized_size a
+    in
+    4 + inner update
 end

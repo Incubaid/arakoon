@@ -75,9 +75,10 @@ struct
 
   let _update_rendezvous self ~so_post update update_stats push =
     self # _write_allowed ();
+    self # _check_update_size update >>= fun update_size ->
     let sleep, awake = Lwt.wait () in
     let went_well = make_went_well update_stats awake sleep in
-    push (update, went_well) >>= fun () ->
+    push (update, update_size, went_well) >>= fun () ->
     let t0 = Unix.gettimeofday() in
     sleep >>= fun r ->
     let t1 = Unix.gettimeofday() in
@@ -94,7 +95,7 @@ struct
 
 
   class sync_backend = fun cfg
-    (push_update:Update.t * (Store.update_result -> unit Lwt.t) -> unit Lwt.t)
+    (push_update:Update.t * int * (Store.update_result -> unit Lwt.t) -> unit Lwt.t)
     (push_node_msg:Multi_paxos.paxos_event -> unit Lwt.t)
     (store: 'a)
     (store_methods: (string -> string ->
@@ -107,6 +108,7 @@ struct
     ~test
     ~(read_only:bool)
     ~max_value_size
+    ~max_buffer_size
     ~collapse_slowdown
     ~optimize_db_slowdown
     ~act_not_preferred
@@ -458,6 +460,20 @@ struct
               if m <> my_name
               then raise (XException(Arakoon_exc.E_NOT_MASTER, m))
           end
+
+      method _check_update_size update =
+        let size = Update.serialized_size update in
+        if size > max_buffer_size
+        then
+          let msg =
+            Printf.sprintf "update %s has size %i > %i"
+                           (Update.update2s update)
+                           size
+                           max_buffer_size
+          in
+          Lwt.fail (XException(Arakoon_exc.E_BAD_INPUT, msg))
+        else
+          Lwt.return size
 
       method private _read_allowed (consistency:consistency) =
         if not read_only

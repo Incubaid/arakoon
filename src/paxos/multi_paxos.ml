@@ -58,10 +58,14 @@ type ballot = int * string list (* still needed, & who voted *)
 
 let network_of_messaging (m:messaging) =
   (* conversion since not all code is 'networked' *)
-  let send msg source target =
-    Logger.debug_f_ "%s: sending msg to %s: %s" source target (Mp_msg.MPMessage.string_of msg) >>= fun () ->
-    let g = MPMessage.generic_of msg in
-    m # send_message g ~source ~target
+  let send =
+    let buf = Buffer.create 100 in
+    (fun msg source target ->
+      Logger.debug_f_ "%s: sending msg to %s: %s" source target (Mp_msg.MPMessage.string_of msg) >>= fun () ->
+      let () = Buffer.clear buf in
+      let g = MPMessage.generic_of' buf msg in
+      m # send_message g ~source ~target
+    )
   in
   let register = m # register_receivers in
   let run () = m # run () in
@@ -86,7 +90,7 @@ let update_votes (nones, somes) = function
     |> fun s -> (nones, s)
 
 type paxos_event =
-  | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
+  | FromClient of ((Update.Update.t) * int * (Store.update_result -> unit Lwt.t)) list
   | FromNode of (MPMessage.t * Messaging.id)
   | LeaseExpired of (float)
   | Quiesce of (Quiesce.Mode.t * Quiesce.Result.t Lwt.t * Quiesce.Result.t Lwt.u)
@@ -131,6 +135,7 @@ type 'a constants =
    mutable election_timeout : (Sn.t * Sn.t * float) option;
    mutable lease_expiration_id : int;
    mutable respect_run_master : (string * float) option;
+   max_buffer_size: int;
   }
 
 let am_forced_master constants me =
@@ -147,6 +152,7 @@ let make (type s) ~catchup_tls_ctx ~tcp_keepalive me is_learner others send get_
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
       other_cfgs lease_expiration inject_event is_alive ~cluster_id
+      ~max_buffer_size
       stop =
   {
     me=me;
@@ -174,6 +180,7 @@ let make (type s) ~catchup_tls_ctx ~tcp_keepalive me is_learner others send get_
     election_timeout = None;
     lease_expiration_id = 0;
     respect_run_master = None;
+    max_buffer_size;
   }
 
 let mcast constants msg =

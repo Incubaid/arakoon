@@ -64,7 +64,7 @@ let test_generic network_factory n_nodes () =
   let inject_ev q e = Lwt_buffer.add e q in
   S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" ~cluster_id >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection
-    "MEM#tlog" None None ~fsync:false "???" 
+    "MEM#tlog" None None ~fsync:false "???"
     ~fsync_tlog_dir:false ~cluster_id
   >>= fun tlog_coll ->
   let base = {me = "???";
@@ -92,6 +92,7 @@ let test_generic network_factory n_nodes () =
               respect_run_master = None;
               catchup_tls_ctx = None;
               tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
+              max_buffer_size = Node_cfg.default_max_buffer_size;
              }
   in
   let all_happy = build_names (n_nodes -1) in
@@ -248,7 +249,7 @@ let test_master_loop network_factory ()  =
   let () = Lwt.ignore_result (
       Lwt_list.iter_s
         (fun x ->
-           Lwt_buffer.add (x, finished) client_buffer >>= fun () ->
+           Lwt_buffer.add (x, 0, finished) client_buffer >>= fun () ->
            Lwt_unix.sleep 2.0
         ) updates
     ) in
@@ -294,6 +295,7 @@ let test_master_loop network_factory ()  =
                    respect_run_master = None;
                    catchup_tls_ctx = None;
                    tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
+                   max_buffer_size = Node_cfg.default_max_buffer_size;
                   } in
   let continue = ref 2 in
   let c0_t () =
@@ -439,6 +441,7 @@ let test_simulation filters () =
     respect_run_master = None;
     catchup_tls_ctx = None;
     tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
+    max_buffer_size = Node_cfg.default_max_buffer_size;
   } in
   let c0_t () =
     let expected prev_key key =

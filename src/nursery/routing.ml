@@ -199,6 +199,17 @@ module Routing = struct
     in
     _build ()
 
+  let serialized_size routing =
+    let rec walk = function
+      | Cluster x->
+         1 + Llio.string_ssize x
+      | Branch (left, sep, right) ->
+         1 + Llio.string_ssize sep
+         + walk left
+         + walk right
+    in
+    walk routing
+
   let output_routing oc routing =
     let buf = Buffer.create 97 in
     let () = routing_to buf routing in

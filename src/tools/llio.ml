@@ -197,6 +197,11 @@ let string_to buffer s =
   int_to buffer size;
   Buffer.add_string buffer s
 
+let string_ssize s = 4 + String.length s
+
+let string_option_ssize = function
+  | None -> 1
+  | Some s -> 1 + string_ssize s
 
 
 let unit_to _ () = ()

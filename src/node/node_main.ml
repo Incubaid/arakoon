@@ -690,7 +690,7 @@ let _main_2 (type s)
             let snapshot_name = get_snapshot_name() in
             let full_snapshot_path = Filename.concat me.head_dir snapshot_name in
             new SB.sync_backend me
-              (client_push: (Update.t * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
+              (client_push: (Update.t * int * (Store.update_result -> unit Lwt.t)) -> unit Lwt.t)
               inject_push
               store (S.copy_store2, full_snapshot_path, me.head_copy_throttling)
               tlog_coll lease_period
@@ -699,6 +699,7 @@ let _main_2 (type s)
               ~test
               ~read_only
               ~max_value_size:cluster_cfg.max_value_size
+              ~max_buffer_size:cluster_cfg.max_buffer_size
               ~collapse_slowdown:me.collapse_slowdown
               ~optimize_db_slowdown:me.optimize_db_slowdown
               ~act_not_preferred
@@ -833,7 +834,8 @@ let _main_2 (type s)
                 | Multi_paxos.FromClient fc ->
                   (fun () ->
                      Lwt_list.iter_s
-                       (fun u -> Lwt_buffer.add u client_buffer)
+                       (fun u ->
+                         Lwt_buffer.add u client_buffer)
                        fc),
                   "client_buffer"
                 | Multi_paxos.FromNode (m,source)  ->
@@ -886,6 +888,7 @@ let _main_2 (type s)
               inject_event
               is_alive
               ~cluster_id
+              ~max_buffer_size:cluster_cfg.max_buffer_size
               stop
           in
           let reporting_period = me.reporting in

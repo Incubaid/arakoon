@@ -661,11 +661,16 @@ let paxos_produce buffers constants product_wanted =
                Lwt_buffer.take buffers.inject_buffer
              end
            | Some Client ->
-             begin
-               Lwt_buffer.harvest buffers.client_buffer >>= fun reqs ->
-               let event = FromClient reqs in
-               Lwt.return event
-             end
+              begin
+                let weight (_, size, _)= size in
+                let safety = 100 (* value & message will add ~ 40 bytes *) in
+                let max = constants.max_buffer_size - safety in
+                Lwt_buffer.harvest_limited
+                  buffers.client_buffer weight max
+                >>= fun reqs ->
+                let event = FromClient reqs in
+                Lwt.return event
+              end
            | Some Node ->
              begin
                Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
