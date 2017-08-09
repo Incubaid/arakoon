@@ -58,10 +58,14 @@ type ballot = int * string list (* still needed, & who voted *)
 
 let network_of_messaging (m:messaging) =
   (* conversion since not all code is 'networked' *)
-  let send msg source target =
-    Logger.debug_f_ "%s: sending msg to %s: %s" source target (Mp_msg.MPMessage.string_of msg) >>= fun () ->
-    let g = MPMessage.generic_of msg in
-    m # send_message g ~source ~target
+  let send =
+    let buf = Buffer.create 100 in
+    (fun msg source target ->
+      Logger.debug_f_ "%s: sending msg to %s: %s" source target (Mp_msg.MPMessage.string_of msg) >>= fun () ->
+      let () = Buffer.clear buf in
+      let g = MPMessage.generic_of' buf msg in
+      m # send_message g ~source ~target
+    )
   in
   let register = m # register_receivers in
   let run () = m # run () in
