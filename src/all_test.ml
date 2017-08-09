@@ -52,7 +52,7 @@ let tlog_tests = "tlogs" >::: [
       Tlc2_test.suite;
       Tlogreader2_test.suite;
     ]
-                                
+
 let small_catchup = "small_catchup" >:::[Catchup_test.suite;]
 let store = "store" >:::[Store_test.suite;]
 let compression = "compression" >::: [Compression_test.suite;]
@@ -94,4 +94,5 @@ let suite = "universe" >::: [
     Arakoon_etcd_test.suite;
     Arakoon_client_config_test.suite;
     Arakoon_config_url_test.suite;
+    Mp_msg_test.suite;
   ]

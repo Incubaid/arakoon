@@ -16,6 +16,7 @@ limitations under the License.
 
 open Interval
 open Routing
+let section = Logger.Section.main
 
 module Range_assertion = struct
   type t =
@@ -289,7 +290,7 @@ module Update = struct
     | Assert_range _ -> false
 
   let rec serialized_size update =
-    let () = Lwt_log.ign_debug_f "serialize_size %s " (update2s update) in
+    let () = Logger.ign_debug_f_ "serialize_size %s " (update2s update) in
     let sos = Llio.string_option_ssize in
     let ss = Llio.string_ssize in
     let seq_ssize seq =

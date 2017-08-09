@@ -662,8 +662,9 @@ let paxos_produce buffers constants product_wanted =
              end
            | Some Client ->
               begin
-               let weight (_, size, _)= size in
-                let max = constants.max_buffer_size in
+                let weight (_, size, _)= size in
+                let safety = 100 (* value & message will add ~ 40 bytes *) in
+                let max = constants.max_buffer_size - safety in
                 Lwt_buffer.harvest_limited
                   buffers.client_buffer weight max
                 >>= fun reqs ->

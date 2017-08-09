@@ -17,6 +17,7 @@ limitations under the License.
 
 
 open Lwt
+let section = Logger.Section.main
 
 module Lwt_buffer = struct
   type 'a t = {
@@ -102,7 +103,7 @@ module Lwt_buffer = struct
       | i ->
          let pot_item = Queue.peek t.q in
          let w = item_weight pot_item in
-         let () = Lwt_log.ign_debug_f "pot weight =%i" w in
+         let () = Logger.ign_debug_f_ "pot weight =%i" w in
          if tw + w > max_weight
          then tw, es
          else
@@ -112,7 +113,10 @@ module Lwt_buffer = struct
            loop es' tw' i'
     in
     let tw, es0 = loop [] 0 size in
-    let () = Lwt_log.ign_debug_f "total weight=%i (max=%i)" tw max_weight in
+    let () =
+      Logger.ign_debug_f_
+        "total weight=%i (max=%i)" tw max_weight
+    in
     let es = List.rev es0 in
     assert (es <> []); (* input validation should have rejected this earlier *)
     let () = Lwt_condition.signal t.full() in
