@@ -62,7 +62,7 @@ RUN eval `${opam_env}` && \
         ocplib-endian.1.0 \
         quickcheck.1.0.2 \
         conf-libev \
-        core.v0.9. \1
+        core.v0.9.1 \
         redis.0.3.3 \
         uri.1.9.4
 
