@@ -79,19 +79,24 @@ module Update = struct
       | Some s -> if values then s else "..."
     in
     let rec _sequence2s typ updates =
-      let buf = Buffer.create (64 * List.length updates) in
+      let len_seq = List.length updates in
+      let len' = min 100 len_seq in
+      let buf = Buffer.create (64 * len') in
       let add s = Buffer.add_string buf s in
       let () = add typ in
       let () = add "([" in
-      let rec loop = function
+      let rec loop c = function
         | [] -> add "])"
         | u::us ->
            let () = add (_inner u) in
            let () = if (us <> []) then add "; "
            in
-           loop us
+           let c' = c + 1 in
+           if c' = len'
+           then add (Printf.sprintf "... (%i more) ])"  (len_seq -len'))
+           else loop c' us
       in
-      let () = loop updates in
+      let () = loop 0 updates in
       Buffer.contents buf
     and
       _inner = function
