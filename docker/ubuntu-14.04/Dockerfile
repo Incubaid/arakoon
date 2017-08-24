@@ -42,7 +42,7 @@ ENV opam_env="opam config env --root=${opam_root}"
 RUN opam init --root=${opam_root} --comp ${ocaml_version}
 
 RUN eval `${opam_env}` && \
-    opam update && \
+    opam update -v && \
     opam install -y \
         oasis.0.4.10 \
         ocamlfind \
@@ -56,6 +56,8 @@ RUN eval `${opam_env}` && \
         ocplib-endian.1.0 \
         quickcheck.1.0.2 \
         conf-libev \
+        ppx_deriving.4.1 \
+        base.v0.9.3 \
         core.v0.9.1 \
         redis.0.3.3 \
         uri.1.9.4
