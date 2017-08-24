@@ -33,7 +33,7 @@ RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 
 RUN wget https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh
 
-env ocaml_version=4.03.0
+env ocaml_version=4.04.2
 RUN sh ./opam_installer.sh /usr/local/bin ${ocaml_version}
 
 ENV opam_root=/home/jenkins/OPAM
@@ -41,23 +41,25 @@ ENV opam_env="opam config env --root=${opam_root}"
 RUN opam init --root=${opam_root} --comp ${ocaml_version}
 
 RUN eval `${opam_env}` && \
-    opam update && \
+    opam update -v && \
     opam install -y \
-        oasis.0.4.8 \
+        oasis.0.4.10 \
         ocamlfind \
         ssl.0.5.3 \
         camlbz2 \
         snappy \
         bisect \
         lwt_ssl \
-        lwt.3.0.0 \
+        lwt.3.1.0 \
         camltc.0.9.4 \
         ocplib-endian.1.0 \
         quickcheck.1.0.2 \
         conf-libev \
-        core.v0.9.0 \
+        ppx_deriving.4.1 \
+        base.v0.9.3 \
+        core.v0.9.1 \
         redis.0.3.3 \
-        uri.1.9.2
+        uri.1.9.4
 
 
 RUN pip install fabric junit-xml nose simplejson python-etcd
