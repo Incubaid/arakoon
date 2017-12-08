@@ -123,7 +123,7 @@ let dump_crash_log crash_log_sink =
                         acc () >>= fun () ->
                         Message.traverse_
                           (fun m exn ->
-                           Re.rpush client key (format_message e m exn) >>= fun _list_length ->
+                           Re.rpush client key [format_message e m exn] >>= fun _list_length ->
                            Lwt.return_unit)
                           e.Entry.payload)
        ~acc:(fun () -> Lwt.return_unit)

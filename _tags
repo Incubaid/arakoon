@@ -16,7 +16,7 @@ true: package(snappy)
 true: package(ocplib-endian)
 true: package(uri)
 true: package(redis)
-true: package(redis.lwt)
+true: package(redis-lwt)
 true: package(core)
 "src":include
 "src/lib":include

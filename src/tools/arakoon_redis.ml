@@ -38,7 +38,7 @@ let make_redis_logger ~host ~port ~key =
          let rec inner client =
            (* TODO push multiple items in one go? *)
            Lwt_buffer.take buffer >>= fun logline ->
-           R.rpush client key logline >>= fun _list_length ->
+           R.rpush client key [logline] >>= fun _list_length ->
            inner client
          in
          R.with_connection
