@@ -2,7 +2,7 @@
 
 Summary: Arakoon
 Name: arakoon
-Version: 1.9.22
+Version: 1.9.23
 Release: 3%{?dist}
 License: Apache 2.0
 Requires: libev >= 4
@@ -33,6 +33,8 @@ cp arakoon.native %{buildroot}%{_bindir}/arakoon
 %{_bindir}/arakoon
 
 %changelog
+* Fri Dec 29 2017 Romain Slootmaekers <romain.slootmaekers@openvstorage.com> - 1.9.23
+- Create arakoon 1.9.23 RPM package
 * Thu Aug 24 2017 Romain Slootmaekers <romain.slootmaekers@openvstorage.com> - 1.9.22
 - Create arakoon 1.9.22 RPM package
 * Tue Aug 22 2017 Romain Slootmaekers <romain.slootmaekers@openvstorage.com> - 1.9.21
