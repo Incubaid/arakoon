@@ -11,9 +11,6 @@ Run
 ./docker/run.sh ubuntu-16.04 build
 from the root of the repository.
 
-You can also build using ubuntu 14.04 as follows:
-./docker/run.sh ubuntu-14.04 build
-
 Running the tests
 
 ./docker/run.sh ubuntu-16.04 unit
@@ -28,5 +25,4 @@ Enter the docker container
 Build packages
 
 ./docker/run.sh ubuntu-16.04 package_deb
-./docker/run.sh ubuntu-14.04 package_deb
-./docker/run.sh centos package_rpm
+
