@@ -30,26 +30,7 @@ RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         net-tools \
         ncurses-dev
 
-
-RUN wget https://raw.github.com/ocaml/opam/master/shell/opam_installer.sh
-
-env ocaml_version=4.06.0+default-unsafe-string
-RUN sh ./opam_installer.sh /usr/local/bin ${ocaml_version}
-
-ENV opam_root=/home/jenkins/OPAM
-ENV opam_env="opam config env --root=${opam_root}"
-RUN opam init --root=${opam_root} --comp ${ocaml_version}
-
-ADD https://raw.githubusercontent.com/delamonpansie/ovs_opam/master/switch opam.switch
-
-RUN eval `${opam_env}` && \
-    opam repo add ovs git://github.com/delamonpansie/ovs_opam && \
-    opam update -v && \
-    grep -Ev '^(arakoon|kinetic-client|orocksdb|ordma)' opam.switch | \
-    (eval `${opam_env}` && opam switch import - -y)
-
 RUN pip install fabric junit-xml nose simplejson python-etcd
-
 RUN mkdir /home/tests
 RUN chmod 777 /home/tests
 
@@ -69,6 +50,26 @@ RUN tar xzvf redis-3.0.7.tar.gz
 RUN cd redis-3.0.7 && make
 RUN cp ./redis-3.0.7/src/redis-server /usr/bin
 RUN cp ./redis-3.0.7/src/redis-cli /usr/bin
+
+
+# most recent one (28/11/2017) is not compatible with our setup
+RUN wget https://raw.githubusercontent.com/ocaml/opam/afa822ec24c0f7afa278179cc59796a384129ce1/shell/opam_installer.sh
+
+env ocaml_version=4.06.0+default-unsafe-string
+RUN sh ./opam_installer.sh /usr/local/bin ${ocaml_version}
+
+ENV opam_root=/home/jenkins/OPAM
+ENV opam_env="opam config env --root=${opam_root}"
+RUN opam init --root=${opam_root} --comp ${ocaml_version}
+
+ADD opam.switch opam.switch
+ADD opam-repository ovs-opam-repository
+RUN chmod ugoa+rxw -R ovs-opam-repository
+
+RUN eval `${opam_env}` && \
+    opam repo add ovs ovs-opam-repository && \
+    opam update -v && \
+    (eval `${opam_env}` && opam switch import opam.switch -y)
 
 
 RUN chmod ugoa+rxw -R ${opam_root}
