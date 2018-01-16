@@ -42,3 +42,4 @@ true: package(core)
 <src/**/*.ml> : camlp4of, use_log_macro, maybe_use_bisect, unsafe_string
 "rpmbuild": -traverse
 "arakoon_docker_rpm": -traverse
+"arakoon_version.ml": opaque
