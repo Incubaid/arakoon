@@ -23,7 +23,11 @@ build:
 bench:
 	ocamlbuild bs_bench.native
 
-test:
+arakoon.byte arakoon.native:
+	ocamlbuild -j $(JOBS) $@
+
+test:	arakoon.native
+	ocamlbuild -j $(JOBS) arakoon.native
 	./arakoon.native --run-all-tests
 
 install: install_client install_server man
@@ -120,7 +124,7 @@ man:
 	help2man --name='Arakoon, a consistent key value store' ./arakoon > debian/arakoon.man
 	rm arakoon
 
-.PHONY: install test build install_client bench
+.PHONY: install test build install_client bench arakoon.byte arakoon.native
 
 
 indent-tabs-to-spaces:
