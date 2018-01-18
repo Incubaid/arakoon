@@ -7,6 +7,8 @@ OCAML_LIBDIR ?= $(START)/lib/ocaml/
 #OCAML_LIBDIR ?= `ocamlfind printconf destdir`
 OCAML_FIND ?= ocamlfind
 
+JOBS := $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 1)
+
 all: build
 
 clean:
@@ -16,7 +18,7 @@ clean:
 	rm -f  ./arakoon.byte ./arakoon.native
 
 build:
-	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
+	ocamlbuild -j $(JOBS) -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
 
 bench:
 	ocamlbuild -use-ocamlfind bs_bench.native
