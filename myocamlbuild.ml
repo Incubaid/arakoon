@@ -114,6 +114,8 @@ let path_to_bisect () =
 
 
 let _ = dispatch & function
+     | Before_options ->
+        Options.use_ocamlfind := true
     | After_rules ->
       rule "arakoon_version.ml" ~prod:"arakoon_version.ml" make_version;
 

@@ -18,10 +18,10 @@ clean:
 	rm -f  ./arakoon.byte ./arakoon.native
 
 build:
-	ocamlbuild -j $(JOBS) -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
+	ocamlbuild -j $(JOBS) arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
 
 bench:
-	ocamlbuild -use-ocamlfind bs_bench.native
+	ocamlbuild bs_bench.native
 
 test:
 	./arakoon.native --run-all-tests
@@ -113,9 +113,7 @@ uninstall_client:
 	$(OCAML_FIND) remove arakoon_client -destdir $(OCAML_LIBDIR)
 
 coverage:
-	ocamlbuild -use-ocamlfind \
-	-tag use_bisect \
-	arakoon.d.byte
+	ocamlbuild -tag use_bisect arakoon.d.byte
 
 man:
 	ln -s ./arakoon.native arakoon
