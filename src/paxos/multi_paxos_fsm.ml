@@ -53,12 +53,6 @@ let election_suggest (type s) constants (n, counter) () =
   let state = (n, i, who_voted, v_lims, [], counter) in
   Fsm.return (Promises_check_done state)
 
-let read_only constants (_state : unit) () =
-  Lwt_unix.sleep 60.0 >>= fun () ->
-  Logger.debug_f_ "%s: read_only ..." constants.me >>= fun () ->
-  Fsm.return Read_only
-
-
 (* a potential master is waiting for promises and if enough
    promises are received the value is accepted and Accept is broadcasted *)
 let promises_check_done constants state () =
@@ -583,8 +577,6 @@ let machine constants =
 
     | Election_suggest state ->
       (Unit_arg (election_suggest constants state), nop)
-    | Read_only ->
-      (Unit_arg (read_only constants ()), nop)
     | Start_transition -> failwith "Start_transition?"
 
 (* Warning: This currently means we have only 1 fsm / executable. *)
@@ -813,24 +805,6 @@ let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i 
       Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
       run (election_suggest constants (current_n, 0))
     end
-
-let enter_read_only ?(stop = ref false) constants buffers _current_i =
-  let me = constants.me in
-  Logger.debug_f_ "%s: +starting FSM for read_only." me >>= fun () ->
-  let trace = trace_transition in
-  let produce = paxos_produce buffers constants in
-  Lwt.catch
-    (fun () ->
-       Fsm.loop ~trace ~stop
-         (_execute_effects constants)
-         produce
-         (machine constants)
-         (read_only constants ())
-    )
-    (fun exn ->
-       Logger.warning_ ~exn "READ ONLY BAILS OUT" >>= fun () ->
-       Lwt.fail exn
-    )
 
 let expect_run_forced_slave constants buffers expected step_count new_i =
   Logger.debug_f_ "%s: +starting forced_slave FSM with expect" constants.me >>= fun () ->

@@ -60,8 +60,6 @@ type transitions =
   | Master_consensus of master_state
   | Stable_master    of (n * i * slave_awaiters)
   | Master_dictate   of master_state
-  (* read only *)
-  | Read_only
 
 (* utility functions *)
 let show_transition = function
@@ -77,7 +75,6 @@ let show_transition = function
   | Master_consensus _ -> "Master_consensus"
   | Stable_master _ -> "Stable_master"
   | Master_dictate _ -> "Master_dictate"
-  | Read_only -> "Read_only"
 
 type effect =
   | ELog of (unit -> string)
