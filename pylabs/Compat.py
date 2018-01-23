@@ -144,7 +144,7 @@ class Compat:
 
     root = os.environ.get('TEST_HOME')
     if root is None:
-        root = os.environ['HOME']
+        raise Exception("TEST_HOME is undefined")
 
     _base = root
     tmpDir = _base + '/tmp'
