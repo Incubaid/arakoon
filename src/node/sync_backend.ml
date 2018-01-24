@@ -785,12 +785,7 @@ struct
         else
           begin
             match self # who_master () with
-            | None -> Lwt.return ()
-            | Some m ->
-              if m <> my_name
-              then Lwt.return ()
-              else
-                begin
+            | Some m when m = my_name ->
                   act_not_preferred := true;
                   let (sleep, awake) = Lwt.wait () in
                   let update = Multi_paxos.DropMaster (sleep, awake) in
@@ -802,7 +797,7 @@ struct
                   Logger.debug_f_ "drop_master: waiting another %1.1fs" delay >>= fun () ->
                   Lwt_unix.sleep delay >>= fun () ->
                   Logger.debug_ "drop_master: completed"
-                end
+            | _ -> Lwt.return ()
           end
 
       method get_current_state () =
