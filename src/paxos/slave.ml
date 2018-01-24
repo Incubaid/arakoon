@@ -55,14 +55,8 @@ let time_for_elections ?invalidate_lease_start_until (type s) constants =
   end
 
 let decline_client_update ufs =
-  let finished_funs = List.map (fun (_ ,_, f) -> f) ufs in
-  let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
-  let rec loop = function
-    | []       -> Lwt.return ()
-    | f :: ffs -> f result >>= fun () ->
-                  loop ffs
-  in
-  loop finished_funs
+  let fail = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
+  join (List.map (fun (_, _, f) -> f fail) ufs)
 
 (* a forced slave or someone who is outbidded sends a fake prepare
    in order to receive detailed info from the others in a Nak msg *)
