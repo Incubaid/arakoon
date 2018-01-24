@@ -54,6 +54,16 @@ let time_for_elections ?invalidate_lease_start_until (type s) constants =
       end
   end
 
+let decline_client_update ufs =
+  let finished_funs = List.map (fun (_ ,_, f) -> f) ufs in
+  let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
+  let rec loop = function
+    | []       -> Lwt.return ()
+    | f :: ffs -> f result >>= fun () ->
+                  loop ffs
+  in
+  loop finished_funs
+
 (* a forced slave or someone who is outbidded sends a fake prepare
    in order to receive detailed info from the others in a Nak msg *)
 let slave_fake_prepare constants (current_i,current_n) () =
@@ -243,15 +253,8 @@ let slave_steady_state (type s) constants state event =
            that allows clients to get through before the node became a slave
            but I know I'm a slave now, so I let the update fail.
         *)
-        let finished_funs = List.map (fun (_,_,f) -> f) ufs in
-        let result = Store.Update_fail (Arakoon_exc.E_NOT_MASTER, "Not_Master") in
-        let rec loop = function
-          | []       -> Lwt.return ()
-          | f :: ffs -> f result >>= fun () ->
-            loop ffs
-        in
-        loop finished_funs >>= fun () ->
-        Fsm.return  (Slave_steady_state state)
+        decline_client_update ufs >>= fun () ->
+        Fsm.return (Slave_steady_state state)
       end
     | Quiesce (mode, sleep,awake) ->
       handle_quiesce_request (module S) constants.store mode sleep awake >>= fun () ->
