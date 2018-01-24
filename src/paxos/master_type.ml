@@ -18,9 +18,10 @@ limitations under the License.
 
 type master =
   | Elected
-  | ReadOnly
-  | Forced of string
-  | Preferred of string list
+  | ReadOnly (* it's possible to start a 1 node cluster in read-only mode *)
+  | Forced of string (* master needs to be that node or nothing can be updated. *)
+  | Preferred of string list (* non-preferred nodes will always back off if
+                                an up to date preferred node wants to be master. *)
 
 let master2s = function
   | Elected -> "Elected"
