@@ -450,9 +450,8 @@ let _main_2 (type s)
       let master = cluster_cfg._master in
       let lease_period = cluster_cfg._lease_period in
       let quorum_function = cluster_cfg.quorum_function in
-      let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner ) cfgs in
-      let in_cluster_names = List.map (fun cfg -> cfg.node_name) in_cluster_cfgs in
-      let n_nodes = List.length in_cluster_names in
+      let in_cluster_cfgs = List.filter (fun cfg -> not cfg.is_learner) cfgs in
+      let n_nodes = List.length in_cluster_cfgs in
 
       let my_clicfg =
         begin
@@ -465,11 +464,13 @@ let _main_2 (type s)
           ccfg
         end
       in
-      let other_names =
-        if me.is_learner
-        then me.targets
-        else List.filter ((<>) name) in_cluster_names
-      in
+
+      let others, learners = List.filter (fun cfg -> cfg.node_name <> name) cfgs
+                             |> List.partition (fun cfg -> not cfg.is_learner) in
+      let names l = List.map (fun cfg -> cfg.node_name) l in
+      let other_names = names others in
+      let learner_names = names learners in
+
       let _ = Lwt_unix.on_signal Sys.sigusr1
                 (fun i -> Lwt.ignore_result (_log_rotate me.node_name i make_config ))
       in
@@ -872,7 +873,9 @@ let _main_2 (type s)
               ~catchup_tls_ctx:catchup_tls_ctx my_name
               ~tcp_keepalive
               me.is_learner
-              other_names send
+              other_names
+              learner_names
+              send
               get_last_value
               on_accept
               on_consensus
@@ -905,21 +908,15 @@ let _main_2 (type s)
 
       let start_backend stop (master, constants, buffers, new_i) =
         let to_run =
-          if me.is_witness
-          then
+          if me.is_witness then
             Multi_paxos_fsm.enter_forced_slave
+          else if me.is_learner then
+            Multi_paxos_fsm.enter_learner
           else
             match master with
-              | Forced master  ->
-                if master = my_name
-                then Multi_paxos_fsm.enter_forced_master
-                else
-                  begin
-                    if me.is_learner
-                    then Multi_paxos_fsm.enter_simple_paxos
-                    else Multi_paxos_fsm.enter_forced_slave
-                  end
-              | Elected | ReadOnly |Preferred _  -> Multi_paxos_fsm.enter_simple_paxos
+              | Forced master when master = my_name -> Multi_paxos_fsm.enter_forced_master
+              | Forced _ -> Multi_paxos_fsm.enter_forced_slave
+              | Elected | ReadOnly | Preferred _  -> Multi_paxos_fsm.enter_simple_paxos
         in
         to_run ~stop constants buffers new_i
       in

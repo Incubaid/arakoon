@@ -86,19 +86,12 @@ let handle_timeout ((n,i,maybe_previous) as state) constants invalidate_lease_st
     begin
       let log_e = ELog (fun () ->
           Printf.sprintf "slave_steady_state: Ingoring old timeout (n'=%s n=%s i'=%s i=%s)" (Sn.string_of n') (Sn.string_of n) (Sn.string_of i') (Sn.string_of i))
-      in
-      Fsm.return ~sides:[log_e] (Slave_steady_state state)
-    end
-  else if constants.is_learner
-  then
-    let ns = (Sn.string_of n) in
-    let log_e = ELog (fun () ->
-        Printf.sprintf "steady_state: ignoring lease expiration because I am a learner (n=%s)" ns)
-    in
-    Fsm.return ~sides:[log_e] (Slave_steady_state state)
-  else
-    let elections_needed,why = time_for_elections ?invalidate_lease_start_until constants in
-    if elections_needed then
+        in
+        Fsm.return ~sides:[log_e] (Slave_steady_state state)
+      end
+    else
+      let elections_needed,why = time_for_elections ?invalidate_lease_start_until constants in
+      if elections_needed then
       begin
         let log_e = ELog (fun () ->
             Printf.sprintf "slave_steady_state: Elections needed because %s" why) in

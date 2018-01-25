@@ -194,7 +194,6 @@ class ArakoonCluster:
                 tlogDir = None,
                 wrapper = None,
                 isLearner = False,
-                targets = None,
                 isLocal = False,
                 logConfig = None,
                 batchedTransactionConfig = None,
@@ -215,7 +214,6 @@ class ArakoonCluster:
         @param tlogDir : the directory used for tlogs (if none, home will be used)
         @param wrapper : wrapper line for the executable (for example 'softlimit -o 8192')
         @param isLearner : whether this node is a learner node or not
-        @param targets : for a learner node the targets (string list) it learns from
         @param isLocal : whether this node is a local node and should be added to the local nodes list
         @param logConfig : specifies the log config to be used for this node
         @param batchedTransactionConfig : specifies the batched transaction config to be used for this node
@@ -235,8 +233,7 @@ class ArakoonCluster:
 
         if name in nodes:
             raise Exception("node %s already present" % name )
-        if not isLearner:
-            nodes.append(name)
+        nodes.append(name)
 
         config.add_section(name)
 
@@ -276,9 +273,6 @@ class ArakoonCluster:
 
         if isLearner:
             config.set(name, "learner", "true")
-            if targets is None:
-                targets = self.listNodes()
-            config.set(name, "targets", string.join(targets,","))
 
         if isWitness:
             config.set(name, "witness", "true")

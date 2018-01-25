@@ -61,6 +61,13 @@ type transitions =
   | Stable_master    of (n * i * slave_awaiters)
   | Master_dictate   of master_state
 
+
+type learner_transitions =
+  | Learner_fake_prepare of (n * i)
+  | Learner_steady_state of (n * i * Value.t option) (* value received for this n and previous i *)
+  | Learner_discovered_other_master of (Messaging.id *
+                                        Mp_msg.MPMessage.n * Mp_msg.MPMessage.n )
+
 (* utility functions *)
 let show_transition = function
   | Start_transition -> "Start_transition"

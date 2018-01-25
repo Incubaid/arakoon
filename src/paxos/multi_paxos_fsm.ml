@@ -579,6 +579,16 @@ let machine constants =
       (Unit_arg (election_suggest constants state), nop)
     | Start_transition -> failwith "Start_transition?"
 
+
+let learner_machine constants =
+  let nop = [] in
+  let full = [Node; Inject; Election_timeout; Client] in
+  function
+    | Learner_fake_prepare state ->		(Unit_arg (Learner.fake_prepare constants state), nop)
+    | Learner_steady_state state ->		(Msg_arg (Learner.steady_state constants state), full)
+    | Learner_discovered_other_master state ->	(Unit_arg (Learner.discovered_other_master constants state), nop)
+
+
 (* Warning: This currently means we have only 1 fsm / executable. *)
 let __state = ref Start_transition
 
@@ -728,6 +738,25 @@ let _execute_effects constants e =
 
 
 (* the entry methods *)
+
+let enter_learner ?(stop = ref false) constants buffers new_i =
+  let me = constants.me in
+  Logger.debug_f_ "%s: +starting FSM for learner." me >>= fun () ->
+  let produce = paxos_produce buffers constants in
+  let new_n = update_n constants Sn.start in
+
+  Lwt.catch
+    (fun () ->
+       Fsm.loop ~stop
+         (_execute_effects constants)
+         produce
+         (learner_machine constants)
+         (Learner.fake_prepare constants (new_i,new_n))
+    )
+    (fun exn ->
+       Logger.warning_ ~exn "FSM BAILED due to uncaught exception"
+       >>= fun () -> Lwt.fail exn
+    )
 
 let enter_forced_slave ?(stop = ref false) constants buffers new_i =
   let me = constants.me in

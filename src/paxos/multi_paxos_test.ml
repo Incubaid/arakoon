@@ -68,7 +68,8 @@ let test_generic network_factory n_nodes () =
     ~fsync_tlog_dir:false ~cluster_id
   >>= fun tlog_coll ->
   let base = {me = "???";
-              others = [] ;
+              others = [];
+              learners = [];
               is_learner = false;
               send = send;
               get_value = get_value tlog_coll;
@@ -271,6 +272,7 @@ let test_master_loop network_factory ()  =
   let constants = {me = me;
                    is_learner = false;
                    others = others;
+                   learners = [];
                    send = send;
                    get_value = get_value tlog_coll;
                    on_accept = on_accept;
@@ -416,6 +418,7 @@ let test_simulation filters () =
     me = me;
     is_learner = false;
     others = ["c1";"c2"];
+    learners = [];
     send = send;
     get_value = get_value tlog_coll;
     on_accept = on_accept me;

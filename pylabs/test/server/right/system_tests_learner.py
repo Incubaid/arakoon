@@ -39,8 +39,7 @@ def test_learner():
                     headDir = head_dir,
                     logLevel = 'debug',
                     home = db_dir,
-                    isLearner = True,
-                    targets = [Common.node_names[0]])
+                    isLearner = True)
     cfg = cluster._getConfigFile()
     logging.info("cfg=%s", X.cfg2str(cfg))
     cluster.disableFsync([name])
