@@ -133,6 +133,11 @@ let slave_steady_state (type s) constants state event =
           let sides = log_e0::accept_e::send_e::log_e::oconsensus in
           Fsm.return ~sides (Slave_steady_state (n', Sn.succ i', Some v))
         in
+        let get_store_i () =
+          match S.consensus_i store with
+          | None -> Sn.pred Sn.start
+          | Some store_i -> store_i
+        in
         match msg with
           | Accept (n',i',v) when (n',i') = (n,i) ->
             begin
@@ -141,10 +146,8 @@ let slave_steady_state (type s) constants state event =
                 (* we should have either a previous value received for this n
                      (from same master) in that case store_i == i - 2
                    or we should have no previous value and store_i = i - 1 *)
-                let store_i = match S.consensus_i store with
-                  | None -> Sn.pred Sn.start
-                  | Some store_i -> store_i in
                 begin
+                  let store_i = get_store_i () in
                   match maybe_previous with
                     | None ->
                       if Sn.sub i store_i = 1L
@@ -168,10 +171,7 @@ let slave_steady_state (type s) constants state event =
               accept_value oconsensus n' i' v "steady_state :: replying with %S"
             end
           | Accept (n',i',v) when (Sn.succ i' = i) && (n' >= n) ->
-            let store_i = match S.consensus_i store with
-              | None -> Sn.pred Sn.start
-              | Some store_i -> store_i in
-            if Sn.sub i' store_i = 0L
+            if i' = get_store_i ()
             then
               begin
                 (* already learned this value, so no longer writing it to the tlog,
