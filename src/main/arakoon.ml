@@ -278,6 +278,8 @@ let main () =
                                       then end_i := (Some (Scanf.sscanf is "%Li" (fun i -> i))))
                                 ],
      "<tlog_dir> <tlf_dir> <path-to-db> [<end-i>]");
+    ("-load-plugin", Arg.String Dynlink.loadfile_private,
+     "<plugin_location>: loads the specified plugin (so user functions can be available for e.g. --replay-tlogs command)");
     ("-dump-values", Arg.Set dump_values, "also dumps values (in --dump-tlog)");
     ("--make-tlog", Arg.Tuple[ set_laction MakeTlog;
                                Arg.Set_string filename;
