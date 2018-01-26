@@ -194,7 +194,7 @@ let slave_steady_state (type s) constants state event =
                                 )
                in
                let new_state = (source, n', i') in
-               Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
+               Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master new_state)
              end
           | Accept (_,_,_) ->
             begin
@@ -217,7 +217,7 @@ let slave_steady_state (type s) constants state event =
                 Fsm.return (Slave_steady_state (n', next_i, None))
               | Promise_sent_needs_catchup ->
                 let new_state = (source, n', i') in
-                Fsm.return ~sides:[log_e0] (Slave_discovered_other_master(new_state) )
+                Fsm.return ~sides:[log_e0] (Slave_discovered_other_master new_state)
             end
           | Nak(_,(n2, i2)) when i2 > i ->
              begin
