@@ -44,8 +44,7 @@ type transitions =
   (* slave or pending slave *)
   | Slave_fake_prepare of (n * i)
   | Slave_steady_state of (n * i * Value.t option) (* value received for this n and previous i *)
-  | Slave_discovered_other_master of (Messaging.id * Mp_msg.MPMessage.n *
-                                        Mp_msg.MPMessage.n * Mp_msg.MPMessage.n )
+  | Slave_discovered_other_master of (Messaging.id * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n )
 
   | Promises_check_done of (n * i *
                               Messaging.id list *
