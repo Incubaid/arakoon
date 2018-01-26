@@ -28,7 +28,8 @@ RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         libtool \
         iptables \
         net-tools \
-        ncurses-dev
+        ncurses-dev \
+        tzdata
 
 RUN pip install fabric junit-xml nose simplejson python-etcd
 RUN mkdir /home/tests
