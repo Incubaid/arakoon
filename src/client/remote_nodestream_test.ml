@@ -131,8 +131,8 @@ let set_route_delta port () =
     Routing.routing_to new_ser new_r;
     let old_str = Buffer.contents old_ser in
     let new_str = Buffer.contents new_ser in
-    Logger.debug_f_ "old_str: %s " old_str >>= fun () ->
-    Logger.debug_f_ "new_str: %s" new_str  >>= fun () ->
+    Logger.debug_f_ "old_str: %S " old_str >>= fun () ->
+    Logger.debug_f_ "new_str: %S" new_str  >>= fun () ->
     OUnit.assert_equal old_str new_str;
     Lwt.return ()
   in
