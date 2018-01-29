@@ -9,4 +9,4 @@ echo $PWD
 echo TEST_HOME=${TEST_HOME}
 export PATH=${PATH}:${TEST_HOME}/apps/arakoon/bin
 
-make
+make clean build
