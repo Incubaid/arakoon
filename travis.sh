@@ -1,6 +1,7 @@
 #!/bin/bash -xue
 
-timeout_with_progress () {
+timeout_with_progress () (
+    set +x
     OUTPUT=`mktemp`
     timeout "$@" > $OUTPUT 2>&1 &
     PID=$!
@@ -19,7 +20,7 @@ timeout_with_progress () {
     tail -n256 $OUTPUT
 
     return $RESULT
-}
+)
 
 install () {
     echo "Running 'install' phase"
