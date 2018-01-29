@@ -1,5 +1,27 @@
 #!/bin/bash -xue
 
+timeout_with_progress () (
+    set +x
+    OUTPUT=`mktemp`
+    timeout "$@" > $OUTPUT 2>&1 &
+    PID=$!
+
+    echo $PID
+
+    while kill -0 $PID 2>/dev/null
+    do
+	echo -ne .
+	sleep 1
+    done
+
+    wait $PID
+    RESULT=$?
+
+    tail -n256 $OUTPUT
+
+    return $RESULT
+)
+
 install () {
     echo "Running 'install' phase"
 
@@ -14,7 +36,7 @@ install () {
     START_BUILD=$(date +%s.%N)
     echo $START_BUILD
 
-    ./run_with_timeout_and_progress.sh 9000 ./docker/run.sh ubuntu-16.04 clean
+    timeout_with_progress 9000 ./docker/run.sh ubuntu-16.04 clean
 
     END_BUILD=$(date +%s.%N)
     echo $END_BUILD
@@ -40,12 +62,12 @@ script () {
 
     date
 
-    ./run_with_timeout_and_progress.sh 9000 ./docker/run.sh ubuntu-16.04 unit
+    timeout_with_progress 9000 ./docker/run.sh ubuntu-16.04 unit
 
     date
 }
 
-case "$1" in
+case "${1-undefined}" in
     install)
         install
         ;;
