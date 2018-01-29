@@ -45,7 +45,7 @@ script () {
     date
 }
 
-case "$1" in
+case "${1-undefined}" in
     install)
         install
         ;;
