@@ -176,9 +176,8 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                       Fsm.return (Slave_steady_state (n', new_i, None))
                     end
                   | Promise_sent_needs_catchup ->
-                    let i = S.get_catchup_start_i constants.store in
                     Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
-                    Fsm.return (Slave_discovered_other_master (source, i, n', i'))
+                    Fsm.return (Slave_discovered_other_master (source, n', i'))
                 end
             end
           | Accepted(_n,i) ->
@@ -206,8 +205,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                 begin
                   (* Become slave, goto catchup *)
                   Logger.debug_f_ "%s: stable_master: received Accept from new master %S" me (string_of msg) >>= fun () ->
-                  let cu_pred = S.get_catchup_start_i constants.store in
-                  let new_state = (source,cu_pred,n',i') in
+                  let new_state = (source, n', i') in
                   Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
                   Fsm.return (Slave_discovered_other_master new_state)
                 end

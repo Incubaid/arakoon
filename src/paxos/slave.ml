@@ -193,9 +193,8 @@ let slave_steady_state (type s) constants state event =
                                    (Sn.string_of n') (Sn.string_of i') source (Sn.string_of  n) (Sn.string_of  i)
                                 )
                in
-               let cu_pred = S.get_catchup_start_i constants.store in
-               let new_state = (source,cu_pred,n',i') in
-               Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master(new_state) )
+               let new_state = (source, n', i') in
+               Fsm.return ~sides:[log_e0;log_e] (Slave_discovered_other_master new_state)
              end
           | Accept (_,_,_) ->
             begin
@@ -217,15 +216,13 @@ let slave_steady_state (type s) constants state event =
                 start_lease_expiration_thread constants >>= fun () ->
                 Fsm.return (Slave_steady_state (n', next_i, None))
               | Promise_sent_needs_catchup ->
-                let i = S.get_catchup_start_i constants.store in
-                let new_state = (source, i, n', i') in
-                Fsm.return ~sides:[log_e0] (Slave_discovered_other_master(new_state) )
+                let new_state = (source, n', i') in
+                Fsm.return ~sides:[log_e0] (Slave_discovered_other_master new_state)
             end
           | Nak(_,(n2, i2)) when i2 > i ->
              begin
                Logger.debug_f_ "%s: got %s => go to catchup" constants.me (string_of msg) >>= fun () ->
-               let cu_pred =  S.get_catchup_start_i constants.store in
-               Fsm.return (Slave_discovered_other_master (source, cu_pred, n2, i2))
+               Fsm.return (Slave_discovered_other_master (source, n2, i2))
              end
           | Nak _
           | Promise _
@@ -270,64 +267,38 @@ let slave_steady_state (type s) constants state event =
 (* a pending slave that discovered another master has to do
    catchup and then go to steady state *)
 let slave_discovered_other_master (type s) constants state () =
-  let (master, current_i, future_n, future_i) = state in
+  let (master, future_n, future_i) = state in
   let me = constants.me
   and other_cfgs = constants.other_cfgs
   and store = constants.store
   and tlog_coll = constants.tlog_coll
   in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
-  if current_i <= future_i then
-    begin
-      Logger.debug_f_
-        "%s: slave_discovered_other_master: catching up from %s @ %s"
-        me master (Sn.string_of future_i) >>= fun() ->
-      let cluster_id = constants.cluster_id in
-      let tls_ctx = constants.catchup_tls_ctx in
-      let master_before = S.who_master store in
-      let lease_expired = match master_before with
-        | None -> true
-        | Some (_, ls) -> ls +. (float_of_int constants.lease_expiration) <= Unix.gettimeofday () in
-      Catchup.catchup
-        ~tls_ctx
-        ~tcp_keepalive:constants.tcp_keepalive
-        ~stop:constants.stop
-        me other_cfgs ~cluster_id ((module S), store, tlog_coll) master >>= fun () ->
+  Logger.debug_f_
+    "%s: slave_discovered_other_master: catching up from %s @ %s"
+    me master (Sn.string_of future_i) >>= fun() ->
+  let cluster_id = constants.cluster_id in
+  let tls_ctx = constants.catchup_tls_ctx in
+  let master_before = S.who_master store in
+  let lease_expired = match master_before with
+    | None -> true
+    | Some (_, ls) -> ls +. (float_of_int constants.lease_expiration) <= Unix.gettimeofday () in
+  Catchup.catchup
+    ~tls_ctx
+    ~tcp_keepalive:constants.tcp_keepalive
+    ~stop:constants.stop
+    me other_cfgs ~cluster_id ((module S), store, tlog_coll) master >>= fun () ->
 
-      let master_after = S.who_master store in
-      let immediate_lease_expiration =
-        (* lease was previously expired and learned no new master leases *)
-        lease_expired && (master_after = master_before)
-      in
-      let current_i' = S.get_succ_store_i store in
-      let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
-                          Sn.pred current_i') (* pred =  consensus_i *)
-      in
-      Multi_paxos.mcast constants fake >>= fun () ->
+  let master_after = S.who_master store in
+  let immediate_lease_expiration =
+    (* lease was previously expired and learned no new master leases *)
+    lease_expired && (master_after = master_before)
+  in
+  let current_i' = S.get_succ_store_i store in
+  let fake = Prepare( Sn.of_int (-2), (* make it completely harmless *)
+                      Sn.pred current_i') (* pred =  consensus_i *)
+  in
+  Multi_paxos.mcast constants fake >>= fun () ->
 
-      start_lease_expiration_thread ~immediate_lease_expiration constants >>= fun () ->
-      Fsm.return (Slave_steady_state (future_n, current_i', None));
-    end
-  else
-    begin
-      let next_i = S.get_succ_store_i constants.store in
-      begin
-        if is_election constants
-        then
-          (* we have to go to election here or we can get in a situation where
-             everybody just waits for each other *)
-          let new_n = update_n constants future_n in
-          Lwt.return
-            (Election_suggest (new_n, 0),
-             "slave_discovered_other_master: my i is bigger then theirs ; back to election")
-        else
-          begin
-            start_lease_expiration_thread constants >>= fun () ->
-            Lwt.return
-              (Slave_steady_state( future_n, next_i, None ),
-               "slave_discovered_other_master: forced slave, back to slave mode")
-          end
-      end >>= fun (s, m) ->
-      let log_e = ELog (fun () -> m) in
-      Fsm.return ~sides:[log_e] s
-    end
+  start_lease_expiration_thread ~immediate_lease_expiration constants >>= fun () ->
+  Fsm.return (Slave_steady_state (future_n, current_i', None));

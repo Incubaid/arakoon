@@ -203,8 +203,7 @@ let wait_for_promises (type s) constants state event =
                     >>= fun () ->
                     if i' > i
                     then
-                      let cu_pred = S.get_catchup_start_i constants.store in
-                      Fsm.return (Slave_discovered_other_master (source,cu_pred,n'',i'))
+                      Fsm.return (Slave_discovered_other_master (source, n'', i'))
                     else
                       let new_n = update_n constants (max n n'') in
                       Fsm.return (Election_suggest (new_n, counter + 1))
@@ -235,8 +234,7 @@ let wait_for_promises (type s) constants state event =
                     start_lease_expiration_thread constants >>= fun () ->
                     Fsm.return (Slave_steady_state (n', i, None))
                   | Promise_sent_needs_catchup ->
-                    let i = S.get_catchup_start_i constants.store in
-                    Fsm.return (Slave_discovered_other_master (source, i, n', i'))
+                    Fsm.return (Slave_discovered_other_master (source, n', i'))
               end
             | Accept (n',_i,_v) when n' < n ->
               begin
@@ -244,7 +242,7 @@ let wait_for_promises (type s) constants state event =
                 then
                   begin
                     Logger.debug_f_ "%s: wait_for_promises: still have an active master (received %s) -> catching up from master" me  (string_of msg) >>= fun () ->
-                    Fsm.return (Slave_discovered_other_master (source, i, n', _i))
+                    Fsm.return (Slave_discovered_other_master (source, n', _i))
                   end
                 else
                   Logger.debug_f_ "%s: wait_for_promises: ignoring old Accept %s" me (Sn.string_of n')
@@ -444,10 +442,9 @@ let wait_for_accepteds
                       end
                     | Promise_sent_needs_catchup ->
                       begin
-                        let i = S.get_catchup_start_i constants.store in
                         lost_master_role mo >>= fun () ->
                         Multi_paxos.safe_wakeup_all () lew >>= fun () ->
-                        Fsm.return (Slave_discovered_other_master (source, i, n', i'))
+                        Fsm.return (Slave_discovered_other_master (source, n', i'))
                       end
                   end
               end
@@ -480,8 +477,7 @@ let wait_for_accepteds
                   begin
                     (* Become slave, goto catchup *)
                     Logger.debug_f_ "%s: wait_for_accepteds: received Accept from new master %S" me (string_of msg) >>= fun () ->
-                    let cu_pred = S.get_catchup_start_i constants.store in
-                    let new_state = (source,cu_pred,n',i') in
+                    let new_state = (source, n', i') in
                     Logger.debug_f_ "%s: wait_for_accepteds: drop %S (it's still me)" me (string_of msg) >>= fun () ->
                     Fsm.return (Slave_discovered_other_master new_state)
                   end
