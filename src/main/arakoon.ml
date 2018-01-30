@@ -159,10 +159,20 @@ let run_some_tests repeat_count filter =
 
     | None -> failwith (Printf.sprintf "no test matches '%s'" filter);;
 
+let try_lock_tz () =
+  match Unix.getenv "TZ" with
+    _ -> ()
+  | exception Not_found -> begin
+      ignore(Lazy.force Core.Time.Zone.local);
+      Unix.putenv "TZ" ":/etc/localtime";
+    end
+
 
 let main () =
   Ssl_threads.init ();
   Ssl.init ~thread_safe:true ();
+
+  try_lock_tz ();
 
   let () =
     Lwt.async_exception_hook :=
