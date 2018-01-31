@@ -110,6 +110,7 @@ let paxos_event2s = function
 type 'a constants =
   {me:id;
    others: id list;
+   learners: id list;
    send: MPMessage.t -> id -> id -> unit Lwt.t;
    get_value: Sn.t -> Value.t option Lwt.t;
    on_accept: Value.t * Sn.t * Sn.t -> unit Lwt.t;
@@ -148,7 +149,7 @@ let is_election constants =
     | Elected | Preferred _ -> true
     | ReadOnly | Forced _ -> false
 
-let make (type s) ~catchup_tls_ctx ~tcp_keepalive me is_learner others send get_value
+let make (type s) ~catchup_tls_ctx ~tcp_keepalive me is_learner others learners send get_value
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
       other_cfgs lease_expiration inject_event is_alive ~cluster_id
@@ -158,6 +159,7 @@ let make (type s) ~catchup_tls_ctx ~tcp_keepalive me is_learner others send get_
     me=me;
     is_learner;
     others;
+    learners;
     send;
     get_value;
     on_accept;
@@ -183,11 +185,11 @@ let make (type s) ~catchup_tls_ctx ~tcp_keepalive me is_learner others send get_
     max_buffer_size;
   }
 
-let mcast constants msg =
-  let send = constants.send in
-  let me = constants.me in
-  let others = constants.others in
-  Lwt_list.iter_p (fun o -> send msg me o) others
+let mcast {send; me; others; learners} msg =
+  let dst = match msg with
+      Accept _ | Nak _ -> learners @ others
+    | _ -> others in
+  Lwt_list.iter_p (send msg me) dst
 
 
 let update_n constants n =

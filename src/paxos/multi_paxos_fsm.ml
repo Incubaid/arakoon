@@ -53,12 +53,6 @@ let election_suggest (type s) constants (n, counter) () =
   let state = (n, i, who_voted, v_lims, [], counter) in
   Fsm.return (Promises_check_done state)
 
-let read_only constants (_state : unit) () =
-  Lwt_unix.sleep 60.0 >>= fun () ->
-  Logger.debug_f_ "%s: read_only ..." constants.me >>= fun () ->
-  Fsm.return Read_only
-
-
 (* a potential master is waiting for promises and if enough
    promises are received the value is accepted and Accept is broadcasted *)
 let promises_check_done constants state () =
@@ -583,9 +577,17 @@ let machine constants =
 
     | Election_suggest state ->
       (Unit_arg (election_suggest constants state), nop)
-    | Read_only ->
-      (Unit_arg (read_only constants ()), nop)
     | Start_transition -> failwith "Start_transition?"
+
+
+let learner_machine constants =
+  let nop = [] in
+  let full = [Node; Inject; Election_timeout; Client] in
+  function
+    | Learner_fake_prepare state ->		(Unit_arg (Learner.fake_prepare constants state), nop)
+    | Learner_steady_state state ->		(Msg_arg (Learner.steady_state constants state), full)
+    | Learner_discovered_other_master state ->	(Unit_arg (Learner.discovered_other_master constants state), nop)
+
 
 (* Warning: This currently means we have only 1 fsm / executable. *)
 let __state = ref Start_transition
@@ -737,6 +739,25 @@ let _execute_effects constants e =
 
 (* the entry methods *)
 
+let enter_learner ?(stop = ref false) constants buffers new_i =
+  let me = constants.me in
+  Logger.debug_f_ "%s: +starting FSM for learner." me >>= fun () ->
+  let produce = paxos_produce buffers constants in
+  let new_n = update_n constants Sn.start in
+
+  Lwt.catch
+    (fun () ->
+       Fsm.loop ~stop
+         (_execute_effects constants)
+         produce
+         (learner_machine constants)
+         (Learner.fake_prepare constants (new_i,new_n))
+    )
+    (fun exn ->
+       Logger.warning_ ~exn "FSM BAILED due to uncaught exception"
+       >>= fun () -> Lwt.fail exn
+    )
+
 let enter_forced_slave ?(stop = ref false) constants buffers new_i =
   let me = constants.me in
   Logger.debug_f_ "%s: +starting FSM for forced_slave." me >>= fun () ->
@@ -813,24 +834,6 @@ let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i 
       Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
       run (election_suggest constants (current_n, 0))
     end
-
-let enter_read_only ?(stop = ref false) constants buffers _current_i =
-  let me = constants.me in
-  Logger.debug_f_ "%s: +starting FSM for read_only." me >>= fun () ->
-  let trace = trace_transition in
-  let produce = paxos_produce buffers constants in
-  Lwt.catch
-    (fun () ->
-       Fsm.loop ~trace ~stop
-         (_execute_effects constants)
-         produce
-         (machine constants)
-         (read_only constants ())
-    )
-    (fun exn ->
-       Logger.warning_ ~exn "READ ONLY BAILS OUT" >>= fun () ->
-       Lwt.fail exn
-    )
 
 let expect_run_forced_slave constants buffers expected step_count new_i =
   Logger.debug_f_ "%s: +starting forced_slave FSM with expect" constants.me >>= fun () ->

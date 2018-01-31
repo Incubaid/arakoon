@@ -24,7 +24,7 @@ from Compat import X
 
 @Common.with_custom_setup(Common.setup_2_nodes_mini, Common.basic_teardown)
 def test_learner():
-    op_count = 54321
+    op_count = 5432
     Common.iterate_n_times(op_count, Common.simple_set)
     cluster = Common._getCluster(Common.cluster_id)
     logging.info("adding learner")
@@ -39,8 +39,7 @@ def test_learner():
                     headDir = head_dir,
                     logLevel = 'debug',
                     home = db_dir,
-                    isLearner = True,
-                    targets = [Common.node_names[0]])
+                    isLearner = True)
     cfg = cluster._getConfigFile()
     logging.info("cfg=%s", X.cfg2str(cfg))
     cluster.disableFsync([name])

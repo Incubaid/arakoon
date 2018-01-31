@@ -7,6 +7,8 @@ OCAML_LIBDIR ?= $(START)/lib/ocaml/
 #OCAML_LIBDIR ?= `ocamlfind printconf destdir`
 OCAML_FIND ?= ocamlfind
 
+JOBS := $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 1)
+
 all: build
 
 clean:
@@ -16,12 +18,16 @@ clean:
 	rm -f  ./arakoon.byte ./arakoon.native
 
 build:
-	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
+	ocamlbuild -j $(JOBS) arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
 
 bench:
-	ocamlbuild -use-ocamlfind bs_bench.native
+	ocamlbuild bs_bench.native
 
-test:
+arakoon.byte arakoon.native:
+	ocamlbuild -j $(JOBS) $@
+
+test:	arakoon.native
+	ocamlbuild -j $(JOBS) arakoon.native
 	./arakoon.native --run-all-tests
 
 install: install_client install_server man
@@ -111,16 +117,14 @@ uninstall_client:
 	$(OCAML_FIND) remove arakoon_client -destdir $(OCAML_LIBDIR)
 
 coverage:
-	ocamlbuild -use-ocamlfind \
-	-tag use_bisect \
-	arakoon.d.byte
+	ocamlbuild -tag use_bisect arakoon.d.byte
 
 man:
 	ln -s ./arakoon.native arakoon
 	help2man --name='Arakoon, a consistent key value store' ./arakoon > debian/arakoon.man
 	rm arakoon
 
-.PHONY: install test build install_client bench
+.PHONY: install test build install_client bench arakoon.byte arakoon.native
 
 
 indent-tabs-to-spaces:

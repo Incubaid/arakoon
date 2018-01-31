@@ -70,7 +70,7 @@ let time () =
     tm.tm_hour tm.tm_min tm.tm_sec
 
 let major_minor_patch () =
-  let tag_version = run_cmd "git describe --tags --exact-match --dirty"
+  let tag_version = run_cmd "git describe --tags --exact-match --dirty 2>/dev/null"
   and branch_version = run_cmd "git describe --all" in
 
   let (major, minor, patch) =
@@ -114,6 +114,8 @@ let path_to_bisect () =
 
 
 let _ = dispatch & function
+     | Before_options ->
+        Options.use_ocamlfind := true
     | After_rules ->
       rule "arakoon_version.ml" ~prod:"arakoon_version.ml" make_version;
 

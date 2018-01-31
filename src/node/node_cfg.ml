@@ -136,7 +136,6 @@ module Node_cfg = struct
             is_laggy : bool;
             is_learner : bool;
             is_witness : bool;
-            targets : string list;
             compressor : Compression.compressor;
             fsync : bool;
             _fsync_tlog_dir : bool;
@@ -168,7 +167,6 @@ module Node_cfg = struct
            ; "is_laggy", bool t.is_laggy
            ; "is_learner", bool t.is_learner
            ; "is_witness", bool t.is_witness
-           ; "targets", list id t.targets
            ; "compressor", Compression.compressor2s t.compressor
            ; "fsync", bool t.fsync
            ; "is_test", bool t.is_test
@@ -306,7 +304,6 @@ module Node_cfg = struct
         is_laggy = false;
         is_learner = false;
         is_witness = false;
-        targets = [];
         compressor = Compression.Snappy;
         fsync = false;
         _fsync_tlog_dir = false;
@@ -563,11 +560,7 @@ module Node_cfg = struct
                             "__tainted_fsync_tlog_dir"
                             Ini.p_bool
                             (Ini.default true) in
-    let targets =
-      if is_learner
-      then Ini.get inifile node_name "targets" Ini.p_string_list Ini.required
-      else []
-    in
+
     let lease_period = _get_lease_period inifile in
     let log_dir =
       try get_string "log_dir"
@@ -636,7 +629,6 @@ module Node_cfg = struct
      is_laggy;
      is_learner;
      is_witness;
-     targets;
      compressor;
      fsync;
      _fsync_tlog_dir;

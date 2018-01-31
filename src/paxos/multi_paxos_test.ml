@@ -68,7 +68,8 @@ let test_generic network_factory n_nodes () =
     ~fsync_tlog_dir:false ~cluster_id
   >>= fun tlog_coll ->
   let base = {me = "???";
-              others = [] ;
+              others = [];
+              learners = [];
               is_learner = false;
               send = send;
               get_value = get_value tlog_coll;
@@ -129,8 +130,7 @@ let test_generic network_factory n_nodes () =
               | Multi_paxos_type.Accepteds_check_done _
               | Multi_paxos_type.Master_consensus _
               | Multi_paxos_type.Stable_master _
-              | Multi_paxos_type.Master_dictate _
-              | Multi_paxos_type.Read_only -> Lwt.return None
+              | Multi_paxos_type.Master_dictate _ -> Lwt.return None
           in
           let client_buffer = Lwt_buffer.create () in
           let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
@@ -173,8 +173,7 @@ let test_generic network_factory n_nodes () =
         | Multi_paxos_type.Wait_for_accepteds _
         | Multi_paxos_type.Accepteds_check_done _
         | Multi_paxos_type.Master_consensus _
-        | Multi_paxos_type.Master_dictate _
-        | Multi_paxos_type.Read_only  -> Lwt.return None
+        | Multi_paxos_type.Master_dictate _ -> Lwt.return None
     in
     let inject_buffer = Lwt_buffer.create () in
     let election_timeout_buffer = Lwt_buffer.create () in
@@ -273,6 +272,7 @@ let test_master_loop network_factory ()  =
   let constants = {me = me;
                    is_learner = false;
                    others = others;
+                   learners = [];
                    send = send;
                    get_value = get_value tlog_coll;
                    on_accept = on_accept;
@@ -319,8 +319,7 @@ let test_master_loop network_factory ()  =
         | Multi_paxos_type.Wait_for_accepteds _
         | Multi_paxos_type.Accepteds_check_done _
         | Multi_paxos_type.Master_consensus _
-        | Multi_paxos_type.Master_dictate _
-        | Multi_paxos_type.Read_only -> Lwt.return None
+        | Multi_paxos_type.Master_dictate _ -> Lwt.return None
     in
     let current_n = Sn.start in
     let buffers =
@@ -419,6 +418,7 @@ let test_simulation filters () =
     me = me;
     is_learner = false;
     others = ["c1";"c2"];
+    learners = [];
     send = send;
     get_value = get_value tlog_coll;
     on_accept = on_accept me;
@@ -459,8 +459,7 @@ let test_simulation filters () =
         | Multi_paxos_type.Wait_for_accepteds _
         | Multi_paxos_type.Accepteds_check_done _
         | Multi_paxos_type.Master_consensus _
-        | Multi_paxos_type.Master_dictate _
-        | Multi_paxos_type.Read_only -> Lwt.return None
+        | Multi_paxos_type.Master_dictate _ -> Lwt.return None
     in
     let buffers = Multi_paxos_fsm.make_buffers
                     (client_buffer,
@@ -500,8 +499,7 @@ let test_simulation filters () =
         | Multi_paxos_type.Wait_for_accepteds _
         | Multi_paxos_type.Accepteds_check_done _
         | Multi_paxos_type.Master_consensus _
-        | Multi_paxos_type.Master_dictate _
-        | Multi_paxos_type.Read_only -> Lwt.return None
+        | Multi_paxos_type.Master_dictate _ -> Lwt.return None
     in
     let buffers = Multi_paxos_fsm.make_buffers
                     (client_buffer,

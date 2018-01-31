@@ -67,7 +67,6 @@ let _make_cfg name n lease_period =
     is_laggy = false;
     is_learner = false;
     is_witness = false;
-    targets = [];
     compressor = Compression.Snappy;
     fsync = false;
     _fsync_tlog_dir = false;
