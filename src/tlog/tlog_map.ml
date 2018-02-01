@@ -158,9 +158,7 @@ let get_count tlog_names =
       let length = String.length last in
       let postfix = String.sub last (length -4) 4 in
       let number = get_number last in
-      if postfix = "tlog"
-      then number
-      else number + 1
+      number
 
 let _get_entries dir invalid_dir_exn =
   Lwt.catch
@@ -232,7 +230,7 @@ let _validate_one
       ~(check_sabotage:bool)
     : validation_result Lwt.t
   =
-  Logger.debug_f_ "_validate_one %s" tlog_name >>= fun () ->
+  Logger.info_f_ "_validate_one %s" tlog_name >>= fun () ->
   let e2s e = let i = Entry.i_of e in Printf.sprintf "(%s,_)" (Sn.string_of i) in
   let prev_entry = ref None in
   let new_index = Index.make tlog_name in
