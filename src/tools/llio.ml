@@ -288,6 +288,8 @@ let input_string ic =
   input_int ic >>= fun size ->
   if size > (4 * 1024 * 1024 * 1024) then
     lwt_failfmt "Unexpectedly large string size requested:%d" size
+  else if size < 0
+  then lwt_failfmt "Unexpectedly reading string with negative size:%d" size
   else Lwt.return size  >>= fun size2 ->
     let result = Bytes.create size2 in
     Lwt_io.read_into_exactly ic result 0 size2 >>= fun () ->

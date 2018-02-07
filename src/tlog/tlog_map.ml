@@ -256,7 +256,9 @@ let _validate_one
                  let s = Some (_make_close_marker node_id) in
                  if Entry.check_marker e s
                  then !prev_entry
-                 else raise (TLCNotProperlyClosed (tlog_name, Entry.entry2s e))
+                 else if extension_of tlog_name = ".tlog"
+                 then raise (TLCNotProperlyClosed (tlog_name, Entry.entry2s e))
+                 else raise TLogSabotage
            in
            Lwt.return eo'
        end

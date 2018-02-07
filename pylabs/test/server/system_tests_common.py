@@ -378,11 +378,6 @@ def last_entry_code(node_id):
 def get_last_i_tlog ( node_id ):
     tlog_dump = dump_tlog ( node_id, get_last_tlog_id(node_id) )
     tlog_dump_list = tlog_dump.split("\n")
-    tlog_first_entry = tlog_dump_list[0]
-    tlog_first_i = int(tlog_first_entry.split(":") [0].lstrip(" "))
-    if tlog_first_i % tlog_entries_per_tlog != 0 :
-        test_failed = True
-        raise Exception( "Problem with tlog rollover, first entry (%d) incorrect" % tlog_first_i )
     tlog_last_entry = tlog_dump_list [-2]
     tlog_last_i = tlog_last_entry.split(":") [0].lstrip( " 0" )
     return tlog_last_i
