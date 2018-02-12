@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
+
+open Std
 open Lwt.Infix
 open Node_cfg
 
@@ -55,6 +57,8 @@ let inspect_cluster ~tls (cfg : Node_cfg.cluster_cfg) =
         ~cluster_id
         node_name
         ((module S), store, tlc) >>= fun tlog_i ->
+
+      let tlog_i = Option.get_some tlog_i in
 
       Lwt_log.info_f "Got head & tlogs for %s, i=%Li" node_name tlog_i >>= fun () ->
       Lwt.return (node_name, db_path, store, tlc, tlog_i)

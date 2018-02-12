@@ -290,9 +290,10 @@ let _validate_one
 module TlogMap = struct
   type tlog_number = int
   type is_archive = bool
-  type item = { i:Sn.t ;
-                n: tlog_number;
-                  is_archive: is_archive}
+  type item = { i : Sn.t ;
+                n : tlog_number;
+                is_archive: is_archive
+              }
   type t = {
       tlog_dir: string;
       tlx_dir : string;
