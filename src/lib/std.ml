@@ -200,6 +200,19 @@ end
 external id : 'a -> 'a = "%identity"
 let const v = fun _ -> v
 
+module Option = struct
+  type 'a t = 'a option =
+            | None
+            | Some of 'a
+
+  let some x = Some x
+
+  let get_some = function
+    | None -> assert false
+    | Some x -> x
+end
+
+
 module String = struct
   include String
   module C = CompareLib.Default(String)

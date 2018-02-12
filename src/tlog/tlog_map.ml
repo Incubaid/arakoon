@@ -151,16 +151,11 @@ let _get_full_path tlog_dir tlx_dir name =
     else
       Filename.concat tlog_dir name
 
-let get_count tlog_names =
+let get_last_tlog tlog_names =
   match List.length tlog_names with
-    | 0 -> 0
+    | 0 -> None
     | n -> let last = List.nth tlog_names (n-1) in
-      let length = String.length last in
-      let postfix = String.sub last (length -4) 4 in
-      let number = get_number last in
-      if postfix = "tlog"
-      then number
-      else number + 1
+           Some last
 
 let _get_entries dir invalid_dir_exn =
   Lwt.catch
@@ -232,7 +227,7 @@ let _validate_one
       ~(check_sabotage:bool)
     : validation_result Lwt.t
   =
-  Logger.debug_f_ "_validate_one %s" tlog_name >>= fun () ->
+  Logger.info_f_ "_validate_one %s" tlog_name >>= fun () ->
   let e2s e = let i = Entry.i_of e in Printf.sprintf "(%s,_)" (Sn.string_of i) in
   let prev_entry = ref None in
   let new_index = Index.make tlog_name in
@@ -261,7 +256,9 @@ let _validate_one
                  let s = Some (_make_close_marker node_id) in
                  if Entry.check_marker e s
                  then !prev_entry
-                 else raise (TLCNotProperlyClosed (tlog_name, Entry.entry2s e))
+                 else if extension_of tlog_name = ".tlog"
+                 then raise (TLCNotProperlyClosed (tlog_name, Entry.entry2s e))
+                 else raise TLogSabotage
            in
            Lwt.return eo'
        end
@@ -293,9 +290,10 @@ let _validate_one
 module TlogMap = struct
   type tlog_number = int
   type is_archive = bool
-  type item = { i:Sn.t ;
-                n: tlog_number;
-                  is_archive: is_archive}
+  type item = { i : Sn.t ;
+                n : tlog_number;
+                is_archive: is_archive
+              }
   type t = {
       tlog_dir: string;
       tlx_dir : string;
@@ -341,9 +339,12 @@ module TlogMap = struct
                    check_marker check_sabotage
     >>= fun () ->
     _get_tlog_names tlog_dir tlx_dir >>= fun tlog_names ->
-    let tlog_number = get_count tlog_names in
-    Logger.info_f_ "tlog_number:%i" tlog_number >>= fun () ->
-    let full_path = _get_full_path tlog_dir tlx_dir (file_name tlog_number) in
+    let tlog_name = match get_last_tlog tlog_names with
+      | None -> file_name 0
+      | Some n -> n
+    in
+    Logger.info_f_ "tlog_name:%s" tlog_name >>= fun () ->
+    let full_path = _get_full_path tlog_dir tlx_dir tlog_name in
     _validate_one full_path node_id ~check_marker ~check_sabotage
     >>= fun (last, index, tlog_size) ->
     Lwt_list.fold_left_s
@@ -375,14 +376,15 @@ module TlogMap = struct
       | None -> Sn.zero
       | Some e -> Entry.i_of e
     in
-    let tlog_entries, should_roll,last_start =
+
+    let tlog_number, tlog_entries, should_roll =
       match i_to_tlog_number with
-      | []                -> 0, false, Sn.zero
-      | item :: _ when item.is_archive -> 0, true , item.i
+      | []                -> 0, 0, false
+      | item :: _ when item.is_archive -> item.n, 0, true
       | item :: _ ->
          let tlog_entries = Sn.sub last_i item.i |> Sn.to_int in
          let should_roll = tlog_entries + 1 >= tlog_max_entries in
-         tlog_entries, should_roll, item.i
+         item.n, tlog_entries, should_roll
     in
     Logger.info_f_ "_init: tlog_entries:%i should_roll:%b" tlog_entries should_roll
     >>= fun () ->
@@ -431,10 +433,13 @@ module TlogMap = struct
   let get_last_tlog t =
     Logger.debug_ "get_last_tlog" >>= fun () ->
     get_tlog_names t >>= fun tlog_names ->
-    let new_c = get_count tlog_names in
-    Logger.debug_f_ "new_c:%i" new_c >>= fun () ->
-    let full_path = _get_full_path t.tlog_dir t.tlx_dir (file_name new_c) in
-    Lwt.return (new_c, full_path)
+    let new_c = match get_last_tlog tlog_names with
+      | None -> file_name 0
+      | Some n -> n
+    in
+    Logger.debug_f_ "new_c:%s" new_c >>= fun () ->
+    let full_path = _get_full_path t.tlog_dir t.tlx_dir new_c in
+    Lwt.return full_path
 
 
   let find_tlog_file t c =

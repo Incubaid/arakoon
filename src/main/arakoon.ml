@@ -70,6 +70,7 @@ type local_action =
   | RANGE_ENTRIES
   | REV_RANGE_ENTRIES
   | VerifyStore
+  | InspectCluster
 
 type server_action =
   | Node
@@ -470,7 +471,8 @@ let main () =
      "reverse list entries within range");
     ("-left", Arg.String  (fun s -> left  := Some s), "left boundary (range query)");
     ("-right", Arg.String (fun s -> right := Some s), "right boundary (range query)");
-
+    ("--inspect-cluster", Arg.Tuple [ set_laction InspectCluster; ],
+     "inspect/compare all nodes of a cluster for divergence");
   ] in
 
   let options = [] in
@@ -559,7 +561,16 @@ let main () =
        Client_main.rev_range_entries
          ~tls !config_url
          !left !linc !right !rinc !max_results
-
+    | InspectCluster ->
+       let open Lwt.Infix in
+       let t () =
+         make_config () >>= fun cfg ->
+         Inspect.inspect_cluster
+           ~tls
+           cfg
+       in
+       Lwt_main.run (t ());
+       0
   in
   let do_server node =
     match node with

@@ -191,7 +191,6 @@ def test_issue125():
 
     X.removeFile('%s/035.tlog' % db_dir)
     X.removeFile('%s/034.tlx' % tlx_dir)
-    X.removeFile('%s/%s.log' % (log_dir,slave))
     X.removeFile('%s/%s.db' % (db_dir, slave))
     # we have a cluster with head.db, no db and no tlog file.
 

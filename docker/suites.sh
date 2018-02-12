@@ -13,7 +13,7 @@ case "${1-bash}" in
         make build
         ;;
     unit)
-        make build
+        ./jenkins/common.sh
         ./arakoon.native --run-all-tests-xml testresults.xml
         x=$?
         cat testresults.xml

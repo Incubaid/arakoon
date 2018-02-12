@@ -51,7 +51,7 @@ let replay_tlogs tlog_dir tlx_dir db_name end_i =
             end_i with
           | None ->
              begin
-               TlogMap.get_last_tlog tlog_map >>= fun (_new_c,fn) ->
+               TlogMap.get_last_tlog tlog_map >>= fun fn ->
                Tlog_map._validate_one
                  fn ""
                  ~check_marker:false

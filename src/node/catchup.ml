@@ -15,7 +15,7 @@ limitations under the License.
 *)
 
 
-
+open Std
 open Lwt
 open Node_cfg
 open Remote_nodestream
@@ -112,14 +112,23 @@ let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_i
       match mr_addresses with
       | Some mr_addresses ->
          _with_client_connection  ~tls_ctx ~tcp_keepalive mr_addresses copy_tlog >>= fun () ->
-         Logger.info_f_ "catchup_tlog completed"
+         Logger.info_f_ "catchup_tlog completed" >>= fun () ->
+         tlog_coll # get_last_i () >|= Option.some
       | None ->
-         Logger.warning_f_ "catchup tlog from unknown node:%S is config up to date?" mr_name
+         Logger.warning_f_
+           "catchup tlog from unknown node:%S is config up to date?" mr_name
+         >>= fun () ->
+         (* return None when no catchup was done, so no entries are
+          * applied for which there is possibly no consensus (yet or ever) *)
+         Lwt.return_none
     )
-    (fun exn -> Logger.warning_f_ "catchup_tlog failed: %S"
-                                  (Printexc.to_string exn))
-  >>= fun () ->
-  tlog_coll # get_last_i ()
+    (fun exn ->
+      Logger.warning_f_ "catchup_tlog failed: %S"
+                        (Printexc.to_string exn) >>= fun () ->
+      (* return None when no catchup was done, so no entries are
+       * applied for which there is possibly no consensus (yet or ever) *)
+      Lwt.return_none
+    )
 
 
 let prepare_and_insert_value (type s) (module S : Store.STORE with type t = s) me store i v =
@@ -254,10 +263,14 @@ let catchup
   catchup_tlog
     ~tls_ctx ~tcp_keepalive
     ~stop other_configs ~cluster_id mr_name dbt >>= fun until_i ->
-  Logger.info_f_ "CATCHUP phase 1 done (until_i = %s); now the store"
-    (Sn.string_of until_i) >>= fun () ->
-  catchup_store ~stop me dbt (Sn.succ until_i) >>= fun () ->
-  Logger.info_ "CATCHUP end"
+  match until_i with
+  | None ->
+     Logger.info_ "CATCHUP phase 1 failed, not going to the store"
+  | Some until_i ->
+     Logger.info_f_ "CATCHUP phase 1 done (until_i = %s); now the store"
+                    (Sn.string_of until_i) >>= fun () ->
+     catchup_store ~stop me dbt (Sn.succ until_i) >>= fun () ->
+     Logger.info_ "CATCHUP end"
 
 let verify_n_catchup_store
       (type s) ~stop me ?(apply_last_tlog_value=false)
