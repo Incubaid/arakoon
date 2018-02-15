@@ -44,7 +44,7 @@ oasis	0.4.10	installed
 ocaml-compiler-libs	v0.10.0	installed
 ocaml-migrate-parsetree	1.0.7	installed
 ocamlbuild	0.12.0	installed
-oocamlfind	1.7.3-1	installed
+ocamlfind	1.7.3-1	installed
 ocamlify	0.0.1	installed
 ocamlmod	0.0.9	installed
 ocplib-endian	1.0	installed
