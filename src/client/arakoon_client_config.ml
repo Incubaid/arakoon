@@ -120,7 +120,7 @@ let tcp_keepalive_from_ini inifile =
   }
 
 let from_ini txt =
-  let inifile = new Inifiles.inifile txt in
+  let inifile = new Arakoon_inifiles.inifile txt in
   let cluster_id = Ini.get inifile "global" "cluster_id" Ini.p_string Ini.required in
   let nodes = Ini.get inifile "global" "cluster" Ini.p_string_list Ini.required in
   let node_cfgs =
@@ -182,7 +182,7 @@ let to_ini { cluster_id;
              node_cfgs;
              ssl_cfg;
              tcp_keepalive; } =
-  let inifile = new Inifiles.inifile "[global]\ncluster_id = x" in
+  let inifile = new Arakoon_inifiles.inifile "[global]\ncluster_id = x" in
 
   inifile # delval "global" "cluster_id";
 

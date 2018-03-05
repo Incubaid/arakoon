@@ -79,7 +79,7 @@ let setup_logger file_name =
 
 let _get_keeper_config_generic fetcher url=
   fetcher() >>= fun txt ->
-  let inifile = new Inifiles.inifile txt in
+  let inifile = new Arakoon_inifiles.inifile txt in
   let m_cfg = Node_cfg.get_nursery_cfg inifile in
   begin
     match m_cfg with

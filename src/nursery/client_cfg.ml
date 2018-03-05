@@ -84,7 +84,7 @@ module ClientCfg = struct
     cfg
 
   let _from_txt section txt =
-    let inifile = new Inifiles.inifile txt in
+    let inifile = new Arakoon_inifiles.inifile txt in
     from_ini section inifile
 
 end

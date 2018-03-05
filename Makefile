@@ -58,9 +58,9 @@ install_client:
 	  _build/src/client/protocol_common.cmx \
           _build/src/client/client_helper.cmi \
 	  _build/src/client/client_helper.cmx \
-          _build/src/inifiles/inifiles.mli \
-          _build/src/inifiles/inifiles.cmi \
-	  _build/src/inifiles/inifiles.cmx \
+          _build/src/inifiles/arakoon_inifiles.mli \
+          _build/src/inifiles/arakoon_inifiles.cmi \
+	  _build/src/inifiles/arakoon_inifiles.cmx \
           _build/src/lib/std.cmi \
           _build/src/lib/std.cmx \
           _build/src/plugins/registry.mli \

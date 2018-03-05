@@ -31,7 +31,7 @@ let configure_logging () =
 let tools_tests = "tools" >::: [
     Server_test.suite;
     Backoff_test.suite;
-    Inifiles_test.suite;
+    Arakoon_inifiles_test.suite;
   ]
 
 let client_tests = "client" >::: [
