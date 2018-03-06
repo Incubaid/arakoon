@@ -17,7 +17,7 @@ limitations under the License.
 let _parse txt =
   try
     let _cfg = Node_cfg.Node_cfg._retrieve_cfg_from_txt txt in ()
-  with (Inifiles.Ini_parse_error(lnum,txt) as exn)->
+  with (Arakoon_inifiles.Ini_parse_error(lnum,txt) as exn)->
     let () =
       Printf.printf "lnum:%i\n%s" lnum txt in
     raise exn

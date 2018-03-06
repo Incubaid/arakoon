@@ -19,9 +19,9 @@ Client_cfg
 Arakoon_config_url
 Arakoon_etcd
 Ini
-Inifiles
-Parseini
-Inilexer
+Arakoon_inifiles
+Arakoon_parseini
+Arakoon_inilexer
 Client_log
 Simple_store
 Logger

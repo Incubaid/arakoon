@@ -413,7 +413,7 @@ module Node_cfg = struct
           if _get_bool inifile "global" "preferred_master"
           then (Preferred [m])
           else (Forced m)
-      with (Inifiles.Invalid_element _) ->
+      with (Arakoon_inifiles.Invalid_element _) ->
         let pms = Ini.get inifile "global" "preferred_masters" Ini.p_string_list (fun _ _ -> []) in
         if pms <> []
         then
@@ -439,7 +439,7 @@ module Node_cfg = struct
     try
       let cids = inifile # getval "global" "cluster_id" in
       Scanf.sscanf cids "%s" (fun s -> s)
-    with (Inifiles.Invalid_element _ ) -> failwith "config has no cluster_id"
+    with (Arakoon_inifiles.Invalid_element _ ) -> failwith "config has no cluster_id"
 
   let _get_quorum_function inifile =
     let nodes = _node_names inifile in
@@ -453,7 +453,7 @@ module Node_cfg = struct
         let msg = Printf.sprintf "fixed quorum should be 1 <= %i <= %i"
                     qi n_nodes in
         failwith msg
-    with (Inifiles.Invalid_element _) -> Quorum.quorum_function
+    with (Arakoon_inifiles.Invalid_element _) -> Quorum.quorum_function
 
   let _log_config inifile log_name =
     let get_log_level x =
@@ -643,7 +643,7 @@ module Node_cfg = struct
 
 
     let _retrieve_cfg_from_txt txt =
-      let inifile = new Inifiles.inifile txt in
+      let inifile = new Arakoon_inifiles.inifile txt in
       let fm = _startup_mode inifile in
       let nodes = _node_names inifile in
       let plugin_names = _plugins inifile in

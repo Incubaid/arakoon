@@ -107,7 +107,7 @@ let parse_inifile txt tbl =
     Lexing.from_string txt'
   in
   try
-    let parsed_txt = Parseini.inifile Inilexer.lexini lxbuf in
+    let parsed_txt = Arakoon_parseini.inifile Arakoon_inilexer.lexini lxbuf in
     List.iter
       (fun (section, values) ->
          Hashtbl.add tbl section

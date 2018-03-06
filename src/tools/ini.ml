@@ -38,4 +38,4 @@ let get inifile section name s2a not_found =
   try
     let v_s = inifile # getval section name in
     s2a v_s
-  with (Inifiles.Invalid_element _) -> not_found section name
+  with (Arakoon_inifiles.Invalid_element _) -> not_found section name
