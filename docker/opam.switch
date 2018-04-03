@@ -96,7 +96,7 @@ redis	0.3.5+ovs1	installed
 redis-lwt	0.3.5+ovs1	root
 result	1.2	installed
 sexplib	v0.10.0	installed
-snappy	0.1.0	installed
+snappy	0.1.0+ovs1	root
 spawn	v0.10.1	installed
 ssl	0.5.5	installed
 stdio	v0.10.0	installed

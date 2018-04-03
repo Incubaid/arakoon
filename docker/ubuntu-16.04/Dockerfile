@@ -70,8 +70,11 @@ RUN chmod ugoa+rxw -R ovs-opam-repository
 RUN eval `${opam_env}` && \
     opam repo add ovs ovs-opam-repository && \
     opam update -v && \
-    (eval `${opam_env}` && opam switch import opam.switch -y)
+    (eval `${opam_env}` && opam switch import opam.switch -y --strict) 
 
+RUN eval `${opam_env}` && opam list && \
+    opam switch export opam.switch.out && \
+    diff opam.switch opam.switch.out
 
 RUN chmod ugoa+rxw -R ${opam_root}
 RUN su - -c "echo 'eval `${opam_env}`' >> /home/jenkins/.profile"
