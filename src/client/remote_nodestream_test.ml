@@ -20,7 +20,7 @@ open Remote_nodestream
 open Node_cfg
 open Arakoon_remote_client
 open Routing
-open Interval
+open Arakoon_interval
 
 let setup port = Lwt.return port
 

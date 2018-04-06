@@ -19,7 +19,7 @@ open Protocol_common
 open Lwt
 open Log_extra
 open Update
-open Interval
+open Arakoon_interval
 open Routing
 open Statistics
 open Ncfg

@@ -17,7 +17,7 @@ limitations under the License.
 open Lwt
 open Routing
 open Node_cfg.Node_cfg
-open Interval
+open Arakoon_interval
 open Tlog_map
 
 module S = (val (Store.make_store_module (module Batched_store.Local_store)))

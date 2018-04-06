@@ -75,8 +75,8 @@ install_client:
           _build/src/node/simple_store.cmi \
 	  _build/src/node/simple_store.cmx \
           _build/src/nursery/routing.cmi \
-          _build/src/tlog/interval.cmi \
-          _build/src/tlog/interval.cmx \
+          _build/src/tlog/arakoon_interval.cmi \
+          _build/src/tlog/arakoon_interval.cmx \
           _build/src/tlog/update.mli \
           _build/src/tlog/update.cmi \
 	  _build/src/tlog/update.cmx \

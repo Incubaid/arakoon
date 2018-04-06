@@ -13,7 +13,7 @@ Value
 Statistics
 Registry
 Routing
-Interval
+Arakoon_interval
 Ncfg
 Client_cfg
 Arakoon_config_url

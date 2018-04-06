@@ -22,7 +22,7 @@ depends: [
   "camltc" {>= "0.9.4"}
   "camlbz2" {>= "0.6.0"}
   "conf-libev" {>= "4-11"}
-  "lwt" {= "3.0.0"}
+  "lwt" {>= "3.0.0"}
   "lwt_ssl" {>= "1.0.1"}
   "ocplib-endian" {>= "1.0"}
   "ssl" {>= "0.5.3"}

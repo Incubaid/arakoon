@@ -22,7 +22,7 @@ module Update :
       | MasterSet of string * float
       | TestAndSet of string * string option * string option
       | Sequence of t list
-      | SetInterval of Interval.Interval.t
+      | SetInterval of Arakoon_interval.Interval.t
       | SetRouting of Routing.Routing.t
       | SetRoutingDelta of (string * string * string)
       | Nop

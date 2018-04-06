@@ -82,7 +82,7 @@ class type read_user_db =
     method get_exn : string -> string
     method with_cursor : (cursor_db -> 'a) -> 'a
 
-    method get_interval : unit -> Interval.Interval.t
+    method get_interval : unit -> Arakoon_interval.Interval.t
   end
 
 class type user_db =
