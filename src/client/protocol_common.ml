@@ -17,7 +17,7 @@ limitations under the License.
 
 
 open Lwt
-open Interval
+open Arakoon_interval
 open Update
 open Routing
 open Client_cfg

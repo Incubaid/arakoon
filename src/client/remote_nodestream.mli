@@ -15,7 +15,7 @@ limitations under the License.
 *)
 
 open Routing
-open Interval
+open Arakoon_interval
 open Client_cfg
 open Ncfg
 

@@ -18,7 +18,7 @@ limitations under the License.
 
 open Std
 open Update
-open Interval
+open Arakoon_interval
 open Routing
 open Statistics
 open Client_cfg

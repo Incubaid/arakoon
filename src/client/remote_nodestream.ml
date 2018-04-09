@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-open Interval
+open Arakoon_interval
 open Routing
 open Protocol_common
 open Lwt

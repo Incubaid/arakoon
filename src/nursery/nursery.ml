@@ -20,7 +20,7 @@ open Lwt
 open Routing
 open Client_cfg
 open Ncfg
-open Interval
+open Arakoon_interval
 open Arakoon_client
 
 let section = Logger.Section.main
@@ -182,7 +182,7 @@ module NC = struct
     get_interval from_cn >>= fun from_i ->
     Logger.debug_f_ "Getting initial interval from %s" to_cn >>= fun () ->
     get_interval to_cn >>= fun to_i ->
-    let open Interval in
+    let open Arakoon_interval in
     let rec loop (from_i:Interval.t) (to_i:Interval.t) =
       pull () >>= fun fringe ->
       match fringe with
@@ -275,7 +275,7 @@ module NC = struct
       end
     in
     let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
-    let open Interval in
+    let open Arakoon_interval in
     let finalize (from_i: Interval.t) (to_i: Interval.t) =
       Logger.debug_ "Setting final intervals en routing" >>= fun () ->
 
@@ -337,7 +337,7 @@ module NC = struct
       end
     in
     let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
-    let open Interval in
+    let open Arakoon_interval in
     let finalize from_cn to_cn direction (from_i: Interval.t) (to_i: Interval.t) =
       Logger.debug_ "Setting final intervals en routing" >>= fun () ->
       let fpu_b = from_i.pu_b

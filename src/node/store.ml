@@ -19,7 +19,7 @@ limitations under the License.
 
 open Std
 open Update
-open Interval
+open Arakoon_interval
 open Routing
 open Lwt
 open Simple_store

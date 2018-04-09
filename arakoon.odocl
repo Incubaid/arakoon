@@ -24,7 +24,7 @@ File_system
 Fsm
 Ini
 Arakoon_inifiles
-Interval
+Arakoon_interval
 Key
 Limits
 Llio
