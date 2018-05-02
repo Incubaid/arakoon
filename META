@@ -3,7 +3,6 @@
 description = "Arakoon client"
 version = "1.9.25"
 exists_if = "arakoon_client.cma,arakoon_client.cmxa,arakoon_client.cmxs"
-requires = "threads lwt lwt.unix str oUnit quickcheck lwt_ssl ocplib-endian redis-lwt uri"
+requires = "threads lwt lwt.unix str oUnit quickcheck lwt_ssl ocplib-endian redis-lwt uri core"
 archive(byte) = "arakoon_client.cma tcp_keepalive_sockopt_stubs.o"
 archive(native) = "arakoon_client.cmxa tcp_keepalive_sockopt_stubs.o"
-
