@@ -200,6 +200,19 @@ end
 external id : 'a -> 'a = "%identity"
 let const v = fun _ -> v
 
+module Option = struct
+  type 'a t = 'a option =
+            | None
+            | Some of 'a
+
+  let some x = Some x
+
+  let get_some = function
+    | None -> assert false
+    | Some x -> x
+end
+
+
 module String = struct
   include String
   module C = CompareLib.Default(String)
@@ -209,6 +222,12 @@ end
 module List = struct
   include List
 
+  let split3 xs =
+    let x0s_r, x1s_r, x2s_r =
+      fold_left
+        (fun (x0s,x1s,x2s) (x0,x1,x2) -> (x0::x0s, x1::x1s, x2::x2s))
+        ([], [], []) xs
+    in rev x0s_r, rev x1s_r, rev x2s_r
   let is_empty = function
     | [] -> true
     | _ -> false
@@ -229,11 +248,11 @@ module List = struct
   @param key Key to look-up
   @param default Optional default value if key isn't found
   @param f Update function *)
-  let alter ~list ~key ?default f =
+  let alter ?(equals=(=)) ~list ~key ?default f =
     let rec loop found acc = function
       | [] -> (found, acc)
       | ((k, v) as p :: r) ->
-          if k = key
+          if equals k key
             then match f v with
               | None -> loop true acc r
               | Some v' -> loop true ((k, v') :: acc) r

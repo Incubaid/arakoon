@@ -17,6 +17,7 @@ limitations under the License.
 
 
 open Lwt
+let section = Logger.Section.main
 
 module Lwt_buffer = struct
   type 'a t = {
@@ -42,7 +43,7 @@ module Lwt_buffer = struct
     let capacity = Some i in
     create ~capacity ()
 
-  let _is_full t =
+  let is_full t =
     match t.capacity with
       | None -> false
       | Some c -> Queue.length t.q = c
@@ -55,7 +56,7 @@ module Lwt_buffer = struct
            let () = Lwt_condition.signal t.empty () in
            Lwt.return ()
          in
-         if _is_full t
+         if is_full t
          then
            if t.leaky
            then Lwt.return () (* Logger.debug "leaky buffer reached capacity: dropping" *)
@@ -79,23 +80,53 @@ module Lwt_buffer = struct
     let () = Lwt_condition.signal t.full () in
     Lwt.return e
 
-  let harvest t =
+  let take_no_wait t =
+    if Queue.is_empty t.q
+    then None
+    else
+      let item = Queue.take t.q in
+      let () = Lwt_condition.signal t.full () in
+      Some item
+
+
+  let harvest_limited (t:'a t)
+                      (item_weight:'a -> int)
+                      (max_weight:int) =
     Lwt_mutex.with_lock t.empty_m
       (fun () -> if Queue.is_empty t.q
         then Lwt_condition.wait (* ~mutex:t.empty_m *) t.empty
         else Lwt.return ()
       ) >>= fun () ->
     let size = Queue.length t.q in
-    let rec loop es = function
-      | 0 -> List.rev es
+    let rec loop es tw = function
+      | 0 -> tw, es
       | i ->
-        let es' = Queue.take t.q :: es
-        and i' = i - 1 in
-        loop es' i'
+         let pot_item = Queue.peek t.q in
+         let w = item_weight pot_item in
+         let () = Logger.ign_debug_f_ "pot weight =%i" w in
+         if tw + w > max_weight
+         then tw, es
+         else
+           let es' = Queue.take t.q :: es
+           and i' = i - 1
+           and tw' = tw + w in
+           loop es' tw' i'
     in
-    let es = loop [] size in
+    let tw, es0 = loop [] 0 size in
+    let () =
+      Logger.ign_debug_f_
+        "total weight=%i (max=%i)" tw max_weight
+    in
+    let es = List.rev es0 in
+    assert (es <> []); (* input validation should have rejected this earlier *)
     let () = Lwt_condition.signal t.full() in
     Lwt.return es
+
+  let harvest t =
+    let item_weight _ = 0
+    and max = 1 in
+    harvest_limited t item_weight max
+
 
   let wait_for_item t =
     Lwt_mutex.with_lock t.empty_m

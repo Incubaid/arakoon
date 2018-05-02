@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-open Node_cfg.Node_cfg
+open Node_cfg
 open Network
 open Statistics
 open Client_helper
@@ -24,18 +24,18 @@ let default_create_client_context = default_create_client_context
 let with_connection = with_connection
 let with_connection' = with_connection'
 
-let with_client ~tls node_cfg cluster_id f =
-  with_client' ~tls (node_cfg_to_node_client_cfg node_cfg) cluster_id f
 
-let with_remote_nodestream ~tls node_cfg cluster_id f =
+let with_remote_nodestream ~tls ~tcp_keepalive node_cfg cluster_id f =
   let open Node_cfg in
   let addrs = List.map (fun ip -> make_address ip node_cfg.client_port) node_cfg.ips in
   let do_it _addr connection =
     Remote_nodestream.make_remote_nodestream cluster_id connection >>= f
   in
-  with_connection' ~tls addrs do_it
+  with_connection' ~tls ~tcp_keepalive addrs do_it
 
-let ping ~tls ip port cluster_id =
+let run f = Lwt_extra.run f ; 0
+
+let ping ~tls ~tcp_keepalive ip port cluster_id =
   let do_it connection =
     let t0 = Unix.gettimeofday () in
     Arakoon_remote_client.make_remote_client cluster_id connection
@@ -46,39 +46,42 @@ let ping ~tls ip port cluster_id =
     Lwt_io.printlf "%s\ntook\t%f" s d
   in
   let sa = make_address ip port in
-  let t = with_connection ~tls sa do_it in
-  Lwt_main.run t; 0
+  let t () = with_connection ~tls ~tcp_keepalive sa do_it in
+  run t
 
 
-
-
-let find_master ~tls cluster_cfg =
-  let cluster_cfg' = to_client_cfg cluster_cfg in
+let find_master ?tls cluster_cfg =
   let open MasterLookupResult in
-  find_master' ~tls cluster_cfg' >>= function
+  find_master' ?tls cluster_cfg >>= function
     | Found (node_name, _) -> return node_name
     | No_master -> Lwt.fail (Failure "No Master")
     | Too_many_nodes_down -> Lwt.fail (Failure "too many nodes down")
     | Unknown_node (n, _) -> return n (* Keep original behaviour *)
     | Exception exn -> Lwt.fail exn
 
-let run f = Lwt_main.run (f ()); 0
+let retrieve_cfg cfg_url =
+  Arakoon_config_url.retrieve cfg_url >|= Arakoon_client_config.from_ini
 
-let with_master_client ~tls cfg_name f =
-  let open Node_cfg in
-  let ccfg = read_config cfg_name in
-  find_master ~tls ccfg >>= fun master_name ->
-  let master_cfg = List.hd (List.filter (fun cfg -> cfg.node_name = master_name) ccfg.cfgs) in
-  with_client ~tls master_cfg ccfg.cluster_id f
+let with_master_client ~tls cfg_url f =
+  retrieve_cfg cfg_url >>= fun ccfg ->
+  find_master ?tls ccfg >>= fun master_name ->
+  with_client'' ?tls ccfg master_name f
 
-let set ~tls cfg_name key value =
-  let t () = with_master_client ~tls cfg_name (fun client -> client # set key value)
+let set ~tls cfg_name key value_option =
+  let t () =
+    (match value_option with
+    | Some value -> Lwt.return value
+    | None -> Lwt_io.read Lwt_io.stdin
+    ) >>= fun value ->
+    with_master_client ~tls cfg_name (fun client -> client # set key value)
   in run t
 
-let get ~tls cfg_name key =
+let get ?(raw=false)~tls cfg_name key =
   let f (client:Arakoon_client.client) =
     client # get key >>= fun value ->
-    Lwt_io.printlf "%S%!" value
+    if raw
+    then Lwt_io.print value
+    else Lwt_io.printlf "%S%!" value
   in
   let t () = with_master_client ~tls cfg_name f in
   run t
@@ -168,7 +171,6 @@ let benchmark
       ~tls
       cfg_name key_size value_size tx_size max_n n_clients
       scenario_s =
-  Lwt_io.set_default_buffer_size 32768;
   let scenario = Ini.p_string_list scenario_s in
   let t () =
     let with_c = with_master_client ~tls cfg_name in
@@ -198,52 +200,39 @@ let statistics ~tls cfg_name =
   let t () = with_master_client ~tls cfg_name f
   in run t
 
-let who_master ~tls cfg_name () =
-  let cluster_cfg = read_config cfg_name in
+let who_master ~tls cfg_url () =
+
   let t () =
-    find_master ~tls cluster_cfg >>= fun master_name ->
+    retrieve_cfg cfg_url >>= fun cluster_cfg ->
+    find_master ?tls cluster_cfg >>= fun master_name ->
     Lwt_io.printl master_name
   in
   run t
 
-let _cluster_and_node_cfg node_name' cfg_name =
-  let open Node_cfg in
-  let cluster_cfg = read_config cfg_name in
-  let _find cfgs =
-    let rec loop = function
-      | [] -> failwith (node_name' ^ " is not known in config " ^ cfg_name)
-      | cfg :: rest ->
-        if cfg.node_name = node_name' then cfg
-        else loop rest
-    in
-    loop cfgs
+let node_state ~tls node_name cfg_url =
+  let t () =
+    retrieve_cfg cfg_url >>= fun ccfg ->
+    with_client''
+      ?tls
+      ccfg node_name
+      (fun client ->
+       client # current_state () >>= fun state ->
+       Lwt_io.printl state
+      )
   in
-  let node_cfg = _find cluster_cfg.cfgs in
-  cluster_cfg, node_cfg
-
-let node_state ~tls node_name' cfg_name =
-  let open Node_cfg in
-  let cluster_cfg,node_cfg = _cluster_and_node_cfg node_name' cfg_name in
-  let cluster = cluster_cfg.cluster_id in
-  let f client =
-    client # current_state () >>= fun state ->
-    Lwt_io.printl state
-  in
-  let t () = with_client ~tls node_cfg cluster f in
   run t
 
 
-
-let node_version ~tls node_name' cfg_name =
-  let open Node_cfg in
-  let cluster_cfg, node_cfg = _cluster_and_node_cfg node_name' cfg_name in
-  let cluster = cluster_cfg.cluster_id in
+let node_version ~tls node_name cfg_url =
   let t () =
-    with_client ~tls node_cfg cluster
+    retrieve_cfg cfg_url >>= fun ccfg ->
+    with_client''
+      ?tls
+      ccfg node_name
       (fun client ->
-         client # version () >>= fun (major,minor,patch, info) ->
-         Lwt_io.printlf "%i.%i.%i" major minor patch >>= fun () ->
-         Lwt_io.printl info
+       client # version () >>= fun (major,minor,patch, info) ->
+       Lwt_io.printlf "%i.%i.%i" major minor patch >>= fun () ->
+       Lwt_io.printl info
       )
   in
   run t

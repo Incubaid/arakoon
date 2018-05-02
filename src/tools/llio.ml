@@ -197,6 +197,11 @@ let string_to buffer s =
   int_to buffer size;
   Buffer.add_string buffer s
 
+let string_ssize s = 4 + String.length s
+
+let string_option_ssize = function
+  | None -> 1
+  | Some s -> 1 + string_ssize s
 
 
 let unit_to _ () = ()
@@ -283,6 +288,8 @@ let input_string ic =
   input_int ic >>= fun size ->
   if size > (4 * 1024 * 1024 * 1024) then
     lwt_failfmt "Unexpectedly large string size requested:%d" size
+  else if size < 0
+  then lwt_failfmt "Unexpectedly reading string with negative size:%d" size
   else Lwt.return size  >>= fun size2 ->
     let result = Bytes.create size2 in
     Lwt_io.read_into_exactly ic result 0 size2 >>= fun () ->
@@ -323,7 +330,14 @@ let input_kv_list ic = input_list input_string_pair ic
 let _output_list output_element oc count list =
   output_int oc count >>= fun () ->
   Client_log.debug_f "Outputting list with %d elements" count >>= fun () ->
-  Lwt_list.iter_s (output_element oc) list
+  let count2 = ref 0 in
+  Lwt_list.iter_s
+    (fun e -> incr count2;output_element oc e)
+    list
+  >>= fun () ->
+  assert (count = !count2);
+  Lwt.return_unit
+
 
 let output_counted_list output_element oc (count, list) =
   _output_list output_element oc count list
@@ -370,8 +384,13 @@ let output_string_array_reversed oc strings =
   output_array_reversed output_string oc strings
 
 let counted_list_to e_to buf list =
-  int_to buf (fst list);
-  List.iter (e_to buf) (List.rev (snd list))
+  let size = fst list in
+  int_to buf size;
+  let size2 = ref 0 in
+  List.iter
+    (fun e -> e_to buf e; incr size2)
+    (List.rev (snd list));
+  assert (size = !size2)
 
 let list_to e_to buf list =
   int_to buf (List.length list);

@@ -18,7 +18,7 @@ limitations under the License.
 
 open Std
 open Update
-open Interval
+open Arakoon_interval
 open Routing
 open Statistics
 open Client_cfg
@@ -53,6 +53,7 @@ class type backend = object
     consistency:consistency -> string -> int -> (Key.t counted_list)
   method last_entries : Sn.t ->Lwt_io.output_channel -> unit Lwt.t
   method last_entries2: Sn.t ->Lwt_io.output_channel -> unit Lwt.t
+  method last_entries3: Sn.t ->Lwt_io.output_channel -> unit Lwt.t
 
   method multi_get:
     consistency:consistency ->

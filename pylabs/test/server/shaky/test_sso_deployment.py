@@ -84,3 +84,29 @@ def test_sso_deployment():
     assert_false ( test_failed )
 
     Common.assert_running_nodes( 3 )
+
+@Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
+def test_expand_shrink_cluster():
+    # test to see the effect of a stranger talking to a cluster
+
+    # add a fourth node
+    Common.add_node(3)
+
+    # regenerate configs & restart all four
+    Common.regenerateClientConfig(Common.cluster_id)
+    Common.restart_nodes_wf_sim(4)
+
+    # remove the fourth node, restart the rest
+    cl = Common._getCluster()
+    cl.removeNode(Common.node_names[3])
+    Common.regenerateClientConfig(Common.cluster_id)
+    Common.restart_nodes_wf_sim(3)
+
+    # now there should a cluster of 3 nodes that know each other
+    # and 1 stranger which will want to talk with this cluster
+    time.sleep(20)
+    Common.assert_running_nodes(4)
+    client = Common.get_client()
+    master = client.whoMaster()
+    assert_true ( master in Common.node_names[0:3] )
+    client.nop()

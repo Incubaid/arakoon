@@ -19,7 +19,7 @@ import os
 import ArakoonRemoteControl
 import os.path
 import itertools
-import subprocess
+
 import time
 import types
 import signal
@@ -194,7 +194,6 @@ class ArakoonCluster:
                 tlogDir = None,
                 wrapper = None,
                 isLearner = False,
-                targets = None,
                 isLocal = False,
                 logConfig = None,
                 batchedTransactionConfig = None,
@@ -215,7 +214,6 @@ class ArakoonCluster:
         @param tlogDir : the directory used for tlogs (if none, home will be used)
         @param wrapper : wrapper line for the executable (for example 'softlimit -o 8192')
         @param isLearner : whether this node is a learner node or not
-        @param targets : for a learner node the targets (string list) it learns from
         @param isLocal : whether this node is a local node and should be added to the local nodes list
         @param logConfig : specifies the log config to be used for this node
         @param batchedTransactionConfig : specifies the batched transaction config to be used for this node
@@ -235,8 +233,7 @@ class ArakoonCluster:
 
         if name in nodes:
             raise Exception("node %s already present" % name )
-        if not isLearner:
-            nodes.append(name)
+        nodes.append(name)
 
         config.add_section(name)
 
@@ -276,9 +273,6 @@ class ArakoonCluster:
 
         if isLearner:
             config.set(name, "learner", "true")
-            if targets is None:
-                targets = self.listNodes()
-            config.set(name, "targets", string.join(targets,","))
 
         if isWitness:
             config.set(name, "witness", "true")
@@ -1085,14 +1079,14 @@ class ArakoonCluster:
         if not nodeName in self.listLocalNodes():
             raise ArakoonNodeNotLocal( nodeName)
 
-    def startOne(self, nodeName):
+    def startOne(self, nodeName, extraParams = None):
         """
         Start the node with a given name
         @param nodeName The name of the node
-
+        @param extraParams an optional list of extra parameters for the command line
         """
         self._requireLocal(nodeName)
-        return self._startOne(nodeName)
+        return self._startOne(nodeName, extraParams)
 
 
     def catchupOnly(self, nodeName):
@@ -1108,7 +1102,7 @@ class ArakoonCluster:
                '--node',
                nodeName,
                '-catchup-only']
-        return subprocess.call(cmd)
+        return X.subprocess.call(cmd)
 
     def stopOne(self, nodeName):
         """
@@ -1179,8 +1173,10 @@ class ArakoonCluster:
         if inPlace:
             cmd.append('--inplace')
 
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+
+        p = X.subprocess.Popen(cmd, stdout = X. subprocess.PIPE)
         output = p.communicate()[0]
+        p.wait()
         rc = p.returncode
         logging.debug("injectAsHead returned [%d] %s", rc, output)
         return rc
@@ -1272,7 +1268,7 @@ class ArakoonCluster:
         cmdLine = string.join(cmd, ' ')
         return cmdLine
 
-    def _startOne(self, name):
+    def _startOne(self, name, extraParams = None):
         if self._getStatusOne(name) == X.AppStatusType.RUNNING:
             return
 
@@ -1284,9 +1280,11 @@ class ArakoonCluster:
 
         command = self._cmd(name)
         cmd.extend(command)
-        cmd.append('-daemonize')
-        logging.debug('calling: %s', str(cmd))
-        return subprocess.call(cmd, close_fds = True)
+        if extraParams:
+            cmd.extend(extraParams)
+        #cmd.append('-daemonize') # daemonize & docker don't play nice
+        logging.debug('calling: %s', ' '.join(cmd))
+        return X.subprocess.Popen(cmd, close_fds = True)
 
     def _getIp(self,ip_mess):
         t_mess = type(ip_mess)
@@ -1301,13 +1299,24 @@ class ArakoonCluster:
 
     def _stopOne(self, name):
         line = self._cmdLine(name)
-        cmd = ['pkill', '-f',  line]
+
+        use_fuser = True
+        cmd = None
+        if use_fuser:
+            config = self._getConfigFile()
+            port = int(config.get(name, "client_port"))
+            cmd = ("fuser -s -n tcp %i -k -SIGTERM" % port ).split(' ')
+        else:
+            #This flavour gave problems on jenkins 14.04.3 docker containers
+            cmd = ['pkill', '-fn',  line]
+
         logging.debug("stopping '%s' with: %s",name, string.join(cmd, ' '))
-        rc = subprocess.call(cmd, close_fds = True)
+        rc = X.subprocess.call(cmd, close_fds = True)
+
         logging.debug("%s=>rc=%i" % (cmd,rc))
         i = 0
         while(self._getStatusOne(name) == X.AppStatusType.RUNNING):
-            rc = subprocess.call(cmd, close_fds = True)
+            rc = X.subprocess.call(cmd, close_fds = True)
             logging.debug("%s=>rc=%i" % (cmd,rc))
             time.sleep(1)
             i += 1
@@ -1320,6 +1329,7 @@ class ArakoonCluster:
                 time.sleep(1)
 
                 logging.debug("stopping '%s' with kill -9" % name)
+                rc = X.subprocess.call(['pkill', '--signal', 'SIGCHLD' '-f', line], close_fds = True)
                 rc = X.subprocess.call(['pkill', '-9', '-f', line], close_fds = True)
                 if rc == 0:
                     rc = 9
@@ -1356,10 +1366,11 @@ class ArakoonCluster:
     def _getStatusOne(self,name):
         line = self._cmdLine(name)
         cmd = ['pgrep','-fn', line]
-        proc = subprocess.Popen(cmd,
-                                close_fds = True,
-                                stdout=subprocess.PIPE)
+        proc = X.subprocess.Popen(cmd,
+                                  close_fds = True,
+                                  stdout = X.subprocess.PIPE)
         pids = proc.communicate()[0]
+        proc.wait()
         pid_list = pids.split()
         lenp = len(pid_list)
         result = None

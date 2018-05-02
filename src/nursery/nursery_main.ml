@@ -77,33 +77,38 @@ let setup_logger file_name =
   Lwt_log.default := file_logger;
   Lwt.return ()
 
-let get_keeper_config config =
-  let inifile = new Inifiles.inifile config in
-  let m_cfg = Node_cfg.get_nursery_cfg inifile config in
+let _get_keeper_config_generic fetcher url=
+  fetcher() >>= fun txt ->
+  let inifile = new Arakoon_inifiles.inifile txt in
+  let m_cfg = Node_cfg.get_nursery_cfg inifile in
   begin
     match m_cfg with
       | None -> failwith "No nursery keeper specified in config file"
       | Some (keeper_id, cli_cfg) ->
-        keeper_id, cli_cfg
+        Lwt.return (keeper_id, cli_cfg)
   end
+
+let get_keeper_config cfg_url =
+  let fetcher () = Arakoon_config_url.retrieve cfg_url in
+  _get_keeper_config_generic fetcher cfg_url
 
 let get_nursery_client keeper_id cli_cfg =
   let get_nc client =
     client # get_nursery_cfg () >>= fun ncfg ->
-    Lwt.return ( Nursery.NC.make ncfg keeper_id )
+    Lwt.return ( Nursery.NC.make ncfg keeper_id Tcp_keepalive.default_tcp_keepalive)
   in
   with_master_remote_stream keeper_id cli_cfg get_nc
 
 
 let __migrate_nursery_range config left sep right =
   Logger.debug_ "=== STARTING MIGRATE ===" >>= fun () ->
-  let keeper_id, cli_cfg = get_keeper_config config in
+  get_keeper_config config >>= fun (keeper_id, cli_cfg) ->
   get_nursery_client keeper_id cli_cfg >>= fun nc ->
   Nursery.NC.migrate nc left sep right
 
 let __init_nursery config cluster_id =
   Logger.info_ "=== STARTING INIT ===" >>= fun () ->
-  let (keeper_id, cli_cfg) = get_keeper_config config in
+  get_keeper_config config >>= fun (keeper_id, cli_cfg) ->
   let set_routing client =
     Lwt.catch( fun () ->
         client # get_routing () >>= fun _cur ->
@@ -127,7 +132,7 @@ let __delete_from_nursery config cluster_id sep =
       else Some sep
     end
   in
-  let (keeper_id, cli_cfg) = get_keeper_config config in
+  get_keeper_config config >>= fun (keeper_id, cli_cfg) ->
   get_nursery_client keeper_id cli_cfg >>= fun nc ->
   Nursery.NC.delete nc cluster_id m_sep
 

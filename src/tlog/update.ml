@@ -14,8 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-open Interval
+open Arakoon_interval
 open Routing
+let section = Logger.Section.main
 
 module Range_assertion = struct
   type t =
@@ -36,6 +37,9 @@ module Range_assertion = struct
         let ss = Llio.list_from Llio.string_from buf in
         ContainsExactly ss
       | k -> failwith (Printf.sprintf "%i: invalid Range_assertion" k)
+  let serialized_size = function
+    | ContainsExactly keys ->
+       8 + List.fold_left (fun acc x -> acc + Llio.string_ssize x) 0 keys
 end
 
 module Update = struct
@@ -74,25 +78,35 @@ module Update = struct
       | None -> "None"
       | Some s -> if values then s else "..."
     in
-    let rec _inner = function
+    let rec _sequence2s typ updates =
+      let len_seq = List.length updates in
+      let len' = min 100 len_seq in
+      let buf = Buffer.create (64 * len') in
+      let add s = Buffer.add_string buf s in
+      let () = add typ in
+      let () = add "([" in
+      let rec loop c = function
+        | [] -> add "])"
+        | u::us ->
+           let () = add (_inner u) in
+           let () = if (us <> []) then add "; "
+           in
+           let c' = c + 1 in
+           if c' = len'
+           then add (Printf.sprintf "... (%i more) ])"  (len_seq -len'))
+           else loop c' us
+      in
+      let () = loop 0 updates in
+      Buffer.contents buf
+    and
+      _inner = function
       | Set (k,v)                 -> Printf.sprintf "Set            ;%S;%i;%S" k (String.length v) (maybe v)
       | Delete k                  -> Printf.sprintf "Delete         ;%S" k
       | MasterSet (m,i)           -> Printf.sprintf "MasterSet      ;%S;%f" m i
       | TestAndSet (k, _, wo) ->
         let ws = _size_of wo in      Printf.sprintf "TestAndSet     ;%S;%i;%S" k ws (maybe_o wo)
       | Sequence updates ->
-        let buf = Buffer.create (64 * List.length updates) in
-        let () = Buffer.add_string buf "Sequence([" in
-        let rec loop = function
-          | [] -> Buffer.add_string buf "])"
-          | u::us ->
-            let () = Buffer.add_string buf (_inner u) in
-            let () = if (us <> []) then Buffer.add_string buf "; "
-            in
-            loop us
-        in
-        let () = loop updates in
-        Buffer.contents buf
+         _sequence2s "Sequence" updates
       | SetInterval range ->      Printf.sprintf "SetInterval     ;%s" (Interval.to_string range)
       | SetRouting routing ->     Printf.sprintf "SetRouting      ;%s" (Routing.to_s routing)
       | SetRoutingDelta (left,sep,right) -> Printf.sprintf "SetRoutingDelta %s < '%s' <= %s" left sep right
@@ -108,7 +122,8 @@ module Update = struct
         let ps = _size_of param in
         Printf.sprintf "UserFunction;%s;%i" name ps
       | AdminSet (key,vo)      -> Printf.sprintf "AdminSet        ;%S;%i;%S" key (_size_of vo) (maybe_o vo)
-      | SyncedSequence _us     -> Printf.sprintf "SyncedSequence  ;..."
+      | SyncedSequence updates     ->
+         _sequence2s "SyncedSequence" updates
       | DeletePrefix prefix    -> Printf.sprintf "DeletePrefix    ;%S" prefix
       | Replace(k,vo) ->
          Printf.sprintf "Replace            ;%S;%i" k (_size_of vo)
@@ -172,7 +187,7 @@ module Update = struct
       | DeletePrefix prefix ->
         Llio.int_to b 14;
         Llio.string_to b prefix
-      | Assert_exists (k) ->
+      | Assert_exists k ->
         Llio.int_to b 15;
         Llio.string_to b k
       | Replace (k,vo) ->
@@ -279,4 +294,31 @@ module Update = struct
     | Replace _
     | Assert_range _ -> false
 
+  let rec serialized_size update =
+    let () = Logger.ign_debug_f_ "serialize_size %s " (update2s update) in
+    let sos = Llio.string_option_ssize in
+    let ss = Llio.string_ssize in
+    let seq_ssize seq =
+      4 + List.fold_left (fun acc u -> acc + serialized_size u) 0 seq
+    in
+    let inner = function
+    | Set(k,v)                -> ss k + ss v
+    | Delete k                -> ss k
+    | MasterSet(m, f)         -> ss m + 8
+    | TestAndSet(k,e,w)       -> ss k + sos e + sos w
+    | Sequence us             -> seq_ssize us
+    | Nop                     -> 0
+    | UserFunction (n, p)     -> ss n + sos p
+    | Assert (k, vo)          -> ss k + sos vo
+    | AdminSet(k, vo)         -> ss k + sos vo
+    | SetInterval i           -> Interval.serialized_size i
+    | SetRouting r            -> Routing.serialized_size r
+    | SetRoutingDelta (l,s,r) -> ss l + ss s + ss r
+    | SyncedSequence us       -> seq_ssize us
+    | DeletePrefix p          -> ss p
+    | Assert_exists k         -> ss k
+    | Replace (k,vo)          -> ss k  + sos vo
+    | Assert_range (p,a)      -> ss p  + Range_assertion.serialized_size a
+    in
+    4 + inner update
 end

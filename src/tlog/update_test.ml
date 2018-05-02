@@ -18,7 +18,7 @@ limitations under the License.
 
 open OUnit
 open Update
-open Interval
+open Arakoon_interval
 
 open Lwt
 

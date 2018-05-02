@@ -38,7 +38,7 @@ from functools import wraps
 #from arakoon import utils
 import utils
 
-FILTER = ''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
+FILTER = ''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in xrange(256)])
 
 def dump(src, length=8):
     N = 0
@@ -738,7 +738,7 @@ class ArakoonClient :
         if tryCount == -1 :
             tryCount = self._config.getTryCount()
 
-        for i in range(tryCount) :
+        for i in xrange(tryCount) :
 
             if i > 0:
                 maxSleep = i * ArakoonClientConfig.getBackoffInterval()

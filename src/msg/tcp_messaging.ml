@@ -66,6 +66,7 @@ let run_report connections =
 class tcp_messaging
   ?(timeout=60.0)
   ?(client_ssl_context:[> `Client ] Typed_ssl.t option)
+  ~tcp_keepalive
   my_addresses my_cookie (drop_it: drop_function)
   max_buffer_size ~stop =
 
@@ -150,16 +151,22 @@ class tcp_messaging
       Logger.info_f_ "establishing connection to (%s,%i) (timeout = %f)" host_ip port timeout
       >>= fun () ->
       Lwt_unix.with_timeout timeout
-        (fun () ->__open_connection ?ssl_context socket_address)
+        (fun () -> __open_connection ?ssl_context ~tcp_keepalive socket_address)
       >>= fun (socket, ic, oc) ->
-      Llio.output_int64 oc _MAGIC >>= fun () ->
-      Llio.output_int oc _VERSION >>= fun () ->
-      Llio.output_string oc my_cookie >>= fun () ->
-      Llio.output_string oc my_ip >>= fun () ->
-      Llio.output_int oc my_port  >>= fun () ->
-      Lwt.return (socket, ic, oc)
     (* open_connection can also fail with Unix.Unix_error (63, "connect",_)
        on local host *)
+      Lwt.catch
+        (fun () ->
+         Llio.output_int64 oc _MAGIC >>= fun () ->
+         Llio.output_int oc _VERSION >>= fun () ->
+         Llio.output_string oc my_cookie >>= fun () ->
+         Llio.output_string oc my_ip >>= fun () ->
+         Llio.output_int oc my_port  >>= fun () ->
+         Lwt.return (socket, ic, oc))
+        (fun exn ->
+         Lwt_io.close ic >>= fun () ->
+         Lwt_io.close oc >>= fun () ->
+         Lwt.fail exn)
 
     method private _get_connection (addresses:RR.t) =
       let (address:address) = RR.current addresses in
@@ -389,7 +396,10 @@ class tcp_messaging
         Lwt.catch
           (fun () -> loop (Bytes.create 1024))
           (fun exn ->
-             Logger.info_f_ ~exn "going to drop outgoing connection as well" >>= fun () ->
+            Logger.info_f_
+              "going to drop outgoing connection as well: %S"
+              (Printexc.to_string exn)
+            >>= fun () ->
              self # _drop_connection address >>= fun () ->
              Lwt.fail exn)
       in
@@ -401,6 +411,7 @@ class tcp_messaging
                     ~name ~setup_callback
                     ~teardown_callback ip my_port protocol
                     ~scheme ?ssl_context
+                    ~tcp_keepalive
                     ~stop
           in
           s ()

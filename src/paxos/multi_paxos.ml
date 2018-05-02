@@ -58,10 +58,14 @@ type ballot = int * string list (* still needed, & who voted *)
 
 let network_of_messaging (m:messaging) =
   (* conversion since not all code is 'networked' *)
-  let send msg source target =
-    Logger.debug_f_ "%s: sending msg to %s: %s" source target (Mp_msg.MPMessage.string_of msg) >>= fun () ->
-    let g = MPMessage.generic_of msg in
-    m # send_message g ~source ~target
+  let send =
+    let buf = Buffer.create 100 in
+    (fun msg source target ->
+      Logger.debug_f_ "%s: sending msg to %s: %s" source target (Mp_msg.MPMessage.string_of msg) >>= fun () ->
+      let () = Buffer.clear buf in
+      let g = MPMessage.generic_of' buf msg in
+      m # send_message g ~source ~target
+    )
   in
   let register = m # register_receivers in
   let run () = m # run () in
@@ -72,12 +76,21 @@ let network_of_messaging (m:messaging) =
 let update_votes (nones, somes) = function
   | None -> (nones + 1, somes)
   | Some key ->
-      List.alter ~list:somes ~key ~default:1 (fun v -> Some (v + 1))
-      |> List.sort (fun (_, fa) (_, fb) -> fb - fa)
-      |> fun s -> (nones, s)
+    List.alter
+      ~equals:(fun v1 v2 ->
+               v1 = v2
+               || (match v1, v2 with
+                   (* ignore the timestamp when comparing a masterset,
+                      otherwise in some situations electing the master
+                      might get stuck in a loop *)
+                   | Value.Vm(m1, _), Value.Vm(m2, _) -> m1 = m2
+                   | _ -> false))
+      ~list:somes ~key ~default:1 (fun v -> Some (v + 1))
+    |> List.sort (fun (_, fa) (_, fb) -> fb - fa)
+    |> fun s -> (nones, s)
 
 type paxos_event =
-  | FromClient of ((Update.Update.t) * (Store.update_result -> unit Lwt.t)) list
+  | FromClient of ((Update.Update.t) * int * (Store.update_result -> unit Lwt.t)) list
   | FromNode of (MPMessage.t * Messaging.id)
   | LeaseExpired of (float)
   | Quiesce of (Quiesce.Mode.t * Quiesce.Result.t Lwt.t * Quiesce.Result.t Lwt.u)
@@ -97,8 +110,9 @@ let paxos_event2s = function
 type 'a constants =
   {me:id;
    others: id list;
+   learners: id list;
    send: MPMessage.t -> id -> id -> unit Lwt.t;
-   get_value: Sn.t -> Value.t option;
+   get_value: Sn.t -> Value.t option Lwt.t;
    on_accept: Value.t * Sn.t * Sn.t -> unit Lwt.t;
    on_consensus:
      Value.t * Mp_msg.MPMessage.n * Mp_msg.MPMessage.n ->
@@ -118,9 +132,11 @@ type 'a constants =
    is_learner: bool;
    stop : bool ref;
    catchup_tls_ctx : [ `Client | `Server ] Typed_ssl.t option;
+   tcp_keepalive : Tcp_keepalive.t;
    mutable election_timeout : (Sn.t * Sn.t * float) option;
    mutable lease_expiration_id : int;
    mutable respect_run_master : (string * float) option;
+   max_buffer_size: int;
   }
 
 let am_forced_master constants me =
@@ -133,15 +149,17 @@ let is_election constants =
     | Elected | Preferred _ -> true
     | ReadOnly | Forced _ -> false
 
-let make (type s) ~catchup_tls_ctx me is_learner others send get_value
+let make (type s) ~catchup_tls_ctx ~tcp_keepalive me is_learner others learners send get_value
       on_accept on_consensus on_witness
       last_witnessed quorum_function (master:master) (module S : Store.STORE with type t = s) store tlog_coll
       other_cfgs lease_expiration inject_event is_alive ~cluster_id
+      ~max_buffer_size
       stop =
   {
     me=me;
     is_learner;
     others;
+    learners;
     send;
     get_value;
     on_accept;
@@ -160,16 +178,18 @@ let make (type s) ~catchup_tls_ctx me is_learner others send get_value
     cluster_id;
     stop;
     catchup_tls_ctx;
+    tcp_keepalive;
     election_timeout = None;
     lease_expiration_id = 0;
     respect_run_master = None;
+    max_buffer_size;
   }
 
-let mcast constants msg =
-  let send = constants.send in
-  let me = constants.me in
-  let others = constants.others in
-  Lwt_list.iter_p (fun o -> send msg me o) others
+let mcast {send; me; others; learners} msg =
+  let dst = match msg with
+      Accept _ | Nak _ -> learners @ others
+    | _ -> others in
+  Lwt_list.iter_p (send msg me) dst
 
 
 let update_n constants n =
@@ -342,7 +362,7 @@ let handle_prepare (type s) constants dest n n' i' =
               (* Ok, we can make a Promise to the other node, if we want to *)
               let make_promise () =
                 constants.respect_run_master <- Some (dest, Unix.gettimeofday () +. (float constants.lease_expiration) /. 4.0);
-                let lv = constants.get_value nak_max in
+                constants.get_value nak_max >>= fun lv ->
                 let reply = Promise(n',nak_max,lv) in
                 Logger.info_f_ "%s: handle_prepare: starting election timer" me >>= fun () ->
                 start_election_timeout constants n' i' >>= fun () ->

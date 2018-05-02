@@ -32,23 +32,19 @@ type level =
   | Fatal
 
 let log ?exn section level msg =
+  Crash_logger.add_to_crash_log section level (Crash_logger.Message.Immediate1_exn (msg, exn));
   if level < Lwt_log.Section.level section
-  then begin
-    Crash_logger.add_to_crash_log section level (Crash_logger.Message.Immediate1_exn (msg, exn));
-    Lwt.return_unit end
-  else
-    Lwt_log.log ?exn ~section ~level msg
+  then Lwt.return_unit
+  else Lwt_log.log ?exn ~section ~level msg
 
 let ign_log ?exn section level msg =
   Lwt.ignore_result (log ?exn section level msg)
 
 let log_ ?exn section level dmsg =
+  Crash_logger.add_to_crash_log section level (Crash_logger.Message.Delayed1_exn (dmsg, exn));
   if level < Lwt_log.Section.level section
-  then begin
-    Crash_logger.add_to_crash_log section level (Crash_logger.Message.Delayed1_exn (dmsg, exn));
-    Lwt.return_unit end
-  else
-    Lwt_log.log ?exn ~section ~level (dmsg ())
+  then Lwt.return_unit
+  else Lwt_log.log ?exn ~section ~level (dmsg ())
 
 let ign_log_ ?exn section level dmsg =
   Lwt.ignore_result (log_ ?exn section level dmsg)

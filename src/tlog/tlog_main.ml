@@ -27,9 +27,9 @@ let dump_tlog filename ~values=
     Lwt_io.printlf "%s:%s%s" (Sn.string_of i)
       (Value.value2s v ~values) ms
   in
-  let folder,_,index = Tlc2.folder_for filename None in
+  let folder,_,index = Tlog_map.folder_for filename None in
 
-  let t =
+  let t () =
     begin
       let do_it ic =
 
@@ -43,7 +43,7 @@ let dump_tlog filename ~values=
       Lwt_io.with_file ~mode:Lwt_io.input filename do_it
     end
   in
-  Lwt_main.run t
+  Lwt_extra.run t
 
 let _last_entry filename =
   let last = ref None in
@@ -53,7 +53,7 @@ let _last_entry filename =
     let () = last := Some entry in
     Lwt_io.printlf "%s:%Li" (Sn.string_of i) p
   in
-  let folder,_,index = Tlc2.folder_for filename None in
+  let folder,_,index = Tlog_map.folder_for filename None in
   let do_it ic =
     let lowerI = Sn.start in
     let higherI = None
@@ -85,35 +85,43 @@ let strip_tlog filename =
             Lwt.return 1
           end
   in
-  let t =
+  let t () =
     _last_entry filename >>= fun last ->
     maybe_truncate last
   in
-  Lwt_main.run t
+  Lwt_extra.run t
+
+let _mark_tlog file_name node_name =
+  assert (Tlog_map.extension_of file_name = ".tlog");
+  let section = Logger.Section.main in
+  Logger.debug_f_ "_mark_tlog %s %s" file_name node_name >>= fun () ->
+  _last_entry file_name >>= fun last ->
+  match last with
+  | None -> Lwt.return 0
+  | Some e ->
+     let i     = Entry.i_of e
+     and value = Entry.v_of e
+     in
+     let f oc = Tlogcommon.write_marker oc i value (Some node_name) in
+     Lwt_io.with_file
+       ~mode:Lwt_io.output
+       ~flags:[Unix.O_APPEND;Unix.O_WRONLY]
+       file_name f
+     >>= fun () -> Lwt.return 0
 
 let mark_tlog file_name node_name =
-  let t =
-    _last_entry file_name >>= fun last ->
-    match last with
-      | None -> Lwt.return 0
-      | Some e ->
-        let i     = Entry.i_of e
-        and value = Entry.v_of e
-        in
-        let f oc = Tlogcommon.write_marker oc i value (Some node_name) in
-        Lwt_io.with_file
-          ~mode:Lwt_io.output
-          ~flags:[Unix.O_APPEND;Unix.O_WRONLY]
-          file_name f
-        >>= fun () -> Lwt.return 0
-  in
+  let t = _mark_tlog file_name node_name in
   Lwt_main.run t
 
 let make_tlog tlog_name (i:int) =
   let sni = Sn.of_int i in
   let t =
-    let f oc = Tlogcommon.write_entry oc sni
-                 (Value.create_client_value [Update.Update.Nop] false)
+    let f oc =
+      Tlogcommon.write_entry
+        oc sni
+        (Value.create_client_value [Update.Update.Nop] false)
+        >>= fun _ -> Lwt.return_unit
+
     in
     Lwt_io.with_file ~mode:Lwt_io.output tlog_name f
   in
@@ -121,21 +129,23 @@ let make_tlog tlog_name (i:int) =
 
 
 let compress_tlog tlu archive_type=
-  let compressor =
-    match archive_type with
-    | ".tls" | "tls" -> Compression.Snappy
-    | _ -> Compression.Bz2
-  in
   let failwith x =
     Printf.ksprintf failwith x in
+  let compressor =
+    match archive_type with
+    | ".tlx"  -> Compression.Snappy
+    | ".tlf"  -> Compression.Bz2
+    | _ -> failwith "invalid archive_type:%s" archive_type
+  in
+  
   let () = if not (Sys.file_exists tlu) then failwith "Input file %s does not exist" tlu in
   let tlx = Tlc2.to_archive_name compressor tlu in
   let () = if Sys.file_exists tlx then failwith "Can't compress %s as %s already exists" tlu tlx in
-  let t =
+  let t () =
     Compression.compress_tlog ~cancel:(ref false) tlu tlx compressor >>= fun () ->
     File_system.unlink tlu
   in
-  Lwt_main.run t;
+  Lwt_extra.run t;
   0
 
 let uncompress_tlog tlx =

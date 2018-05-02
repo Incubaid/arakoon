@@ -31,6 +31,7 @@ let configure_logging () =
 let tools_tests = "tools" >::: [
     Server_test.suite;
     Backoff_test.suite;
+    Arakoon_inifiles_test.suite;
   ]
 
 let client_tests = "client" >::: [
@@ -46,10 +47,12 @@ let paxos_tests = "paxos" >::: [Multi_paxos_test.suite;]
 let update_tests = "updates" >::: [Update_test.suite]
 
 let tlog_tests = "tlogs" >::: [
-    Tlogcollection_test.suite_mem;
-    Tlc2_test.suite;
-    Tlogreader2_test.suite;
-  ]
+      Tlog_map_test.suite;
+      Tlogcollection_test.suite_mem;
+      Tlc2_test.suite;
+      Tlogreader2_test.suite;
+    ]
+
 let small_catchup = "small_catchup" >:::[Catchup_test.suite;]
 let store = "store" >:::[Store_test.suite;]
 let compression = "compression" >::: [Compression_test.suite;]
@@ -58,8 +61,6 @@ let crc32c_tests = "crc32c" >::: [Crc32c_test.suite]
 
 let nursery = "nursery" >::: [
     Routing_test.suite;
-    Client_cfg_test.suite;
-    Node_cfg_test.suite;
   ]
 
 let system = "system" >::: [
@@ -86,5 +87,12 @@ let suite = "universe" >::: [
     system;
     nursery;
     store;
+    Client_cfg_test.suite;
+    Node_cfg_test.suite;
     Std.List.Test.suite;
+    Arakoon_log_sink_test.suite;
+    Arakoon_etcd_test.suite;
+    Arakoon_client_config_test.suite;
+    Arakoon_config_url_test.suite;
+    Mp_msg_test.suite;
   ]

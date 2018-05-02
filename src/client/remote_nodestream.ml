@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-open Interval
+open Arakoon_interval
 open Routing
 open Protocol_common
 open Lwt
@@ -27,7 +27,7 @@ class type nodestream = object
   method iterate:
     Sn.t -> (Sn.t * Value.t -> unit Lwt.t) ->
     Tlogcollection.tlog_collection ->
-    head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
+    head_saved_cb:(string -> unit Lwt.t) -> bool Lwt.t
 
   method collapse: int -> unit Lwt.t
 
@@ -37,6 +37,7 @@ class type nodestream = object
 
   method optimize_db: unit -> unit Lwt.t
   method defrag_db: unit -> unit Lwt.t
+  method copy_db_to_head : int -> unit Lwt.t
   method get_db: string -> unit Lwt.t
 
   method get_fringe: string option -> Routing.range_direction -> ((string * string) list) Lwt.t
@@ -54,10 +55,10 @@ class remote_nodestream ((ic,oc) as conn) =
         (object
   method iterate (i:Sn.t) (f: Sn.t * Value.t -> unit Lwt.t)
     (tlog_coll: Tlogcollection.tlog_collection)
-    ~head_saved_cb
+    ~(head_saved_cb:(string -> unit Lwt.t)) : bool Lwt.t
     =
     let outgoing buf =
-      command_to buf LAST_ENTRIES2;
+      command_to buf LAST_ENTRIES3;
       Sn.sn_to buf i
     in
     let incoming ic =
@@ -83,14 +84,16 @@ class remote_nodestream ((ic,oc) as conn) =
             end
         end
       in
-      let rec loop_parts () =
+      let rec loop_parts messed_with_fs =
         Llio.input_int ic >>= function
-        | (-2) -> Logger.info_f_ "loop_parts done"
+        | (-2) ->
+           Logger.info_f_ "loop_parts done" >>= fun () ->
+           Lwt.return messed_with_fs
         | 1 ->
           begin
-            Logger.debug_f_ "loop_entries" >>= fun () ->
+            Logger.info_f_ "loop_entries" >>= fun () ->
             loop_entries () >>= fun () ->
-            loop_parts ()
+            loop_parts messed_with_fs
           end
         | 2 ->
           begin
@@ -98,20 +101,23 @@ class remote_nodestream ((ic,oc) as conn) =
             save_head () >>= fun () ->
             let hf_name = tlog_coll # get_head_name () in
             head_saved_cb hf_name >>= fun () ->
-            loop_parts ()
+            loop_parts true
           end
         | 3 ->
-          begin
-            Logger.debug_f_ "save_file" >>= fun () ->
-            Llio.input_string ic >>= fun name ->
-            Llio.input_int64 ic >>= fun length ->
-            Logger.info_f_ "got %s (%Li bytes)" name length >>= fun () ->
-            tlog_coll # save_tlog_file name length ic >>= fun () ->
-            loop_parts ()
-          end
+           begin
+             Logger.debug_f_ "save_file" >>= fun () ->
+             Llio.input_string ic >>= fun extension ->
+             Sn.input_sn ic       >>= fun start_i ->
+             Llio.input_int64 ic  >>= fun length ->
+             Logger.info_f_ "retrieving start_i:%s (extension:%s, %Li bytes)"
+                            (Sn.string_of start_i) extension length
+             >>= fun () ->
+             tlog_coll # save_tlog_file start_i extension length ic >>= fun () ->
+             loop_parts true
+           end
         | x  -> Llio.lwt_failfmt "don't know what %i means" x
       in
-      loop_parts()
+      loop_parts false
     in
     request  oc outgoing >>= fun () ->
     response ic incoming
@@ -124,6 +130,7 @@ class remote_nodestream ((ic,oc) as conn) =
     in
     let incoming ic =
       Llio.input_int ic >>= fun collapse_count ->
+      Logger.info_f_ "collapse_count:%i" collapse_count >>= fun () ->
       let rec loop i =
         if i = 0
         then Lwt.return ()
@@ -131,12 +138,13 @@ class remote_nodestream ((ic,oc) as conn) =
           begin
             Llio.input_int ic >>= function
             | 0 ->
-              Llio.input_int64 ic >>= fun took ->
-              Logger.debug_f_ "collapsing one file took %Li" took >>= fun () ->
-              loop (i-1)
+               Llio.input_int64 ic >>= fun total ->
+               Logger.debug_f_ "%i:collapsed one file. (total = %Li)" i total >>= fun () ->
+
+               loop (i-1)
             | e ->
-              Llio.input_string ic >>= fun msg ->
-              Llio.lwt_failfmt "%s (EC: %d)" msg e
+               Llio.input_string ic >>= fun msg ->
+               Llio.lwt_failfmt "%s (EC: %d)" msg e
           end
       in
       loop collapse_count
@@ -157,6 +165,10 @@ class remote_nodestream ((ic,oc) as conn) =
   method optimize_db () = Protocol_common.optimize_db conn
 
   method defrag_db () = Protocol_common.defrag_db conn
+
+  method copy_db_to_head tlogs_to_keep =
+    Protocol_common.copy_db_to_head conn tlogs_to_keep
+
   method get_db db_location =
 
     let outgoing buf =

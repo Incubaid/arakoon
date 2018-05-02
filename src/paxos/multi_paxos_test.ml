@@ -28,6 +28,8 @@ open Master_type
 
 module S = (val (Store.make_store_module (module Mem_store)))
 
+let cluster_id = "cluster_id"
+
 let sn2s = Sn.string_of
 
 let test_take () = Lwt.return (None, (fun _s -> Lwt.return ()))
@@ -60,10 +62,14 @@ let test_generic network_factory n_nodes () =
   let last_witnessed _who = Sn.of_int (-1000) in
   let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
   let inject_ev q e = Lwt_buffer.add e q in
-  S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" >>= fun store ->
-  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None ~fsync:false "???" ~fsync_tlog_dir:false >>= fun tlog_coll ->
+  S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" ~cluster_id >>= fun store ->
+  Mem_tlogcollection.make_mem_tlog_collection
+    "MEM#tlog" None None ~fsync:false "???"
+    ~fsync_tlog_dir:false ~cluster_id
+  >>= fun tlog_coll ->
   let base = {me = "???";
-              others = [] ;
+              others = [];
+              learners = [];
               is_learner = false;
               send = send;
               get_value = get_value tlog_coll;
@@ -86,6 +92,8 @@ let test_generic network_factory n_nodes () =
               lease_expiration_id = 0;
               respect_run_master = None;
               catchup_tls_ctx = None;
+              tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
+              max_buffer_size = Node_cfg.default_max_buffer_size;
              }
   in
   let all_happy = build_names (n_nodes -1) in
@@ -122,8 +130,7 @@ let test_generic network_factory n_nodes () =
               | Multi_paxos_type.Accepteds_check_done _
               | Multi_paxos_type.Master_consensus _
               | Multi_paxos_type.Stable_master _
-              | Multi_paxos_type.Master_dictate _
-              | Multi_paxos_type.Read_only -> Lwt.return None
+              | Multi_paxos_type.Master_dictate _ -> Lwt.return None
           in
           let client_buffer = Lwt_buffer.create () in
           let inject_buffer = Lwt_buffer.create_fixed_capacity 1 in
@@ -166,8 +173,7 @@ let test_generic network_factory n_nodes () =
         | Multi_paxos_type.Wait_for_accepteds _
         | Multi_paxos_type.Accepteds_check_done _
         | Multi_paxos_type.Master_consensus _
-        | Multi_paxos_type.Master_dictate _
-        | Multi_paxos_type.Read_only  -> Lwt.return None
+        | Multi_paxos_type.Master_dictate _ -> Lwt.return None
     in
     let inject_buffer = Lwt_buffer.create () in
     let election_timeout_buffer = Lwt_buffer.create () in
@@ -242,7 +248,7 @@ let test_master_loop network_factory ()  =
   let () = Lwt.ignore_result (
       Lwt_list.iter_s
         (fun x ->
-           Lwt_buffer.add (x, finished) client_buffer >>= fun () ->
+           Lwt_buffer.add (x, 0, finished) client_buffer >>= fun () ->
            Lwt_unix.sleep 2.0
         ) updates
     ) in
@@ -257,11 +263,16 @@ let test_master_loop network_factory ()  =
   let election_timeout_buffer = Lwt_buffer.create() in
   let inject_event e = Lwt_buffer.add e inject_buffer in
 
-  S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" >>= fun store ->
-  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None ~fsync:false me ~fsync_tlog_dir:false >>= fun tlog_coll ->
+  S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" ~cluster_id >>= fun store ->
+  Mem_tlogcollection.make_mem_tlog_collection
+    "MEM#tlog" None None ~cluster_id
+    ~fsync:false me ~fsync_tlog_dir:false
+  >>= fun tlog_coll ->
+
   let constants = {me = me;
                    is_learner = false;
                    others = others;
+                   learners = [];
                    send = send;
                    get_value = get_value tlog_coll;
                    on_accept = on_accept;
@@ -283,6 +294,8 @@ let test_master_loop network_factory ()  =
                    lease_expiration_id = 0;
                    respect_run_master = None;
                    catchup_tls_ctx = None;
+                   tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
+                   max_buffer_size = Node_cfg.default_max_buffer_size;
                   } in
   let continue = ref 2 in
   let c0_t () =
@@ -306,8 +319,7 @@ let test_master_loop network_factory ()  =
         | Multi_paxos_type.Wait_for_accepteds _
         | Multi_paxos_type.Accepteds_check_done _
         | Multi_paxos_type.Master_consensus _
-        | Multi_paxos_type.Master_dictate _
-        | Multi_paxos_type.Read_only -> Lwt.return None
+        | Multi_paxos_type.Master_dictate _ -> Lwt.return None
     in
     let current_n = Sn.start in
     let buffers =
@@ -347,8 +359,10 @@ let build_perfect () =
   get_buffer, (send, run, register, is_alive)
 
 let build_tcp () =
-  let (m : messaging) = new Tcp_messaging.tcp_messaging (["127.0.0.1"], 7777) "yummie"
-    (fun _ _ _ -> false) Node_cfg.default_max_buffer_size ~stop:(ref false)
+  let (m : messaging) =
+    new Tcp_messaging.tcp_messaging (["127.0.0.1"], 7777) "yummie"
+        (fun _ _ _ -> false) Node_cfg.default_max_buffer_size ~stop:(ref false)
+        ~tcp_keepalive:Tcp_keepalive.default_tcp_keepalive
   in
   let network = network_of_messaging m in
   m # get_buffer, network
@@ -393,12 +407,18 @@ let test_simulation filters () =
       Logger.debug_f_ "got (%s,%s,%s) => dropping" msg_s source target
   in
 
-  S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store"  >>= fun store ->
-  Mem_tlogcollection.make_mem_tlog_collection "MEM#tlog" None None ~fsync:false me ~fsync_tlog_dir:false >>= fun tlog_coll ->
+  S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" ~cluster_id >>= fun store ->
+  Mem_tlogcollection.make_mem_tlog_collection
+    "MEM#tlog" None None
+    ~fsync:false me ~fsync_tlog_dir:false
+    ~cluster_id
+  >>= fun tlog_coll ->
+
   let constants = {
     me = me;
     is_learner = false;
     others = ["c1";"c2"];
+    learners = [];
     send = send;
     get_value = get_value tlog_coll;
     on_accept = on_accept me;
@@ -420,6 +440,8 @@ let test_simulation filters () =
     lease_expiration_id = 0;
     respect_run_master = None;
     catchup_tls_ctx = None;
+    tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
+    max_buffer_size = Node_cfg.default_max_buffer_size;
   } in
   let c0_t () =
     let expected prev_key key =
@@ -437,8 +459,7 @@ let test_simulation filters () =
         | Multi_paxos_type.Wait_for_accepteds _
         | Multi_paxos_type.Accepteds_check_done _
         | Multi_paxos_type.Master_consensus _
-        | Multi_paxos_type.Master_dictate _
-        | Multi_paxos_type.Read_only -> Lwt.return None
+        | Multi_paxos_type.Master_dictate _ -> Lwt.return None
     in
     let buffers = Multi_paxos_fsm.make_buffers
                     (client_buffer,
@@ -478,8 +499,7 @@ let test_simulation filters () =
         | Multi_paxos_type.Wait_for_accepteds _
         | Multi_paxos_type.Accepteds_check_done _
         | Multi_paxos_type.Master_consensus _
-        | Multi_paxos_type.Master_dictate _
-        | Multi_paxos_type.Read_only -> Lwt.return None
+        | Multi_paxos_type.Master_dictate _ -> Lwt.return None
     in
     let buffers = Multi_paxos_fsm.make_buffers
                     (client_buffer,

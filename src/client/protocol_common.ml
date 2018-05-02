@@ -17,7 +17,7 @@ limitations under the License.
 
 
 open Lwt
-open Interval
+open Arakoon_interval
 open Update
 open Routing
 open Client_cfg
@@ -83,6 +83,7 @@ type client_command =
   | GET_TXID
   | COPY_DB_TO_HEAD
   | USER_HOOK
+  | LAST_ENTRIES3
 
 
 let code2int = [
@@ -133,6 +134,7 @@ let code2int = [
   GET_TXID                , 0x43l;
   COPY_DB_TO_HEAD         , 0x44l;
   USER_HOOK               , 0x45l;
+  LAST_ENTRIES3           , 0x46l;
 ]
 
 let int2code =
@@ -476,6 +478,14 @@ let optimize_db (ic,oc) =
 
 let defrag_db (ic,oc) =
   let outgoing buf = command_to buf DEFRAG_DB in
+  request oc outgoing >>= fun () ->
+  response ic nothing
+
+let copy_db_to_head (ic, oc) tlogs_to_keep =
+  let outgoing buf =
+    command_to buf COPY_DB_TO_HEAD;
+    Llio.int_to buf tlogs_to_keep
+  in
   request oc outgoing >>= fun () ->
   response ic nothing
 

@@ -44,33 +44,32 @@ type real_test = Arakoon_client.client -> unit Lwt.t
 let __client_server_wrapper__ (real_test:real_test) =
   let stop = ref false in
   let lease_period = 2 in
-  let make_config () = Node_cfg.make_test_config
-                         ~cluster_id:_CLUSTER
-                         ~node_name:(Printf.sprintf "sweety_%i")
-                         1 (Master_type.Elected) lease_period
+  let make_config () =
+    let r =
+      Node_cfg.make_test_config
+      ~cluster_id:_CLUSTER
+      ~node_name:(Printf.sprintf "sweety_%i")
+      1 (Master_type.Elected) lease_period
+    in
+    Lwt.return r
   in
-  let cluster_cfg = make_config () in
-  let t0 = Node_main.test_t make_config "sweety_0" ~stop >>= fun _ -> Lwt.return () in
+  let t0 =
+    Node_main.test_t make_config "sweety_0" ~stop >>= fun _ -> Lwt.return ()
+  in
 
-  let client_t () =
+  let client_t cluster_cfg =
     let sp = float(lease_period) *. 0.5 in
     Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
     Logger.info_ "cluster should have reached stability" >>= fun () ->
-    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
+    Client_main.find_master cluster_cfg >>= fun master_name ->
     Logger.info_f_ "master=%S" master_name >>= fun () ->
-    let master_cfg =
-      List.hd
-        (List.filter (fun cfg -> cfg.Node_cfg.node_name = master_name) cluster_cfg.Node_cfg.cfgs)
-    in
-    Client_main.with_client
-      ~tls:None
-      master_cfg
-      cluster_cfg.Node_cfg.cluster_id
-      real_test
+    Client_helper.with_client'' cluster_cfg master_name real_test
   in
   let main () =
+    make_config () >>= fun cluster_cfg ->
     Lwt.pick [(t0 >>= fun () -> Lwt.return false);
-              (client_t () >>= fun () -> Lwt.return true);] >>= fun succeeded ->
+              (client_t (Node_cfg.to_client_cfg cluster_cfg) >>= fun () ->
+               Lwt.return true);] >>= fun succeeded ->
     stop := true;
     OUnit.assert_bool "client thread should finish before server" succeeded;
     Lwt.return ()

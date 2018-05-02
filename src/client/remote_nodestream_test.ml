@@ -20,7 +20,7 @@ open Remote_nodestream
 open Node_cfg
 open Arakoon_remote_client
 open Routing
-open Interval
+open Arakoon_interval
 
 let setup port = Lwt.return port
 
@@ -33,26 +33,26 @@ let cluster_id = "baby1"
 let __wrap__ port conversation =
   let stop = ref false in
   let lease_period = 2 in
-  let make_config () = Node_cfg.make_test_config
-                         ~cluster_id
-                         ~node_name:(Printf.sprintf "sweety_%i")
-                         ~base:port
-                         1 (Master_type.Elected) lease_period
+  let make_config () =
+    Node_cfg.make_test_config
+      ~cluster_id
+      ~node_name:(Printf.sprintf "sweety_%i")
+      ~base:port
+      1 (Master_type.Elected) lease_period
+    |> Lwt.return
   in
-  let cluster_cfg = make_config () in
+
   let t0 = Node_main.test_t make_config "sweety_0" ~stop >>= fun _ -> Lwt.return () in
 
-  let client_t () =
+  let client_t cluster_cfg =
     let sp = float(lease_period) *. 0.5 in
     Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
     Logger.info_ "cluster should have reached stability" >>= fun () ->
-    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
+    Client_main.find_master cluster_cfg >>= fun master_name ->
     Logger.info_f_ "master=%S" master_name >>= fun () ->
-    let master_cfg =
-      List.hd
-        (List.filter (fun cfg -> cfg.Node_cfg.node_name = master_name) cluster_cfg.Node_cfg.cfgs)
-    in
-    let address = Unix.ADDR_INET (Unix.inet_addr_loopback, master_cfg.Node_cfg.client_port) in
+    let master_cfg = Arakoon_client_config.get_node_cfg cluster_cfg master_name in
+    let address = Unix.ADDR_INET (Unix.inet_addr_loopback,
+                                  master_cfg.Arakoon_client_config.port) in
     Lwt_io.open_connection address >>= fun (ic,oc) ->
     conversation (ic, oc) >>= fun () ->
     Logger.debug section "end_of_senario" >>= fun () ->
@@ -60,7 +60,8 @@ let __wrap__ port conversation =
     Lwt_io.close oc >>= fun () ->
     Lwt.return ()
   in
-  Lwt.pick [client_t ();t0] >>= fun () ->
+  make_config () >>= fun cluster_cfg ->
+  Lwt.pick [ client_t (Node_cfg.to_client_cfg cluster_cfg); t0; ] >>= fun () ->
   stop := true;
   Lwt.return ()
 
@@ -130,8 +131,8 @@ let set_route_delta port () =
     Routing.routing_to new_ser new_r;
     let old_str = Buffer.contents old_ser in
     let new_str = Buffer.contents new_ser in
-    Logger.debug_f_ "old_str: %s " old_str >>= fun () ->
-    Logger.debug_f_ "new_str: %s" new_str  >>= fun () ->
+    Logger.debug_f_ "old_str: %S " old_str >>= fun () ->
+    Logger.debug_f_ "new_str: %S" new_str  >>= fun () ->
     OUnit.assert_equal old_str new_str;
     Lwt.return ()
   in

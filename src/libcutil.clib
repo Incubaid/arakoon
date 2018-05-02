@@ -2,3 +2,4 @@ arakoon_crc32c.o
 bsd_crc32c.o
 arakoon_limits.o
 tcp_info_stubs.o
+tcp_keepalive_sockopt_stubs.o

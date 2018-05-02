@@ -18,7 +18,10 @@ limitations under the License.
 
 open Lwt
 
-let section = Logger.Section.main
+let section =
+  let s = Logger.Section.make "server" in
+  let () = Logger.Section.set_level s Logger.Debug in
+  s
 
 let no_callback = Lwt.return
 
@@ -34,8 +37,7 @@ let close = function
 let deny_max (_ic,oc,_cid) =
   Logger.warning_ "max connections reached, denying this one" >>= fun () ->
   Llio.output_int32 oc (Arakoon_exc.int32_of_rc Arakoon_exc.E_MAX_CONNECTIONS) >>= fun () ->
-  Llio.output_string oc "too many clients" >>= fun () ->
-  Lwt_io.flush oc
+  Llio.output_string oc "too many clients"
 
 let deny_closing (_ic,oc,_cid) =
   Logger.warning_ "closing socket, denying this one" >>= fun () ->
@@ -47,14 +49,19 @@ let session_thread (sid:string) cid protocol fd =
     (fun () ->
        let (ic, oc) = match fd with
          | Plain fd' ->
-             let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd'
-             and oc = Lwt_io.of_fd ~mode:Lwt_io.output fd' in
+             let ic = Lwt_io.of_fd ~close:Lwt.return ~mode:Lwt_io.input fd'
+             and oc = Lwt_io.of_fd ~close:Lwt.return ~mode:Lwt_io.output fd' in
              (ic, oc)
          | TLS fd' ->
              let ic = Lwt_ssl.in_channel_of_descr fd'
              and oc = Lwt_ssl.out_channel_of_descr fd' in
              (ic, oc)
-       in protocol (ic,oc,cid)
+       in
+       Lwt.finalize
+         (fun () -> protocol (ic,oc,cid))
+         (fun () ->
+          Lwt_io.close oc >>= fun () ->
+          Lwt_io.close ic)
     )
     (function
       | FOOBAR as foobar->
@@ -63,7 +70,9 @@ let session_thread (sid:string) cid protocol fd =
       | Canceled ->
         Lwt.fail Canceled
       | exn ->
-        Logger.info_f_ ~exn "exiting session (%s) connection=%s" sid cid)
+         Logger.info_f_
+           "exiting session (%s) connection=%s: %S"
+           sid cid (Printexc.to_string exn))
 
 let create_connection_allocation_scheme max =
   let counter = ref 0 in
@@ -138,7 +147,11 @@ let _socket_closer cid sock f =
             let level = match exn with
               | Unix.Unix_error(Unix.EBADF, _, _) -> Logger.Debug
               | _ -> Logger.Info in
-            Logger.log_ ~exn section level (fun () -> Printf.sprintf "Exception while closing client fd %s" cid))
+            Logger.log_
+              section level
+              (fun () -> Printf.sprintf "Exception while closing client fd %s: %S"
+                                        cid (Printexc.to_string exn))
+       )
     )
 
 let make_server_thread
@@ -146,26 +159,32 @@ let make_server_thread
       ?(setup_callback=no_callback)
       ?(teardown_callback = no_callback)
       ?(ssl_context : [> `Server ] Typed_ssl.t option)
+      ~tcp_keepalive
       ~scheme ~stop
       host port protocol =
 
   let socket_address = Network.make_address host port in
+  let maybe_take,release = scheme in
+  let connection_counter = make_counter () in
+  let client_threads = Hashtbl.create 10 in
+  let _condition = Lwt_condition.create () in
+  let bind () =
+      let listening_socket = new_socket socket_address in
+      Lwt_unix.setsockopt listening_socket Unix.SO_REUSEADDR true;
+      Lwt_unix.bind listening_socket socket_address >>= fun () ->
+      Lwt_unix.listen listening_socket 1024;
+      let () =
+        match ssl_context with
+        | None -> ()
+        | Some _ctx ->
+           let _ = Typed_ssl.embed_socket
+                     (Lwt_unix.unix_file_descr listening_socket)
+           in
+           ()
+      in
+      Lwt.return listening_socket
+  in
   begin
-    let listening_socket = new_socket socket_address in
-    Lwt_unix.setsockopt listening_socket Unix.SO_REUSEADDR true;
-    Lwt_unix.bind listening_socket socket_address;
-    Lwt_unix.listen listening_socket 1024;
-    let () = match ssl_context with
-      | None -> ()
-      | Some _ctx ->
-          let _ = Typed_ssl.embed_socket (Lwt_unix.unix_file_descr listening_socket) in
-          ()
-    in
-    let maybe_take,release = scheme in
-    let connection_counter = make_counter () in
-    let client_threads = Hashtbl.create 10 in
-    let _condition = Lwt_condition.create () in
-
     let possible_denial cid plain_fd cl_socket_address =
       make_socket plain_fd ssl_context >>= fun sock ->
       match !stop, maybe_take () with
@@ -200,34 +219,40 @@ let make_server_thread
            Lwt.return (Some t)
          end
     in
-    let rec server_loop () =
+    let rec server_loop listening_socket =
       let serve () =
         Lwt.catch
           (fun () ->
-           Lwt_unix.accept listening_socket >>= fun (plain_fd, cl_socket_address) ->
-           let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
-           let finalize () =
-             Hashtbl.remove client_threads cid;
-             Lwt_condition.signal _condition ();
-             Lwt.return ()
-           in
-           possible_denial cid plain_fd cl_socket_address >>= fun mt ->
-           begin
-             match mt with
-             | Some t ->
-                Lwt.ignore_result
-                  (Lwt.catch
-                     (fun () ->
-                      Hashtbl.add client_threads cid t;
-                      t >>= fun () ->
-                      finalize ()
-                     )
-                     (fun exn ->
-                      Logger.info_f_ ~exn "Exception in client thread %s" cid >>= fun () ->
-                      finalize ()))
-             | None -> ()
-           end;
-           Lwt.return ()
+            Lwt_unix.accept listening_socket >>= fun (plain_fd, cl_socket_address) ->
+            Lwt_unix.setsockopt plain_fd Lwt_unix.TCP_NODELAY true;
+            Tcp_keepalive.apply plain_fd tcp_keepalive;
+            let cid = name ^ "_" ^ Int64.to_string (connection_counter ()) in
+            let finalize () =
+              Hashtbl.remove client_threads cid;
+              Lwt_condition.signal _condition ();
+              Lwt.return ()
+            in
+            possible_denial cid plain_fd cl_socket_address >>= fun mt ->
+            begin
+              match mt with
+              | Some t ->
+                 Lwt.ignore_result
+                   (Lwt.catch
+                      (fun () ->
+                        Hashtbl.add client_threads cid t;
+                        t >>= fun () ->
+                        finalize ()
+                      )
+                      (fun exn ->
+                        Logger.info_f_
+                          "Exception in client thread %s: %S"
+                          cid
+                          (Printexc.to_string exn)
+                        >>= fun () ->
+                        finalize ()))
+              | None -> ()
+            end;
+            Lwt.return ()
           )
           (function
             | Unix.Unix_error (Unix.EMFILE,s0,s1) ->
@@ -241,22 +266,23 @@ let make_server_thread
                  "OUT OF FDS during accept (%s,%s) on port %i => sleeping %.1fs"
                  s0 s1 port timeout >>= fun () ->
                Lwt_unix.sleep timeout
-            | Ssl.Accept_error _ as exn ->
-               Logger.warning_f_ ~exn
-                                 "Ssl.Accept_error in server_loop: %s"
+            | Ssl.Accept_error _ ->
+               Logger.warning_f_ "Ssl.Accept_error in server_loop: %s"
                                  (Ssl.get_error_string ())
 
             | e -> Lwt.fail e
            )
       in
       serve () >>= fun () ->
-      server_loop ()
+      server_loop listening_socket
     in
     let r  = fun () ->
+      bind () >>= fun listening_socket ->
+
       Lwt.finalize
         (fun ()  ->
            setup_callback () >>= fun () ->
-           server_loop ())
+           server_loop listening_socket)
         (fun () ->
            Lwt.catch
              (fun () ->
@@ -264,7 +290,10 @@ let make_server_thread
                 Lwt_unix.close listening_socket >>= fun () ->
                 Logger.debug_ "closed listening socket")
              (fun exn ->
-                Logger.info_f_ ~exn "exception while closing listening socket") >>= fun () ->
+               Logger.info_f_ "exception while closing listening socket: %S"
+                              (Printexc.to_string exn)
+             )
+           >>= fun () ->
 
            let cancel _ t =
              try

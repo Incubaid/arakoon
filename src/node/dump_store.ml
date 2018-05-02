@@ -17,7 +17,8 @@ limitations under the License.
 open Lwt
 open Routing
 open Node_cfg.Node_cfg
-open Interval
+open Arakoon_interval
+open Tlog_map
 
 module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 
@@ -38,6 +39,8 @@ let _dump_routing store =  try_fetch "routing" (fun () -> S.get_routing store) R
 
 let _dump_interval store = try_fetch "interval" (fun () -> S.get_interval store) Interval.to_string
 
+let _dump_cluster_id store = try_fetch "cluster_id" (fun () -> S.get_cluster_id store) Log_extra.string_option2s
+
 let summary store =
   let consensus_i = S.consensus_i store
   and mdo = S.who_master store
@@ -51,7 +54,8 @@ let summary store =
   Lwt_io.printlf "master: %s" s
   >>= fun () ->
   _dump_routing store >>= fun () ->
-  _dump_interval store
+  _dump_interval store >>= fun () ->
+  _dump_cluster_id store
 
 let dump_store filename =
   let t () =
@@ -59,29 +63,25 @@ let dump_store filename =
     summary store >>= fun () ->
     S.close store ~sync:false ~flush:false
   in
-  Lwt_main.run (t());
+  Lwt_extra.run t;
   0
 
 exception ExitWithCode of int;;
 
-let inject_as_head fn node_id cfg_fn ~force ~in_place =
-  let canonical =
-    if cfg_fn.[0] = '/'
-    then cfg_fn
-    else Filename.concat (Unix.getcwd()) cfg_fn
-  in
-  let cluster_cfg = read_config canonical in
-  let node_cfgs = List.filter
-                    (fun ncfg -> node_name ncfg = node_id)
-                    cluster_cfg.cfgs
-  in
-  let node_cfg = match node_cfgs with
-    | [] -> failwith (Printf.sprintf "unknown node: %S" node_id)
-    | x :: _ -> x
-  in
+let inject_as_head fn node_id cfg_url ~force ~in_place =
+
   let t () =
-    let tlog_dir = node_cfg.tlog_dir in
-    let tlx_dir = node_cfg.tlx_dir in
+    retrieve_cfg cfg_url >>= fun cluster_cfg ->
+    let node_cfgs = List.filter
+                      (fun ncfg -> node_name ncfg = node_id)
+                      cluster_cfg.cfgs
+    in
+    let node_cfg = match node_cfgs with
+      | [] -> failwith (Printf.sprintf "unknown node: %S" node_id)
+      | x :: _ -> x
+    in
+    TlogMap.make node_cfg.tlog_dir node_cfg.tlx_dir node_id ~check_marker:false
+    >>= fun (tlog_map,_,_) ->
     let head_dir = node_cfg.head_dir in
     let old_head_name = Filename.concat head_dir Tlc2.head_fname  in
 
@@ -122,13 +122,14 @@ let inject_as_head fn node_id cfg_fn ~force ~in_place =
     if not ok then failwith "new head is not an improvement";
     let bottom_n = match new_head_i with
       | None -> failwith "can't happen"
-      | Some i -> Sn.to_int (Tlc2.get_file_number i)
+      | Some i -> TlogMap.outer_of_i tlog_map i
     in
     begin
       if (not in_place)
       then begin
         Lwt_io.printf "cp %S %S" fn old_head_name >>=fun () ->
-        File_system.copy_file fn old_head_name ~overwrite:true ~throttling:0.0
+        File_system.copy_file fn old_head_name ~overwrite:true ~throttling:0.0 >>= fun _ ->
+        Lwt.return ()
       end
       else begin
         Lwt_io.printf "rename %S %S" fn old_head_name >>= fun () ->
@@ -138,11 +139,11 @@ let inject_as_head fn node_id cfg_fn ~force ~in_place =
     >>= fun () ->
     Lwt_io.printlf "# [OK]">>= fun () ->
     Lwt_io.printlf "# remove superfluous .tlx files" >>= fun () ->
-    Tlc2.get_tlog_names tlog_dir tlx_dir >>= fun tlns ->
-    let old_tlns = List.filter (fun tln -> let n = Tlc2.get_number tln in n < bottom_n) tlns in
+    TlogMap.get_tlog_names tlog_map >>= fun tlns ->
+    let old_tlns = List.filter (fun tln -> let n = Tlog_map.get_number tln in n < bottom_n) tlns in
     Lwt_list.iter_s
       (fun old_tln ->
-         let canonical = Tlc2.get_full_path tlog_dir tlx_dir old_tln in
+         let canonical = TlogMap.get_full_path tlog_map old_tln in
          Lwt_io.printlf "rm %s" canonical >>= fun () ->
          File_system.unlink canonical
       ) old_tlns >>= fun () ->
@@ -151,7 +152,116 @@ let inject_as_head fn node_id cfg_fn ~force ~in_place =
 
   in
   try
-    Lwt_main.run (t ())
+    Lwt_extra.run t
   with
     | ExitWithCode i -> i
     | exn -> raise exn
+
+
+let verify_store fn start_key =
+  let open Camltc in
+  let open Local_store in
+  let read_only = true in
+  let t () =
+    Local_store.make_store ~lcnum:1024 ~ncnum:512 read_only fn >>= fun ls ->
+    let go () =
+      Bdb.with_cursor
+        (Hotc.get_bdb ls.db)
+        (fun bdb cursor ->
+          let () = Bdb.first bdb cursor in
+          let () = match start_key with
+            | None -> ()
+            | Some key -> Bdb.jump bdb cursor key
+          in
+          let rec loop i =
+            let key = Bdb.key bdb cursor in
+            let _value = Bdb.value bdb cursor in
+            begin
+              if (i < 10 || i mod 20000 = 0)
+              then Lwt_io.eprintlf "%10i: %S\tok%!" i key |> Lwt.ignore_result
+            end;
+            let cont =
+              try
+                Bdb.next bdb cursor;
+                true
+              with Not_found -> false
+            in
+            if cont
+            then loop (i+1)
+            else 0
+          in
+          loop 0
+        )
+      |> Lwt.return
+    in
+    go ()
+  in
+  Lwt_extra.run t
+
+let inspect_store fn left max_results =
+  let t () =
+    let open Camltc in
+    let open Local_store in
+    make_store ~lcnum:1024 ~ncnum:512 true fn >>= fun ls ->
+    Bdb.with_cursor
+      (Hotc.get_bdb ls.db)
+      (fun bdb cursor ->
+        let () = match left with
+          | None -> Bdb.first bdb cursor
+          | Some left -> Bdb.jump bdb cursor left
+        in
+        let rec loop i =
+          if i < max_results
+          then
+            begin
+              let key = Bdb.key bdb cursor in
+              let value = Bdb.value bdb cursor in
+              Lwt_io.printlf "%i: key=%S value=%S" i key value |> Lwt.ignore_result;
+              let continue =
+                try Bdb.next bdb cursor; true
+                with Not_found -> false
+              in
+              if continue
+              then loop (i + 1)
+              else Lwt_io.printlf "Finished iterating over db" |> Lwt.ignore_result
+            end
+        in
+        loop 0
+      );
+    Lwt.return 0
+  in
+  Lwt_extra.run
+    (fun () ->
+      Lwt.catch
+        t
+        (fun exn ->
+          Lwt_io.printlf "Got exception during inspect store: %s" (Printexc.to_string exn) >>= fun () ->
+          Lwt.return 1
+    ))
+
+let set_store_i fn new_i =
+  let t () =
+    Local_store.make_store ~lcnum:1024 ~ncnum:512 false fn >>= fun store ->
+    let current_i =
+      try
+        let s = Local_store.get store Simple_store.__i_key in
+        Some (Sn.sn_from (Llio.make_buffer s 0))
+      with Not_found ->
+        None
+    in
+    Lwt_io.printlf
+      "Current store i:%s, replacing with %i"
+      (Log_extra.option2s Int64.to_string current_i)
+      new_i >>= fun () ->
+
+    let buf = Buffer.create 8 in
+    Sn.sn_to buf (Int64.of_int new_i);
+    Local_store.with_transaction
+      store
+      (fun tx ->
+        Local_store.set store tx Simple_store.__i_key (Buffer.contents buf);
+        Lwt.return ()) >>= fun () ->
+
+    Lwt.return 0
+  in
+  Lwt_extra.run t

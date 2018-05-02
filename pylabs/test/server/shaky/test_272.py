@@ -17,45 +17,86 @@ limitations under the License.
 
 
 from .. import system_tests_common as Common
+from Compat import X
 import logging
 import time
 import subprocess
 from threading import Thread
 from nose.tools import *
-
+import os
+import signal
 
 @Common.with_custom_setup(Common.setup_1_node, Common.basic_teardown)
 def test_272():
+    pass
     """
-    test_272 : arakoon can go down during log rotation, but you need to have load to reproduce it (eta: 1110s)
+    test_272 : arakoon can go down during log rotation, but you need to have load to reproduce it 
     """
     node = Common.node_names[0]
     cluster = Common._getCluster()
     path = cluster._getConfigFileName() + ".cfg"
     logging.info('path=%s', path)
-    bench = subprocess.Popen([Common.CONFIG.binary_full_path, '-config', path ,'--benchmark',
-                              '-max_n', '100000'])
+
+    f = open("./outputFile","wb")
+    bench = subprocess.Popen([Common.CONFIG.binary_full_path,
+                              '-config', path ,'--benchmark',
+                              '-scenario','master, set, set_tx, get',
+                              '-max_n', '60000'], stdout=f,stderr=f)
+
     time.sleep(10.0) # give it time to get up to speed
     rc = bench.returncode
     if rc <> None:
         raise Exception ("benchmark should not have finished yet.")
 
-    for i in range(100):
-        Common.rotate_log(node, 1, False)
-        time.sleep(0.2)
-        # Note:
-        # At this point, we expect one node to be running, as well as the
-        # benchmark process. The `assert_running_nodes` procedure uses
-        # 'pgrep -c' which counts the number of 'arakoon' processes running, so
-        # we should pass *2* here, despite only a single node process should be
-        # running.
-        Common.assert_running_nodes(2)
+
+    cfg = Common.getConfig(node)
+    log_dir = cfg['log_dir']
+    log_file = '/'.join([log_dir, "%s.log" % node ])
+
+    def target(i):
+        fn = "%s.%03i" % (log_file,i)
+        return fn
+
+    for i in xrange(100):
+        new_file = target(i)
+        print "%s => %s" % (log_file, new_file)
+        count = 0
+        while not X.fileExists(log_file) and count < 10:
+            print "%s does not exist" % log_file
+            time.sleep(0.2)
+            count += 1
+            
+        os.rename (log_file, new_file)
+        Common.send_signal(node,signal.SIGUSR1)
+        Common.assert_running_nodes(1)
         rc = bench.returncode
         if rc <> None:
             raise Exception ("benchmark should not have stopped")
 
-    Common.assert_running_nodes(2)
+    Common.assert_running_nodes(1)
     logging.info("now wait for benchmark to finish")
     rc = bench.wait()
+    f.close()
+    Common.assert_running_nodes(1)
     if rc <> 0:
         raise Exception("benchmark exited with rc = %s" % rc)
+
+    # now check there are no holes.
+
+    seqn = -1
+    for i in xrange(100):
+        fn = target(i)
+        with open(fn,'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                try:
+                    parts =  line.split(" - ")
+                    s = parts[4]
+                    seqn_next = int(s)
+                    assert_equals(seqn_next, seqn + 1,
+                                  msg = "%s:sequence numbers do not follow: %s;%s" % (fn, seqn , seqn_next))
+                    seqn = seqn_next
+                except Exception as ex:
+                    logging.info("Error while parsing line %s" % line)
+                    raise ex
+    logging.info("last seqn:%i" % seqn)

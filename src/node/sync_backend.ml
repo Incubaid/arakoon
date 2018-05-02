@@ -25,7 +25,7 @@ struct
   open Lwt
   open Log_extra
   open Update
-  open Interval
+  open Arakoon_interval
   open Protocol_common
   open Master_type
   open Arakoon_client
@@ -75,9 +75,10 @@ struct
 
   let _update_rendezvous self ~so_post update update_stats push =
     self # _write_allowed ();
+    self # _check_update_size update >>= fun update_size ->
     let sleep, awake = Lwt.wait () in
     let went_well = make_went_well update_stats awake sleep in
-    push (update, went_well) >>= fun () ->
+    push (update, update_size, went_well) >>= fun () ->
     let t0 = Unix.gettimeofday() in
     sleep >>= fun r ->
     let t1 = Unix.gettimeofday() in
@@ -94,12 +95,12 @@ struct
 
 
   class sync_backend = fun cfg
-    (push_update:Update.t * (Store.update_result -> unit Lwt.t) -> unit Lwt.t)
+    (push_update:Update.t * int * (Store.update_result -> unit Lwt.t) -> unit Lwt.t)
     (push_node_msg:Multi_paxos.paxos_event -> unit Lwt.t)
     (store: 'a)
     (store_methods: (string -> string ->
                      overwrite:bool -> throttling:float ->
-                     unit Lwt.t) * string * float)
+                     bool Lwt.t) * string * float)
     (tlog_collection:Tlogcollection.tlog_collection)
     (lease_expiration:int)
     ~quorum_function n_nodes
@@ -107,8 +108,11 @@ struct
     ~test
     ~(read_only:bool)
     ~max_value_size
+    ~max_buffer_size
     ~collapse_slowdown
-    ~act_not_preferred ->
+    ~optimize_db_slowdown
+    ~act_not_preferred
+    ~cluster_id ->
     let my_name =  Node_cfg.node_name cfg in
     let locked_tlogs = Hashtbl.create 8 in
     let blockers_cond = Lwt_condition.create() in
@@ -199,6 +203,11 @@ struct
         self # with_blocked_collapser start_i
           (fun () ->
              Catchup.last_entries2 (module S) store tlog_collection start_i oc
+          )
+      method last_entries3 (start_i:Sn.t) (oc:Lwt_io.output_channel) =
+        self # with_blocked_collapser start_i
+          (fun () ->
+             Catchup.last_entries3 (module S) store tlog_collection start_i oc
           )
 
       method range_entries ~consistency
@@ -452,6 +461,20 @@ struct
               then raise (XException(Arakoon_exc.E_NOT_MASTER, m))
           end
 
+      method _check_update_size update =
+        let size = Update.serialized_size update in
+        if size > max_buffer_size
+        then
+          let msg =
+            Printf.sprintf "update %s has size %i > %i"
+                           (Update.update2s update)
+                           size
+                           max_buffer_size
+          in
+          Lwt.fail (XException(Arakoon_exc.E_BAD_INPUT, msg))
+        else
+          Lwt.return size
+
       method private _read_allowed (consistency:consistency) =
         if not read_only
         then
@@ -576,7 +599,8 @@ struct
                Logger.info_ "Starting collapse" >>= fun () ->
                Collapser.collapse_many tlog_collection (module S)
                                        store_methods n cb' new_cb
-                                       collapse_slowdown >>= fun () ->
+                                       collapse_slowdown
+                                       ~cluster_id >>= fun () ->
                Logger.info_ "Collapse completed")
 
       method get_routing () =
@@ -635,7 +659,12 @@ struct
       method optimize_db () =
         Logger.info_ "optimize_db: enter" >>= fun () ->
         let mode = Quiesce.Mode.ReadOnly in
-        self # try_quiesced ~mode (fun () -> Lwt.map ignore (S.optimize store)) >>= fun () ->
+        self # try_quiesced
+             ~mode
+             (fun () ->
+               S.optimize store ~slowdown_factor:(Some optimize_db_slowdown)
+               >|= ignore)
+        >>= fun () ->
         Logger.info_ "optimize_db: All done"
 
       method defrag_db () =
@@ -660,6 +689,8 @@ struct
         Logger.info_ "get_db: All done"
 
       method copy_db_to_head tlogs_to_keep =
+        Logger.info_f_ "copy_db_to_head tlogs_to_keep:%i" tlogs_to_keep
+        >>= fun () ->
         if tlogs_to_keep < 1 then
           let rc = Arakoon_exc.E_UNKNOWN_FAILURE
           and msg = Printf.sprintf "tlogs_to_keep=%i is not acceptable" tlogs_to_keep
@@ -674,21 +705,27 @@ struct
                      ~mode
                      (fun () ->
                       S.copy_store2 (S.get_location store) head_path
-                                    ~overwrite:true ~throttling:copy_head_throttling) >>= fun () ->
+                                    ~overwrite:true
+                                    ~throttling:copy_head_throttling
+                      >>= fun _ ->
+                      Lwt.return ()) >>= fun () ->
 
             (* remove all but tlogs_to_keep last tlogs *)
-            Collapser._head_i (module S) head_path >>= fun head_io ->
+            Collapser._head_i (module S) head_path ~cluster_id >>= fun head_io ->
 
-            let head_n = match head_io with
+            let head_i, head_n = match head_io with
               | None -> failwith "impossible i for copied head"
-              | Some i -> Tlc2.get_file_number i
+              | Some i -> i, tlog_collection # get_tlog_from_i i
             in
-            let keep_bottom_n = Sn.succ (Sn.sub head_n (Sn.of_int tlogs_to_keep)) in
-            if Sn.compare keep_bottom_n Sn.zero = 1
+            let keep_bottom_n = head_n -  tlogs_to_keep + 1 in
+            if keep_bottom_n > 0
             then
               begin
                 self # wait_for_tlog_release keep_bottom_n >>= fun () ->
-                tlog_collection # remove_below (Tlc2.get_tlog_i keep_bottom_n)
+                let keep_i = tlog_collection # get_start_i keep_bottom_n in
+                match keep_i with
+                | None        -> Lwt.return ()
+                | Some keep_i -> tlog_collection # remove_below keep_i
               end
             else
               Lwt.return ()
@@ -748,12 +785,7 @@ struct
         else
           begin
             match self # who_master () with
-            | None -> Lwt.return ()
-            | Some m ->
-              if m <> my_name
-              then Lwt.return ()
-              else
-                begin
+            | Some m when m = my_name ->
                   act_not_preferred := true;
                   let (sleep, awake) = Lwt.wait () in
                   let update = Multi_paxos.DropMaster (sleep, awake) in
@@ -765,7 +797,7 @@ struct
                   Logger.debug_f_ "drop_master: waiting another %1.1fs" delay >>= fun () ->
                   Lwt_unix.sleep delay >>= fun () ->
                   Logger.debug_ "drop_master: completed"
-                end
+            | _ -> Lwt.return ()
           end
 
       method get_current_state () =

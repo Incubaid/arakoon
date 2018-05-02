@@ -19,7 +19,7 @@ limitations under the License.
 from Compat import X
 from .. import system_tests_common as C
 from nose.tools import *
-import logging
+import logging, time
 
 @C.with_custom_setup(C.setup_2_nodes_forced_master_mini, C.basic_teardown)
 def test_copy_db_to_head():
@@ -30,7 +30,7 @@ def test_copy_db_to_head():
     # n < 1 fails
     assert_raises( Exception, lambda: C.copyDbToHead(slave, 0))
     # fails on master
-    assert_raises( Exception, lambda: C.copyDbToHead(Common.node_names[0], 2))
+    assert_raises( Exception, lambda: C.copyDbToHead(C.node_names[0], 2))
 
     C.copyDbToHead(slave, 1)
 
@@ -44,3 +44,31 @@ def test_copy_db_to_head():
     a = C.get_i(slave, True)
     logging.info("slave_head_i='%s'", a)
     assert(a >= 5000)
+
+@C.with_custom_setup(C.setup_2_nodes_mini, C.basic_teardown)
+def test_copy_db_to_head2():
+    logging.info("test_copy_db_to_head")
+    zero = C.node_names[0]
+    one = C.node_names[1]
+    n = 29876
+    C.iterate_n_times(n, C.simple_set)
+    logging.info("did %i sets, now copying db to head" % n)
+    C.copyDbToHead(one,1)
+
+    head_name = '%s/%s/head/head.db' %(C.data_base_dir, one)
+
+    logging.info(head_name)
+    assert_true(X.fileExists(head_name))
+    C.stopOne(zero)
+    C.wipe(zero)
+    C.startOne(zero)
+    cli = C.get_client()
+    logging.info("cli class:%s", cli.__class__)
+    assert_false(cli.expectProgressPossible())
+    up2date = False
+    counter = 0
+    while not up2date and counter < 100:
+        time.sleep(1.0)
+        counter = counter + 1
+        up2date = cli.expectProgressPossible()
+    logging.info("catchup from 'collapsed' node finished")

@@ -1,1 +1,0 @@
-../060_install_nose.sh

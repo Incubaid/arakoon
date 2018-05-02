@@ -4,7 +4,7 @@ true: thread
 true: package(lwt)
 true: package(lwt.preemptive)
 true: package(lwt.unix)
-true: package(lwt.ssl)
+true: package(lwt_ssl)
 true: package(oUnit)
 true: package(bz2)
 true: package(str)
@@ -14,8 +14,10 @@ true: package(quickcheck)
 true: pp(camlp4of)
 true: package(snappy)
 true: package(ocplib-endian)
-true: package(uuidm)
-true: package(nocrypto)
+true: package(uri)
+true: package(redis)
+true: package(redis-lwt)
+true: package(core)
 "src":include
 "src/lib":include
 "src/tools":include
@@ -38,3 +40,6 @@ true: package(nocrypto)
 <examples/ocaml/*.{byte,native}>: is_main
 "logger_macro.cmo" : use_camlp4, camlp4orf
 <src/**/*.ml> : camlp4of, use_log_macro, maybe_use_bisect, unsafe_string
+"rpmbuild": -traverse
+"arakoon_docker_rpm": -traverse
+"arakoon_version.ml": opaque
