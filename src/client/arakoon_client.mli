@@ -27,6 +27,7 @@ type change =
   | Assert of (key * value option)
   | Assert_exists of (key)
   | Assert_range of key * Update.Range_assertion.t
+  | Delete_prefix of key
   | TestAndSet of key * value option * value option
   | UserFunction of string * string option
   | Sequence of change list
