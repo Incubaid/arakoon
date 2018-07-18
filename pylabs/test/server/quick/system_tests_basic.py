@@ -787,7 +787,9 @@ def test_download_db():
 
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_delete_prefix():
-    """ deletion of all key value pairs with same prefix """
+
+    # deletion of all key value pairs with same prefix
+
     cli = C.get_client()
     for i in xrange(100):
         cli.set("key_%04i" % i, "whatever")
@@ -799,6 +801,37 @@ def test_delete_prefix():
     l3 = cli.deletePrefix(prefix)
     assert_equals(l3,0)
     logging.debug("done")
+
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_delete_prefix_sequence():
+
+    # deletion of all key value pairs with same prefix in a sequence
+
+    cli = C.get_client()
+    for i in xrange(100):
+        cli.set("key_%04i" % i, "whatever")
+
+    cli .set("count", "100")
+
+    prefix = "key_"
+    keys = cli.prefix(prefix)
+    l = len(keys)
+    assert_equals(l, 100, "wrong number of keys")
+    sequence = cli.makeSequence()
+    sequence.addDeletePrefix(prefix)
+    sequence.addSet("count","0")
+    cli.sequence(sequence)
+
+    keys2 = cli.prefix(prefix)
+    l2 = len(keys2)
+    assert_equals(l2,0, "wrong number of keys deleted")
+
+    count2 = cli["count"]
+    assert_equals(count2, "0", "wrong count")
+    l3 = cli.deletePrefix(prefix)
+    assert_equals(l3,0)
+    logging.debug("done")
+
 
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_multi_get():

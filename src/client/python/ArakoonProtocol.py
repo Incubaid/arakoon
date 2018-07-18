@@ -551,6 +551,13 @@ class Delete(Update):
         fob.write(_packInt(2))
         fob.write(_packString(self._key))
 
+class DeletePrefix(Update):
+    def __init__(self, key):
+        self._key = key
+    def write(self, fob):
+        fob.write(_packInt(14))
+        fob.write(_packString(self._key))
+
 class Assert(Update):
     def __init__(self, key, vo):
         self._key = key
@@ -584,7 +591,11 @@ class Sequence(Update):
     def addDelete(self, key):
         self._updates.append(Delete(key))
 
-    def addAssert(self, key,vo):
+    @SignatureValidator( 'string' )
+    def addDeletePrefix(self, prefix):
+        self._updates.append(DeletePrefix(prefix))
+
+    def addAssert(self, key, vo):
         self._updates.append(Assert(key,vo))
 
     def addAssertExists(self, key):
