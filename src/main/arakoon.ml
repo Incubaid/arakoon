@@ -199,6 +199,7 @@ let main () =
   and xml_filename = ref "output.xml"
   and filter = ref ""
   and node_id = ref ""
+  and source_node = ref None
   and key = ref ""
   and value = ref ""
   and value_option = ref None
@@ -360,6 +361,8 @@ let main () =
     ("-autofix", Arg.Set autofix, "attempt to autofix (option to -node)");
     ("-catchup-only", Arg.Set catchup_only,
      "will only do a catchup of the node, without actually starting it (option to --node)");
+    ("-source-node", Arg.String (fun s -> source_node := Some s),
+     "do a catchup from that specific node (in combination with -catchup-only)");
     ("-daemonize", Arg.Set daemonize,
      "add if you want the process to daemonize (only for --node)");
     ("-start", Arg.Unit (fun () -> ()),
@@ -583,6 +586,7 @@ let main () =
               !node_id
               ~daemonize:!daemonize
               ~catchup_only:!catchup_only
+              ~source_node:!source_node
               ~autofix:!autofix
               ~lock:true
           in

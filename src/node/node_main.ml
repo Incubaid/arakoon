@@ -183,11 +183,13 @@ let only_catchup
       (type s) (module S : Store.STORE with type t = s)
       ~tls_ctx
       ~name
+      ~source_node
       ~cluster_cfg
       ~(make_tlog_coll:Tlogcollection.tlc_factory)
       get_snapshot_name
   =
-  Logger.info_ "ONLY CATCHUP" >>= fun () ->
+  Logger.info_f_  "ONLY CATCHUP (from %s)" (Log_extra.string_option2s source_node)
+  >>= fun () ->
   let me, other_configs = Node_cfg.Node_cfg.split name cluster_cfg.cfgs in
   let cluster_id = cluster_cfg.cluster_id in
   let db_name = full_db_name me in
@@ -220,11 +222,18 @@ let only_catchup
                  ~fsync:false name ~fsync_tlog_dir:false
                  ~cluster_id
   >>= fun tlc ->
+  let other_configs' = match source_node with
+    | None -> other_configs
+    | Some n ->
+       List.filter
+         (fun ncfg -> ncfg.node_name = n)
+         other_configs
+  in
   let try_catchup mr_name =
     Lwt.catch
       (fun () ->
        Catchup.catchup ~tls_ctx ~tcp_keepalive:cluster_cfg.tcp_keepalive ~stop:(ref false)
-                       me.Node_cfg.Node_cfg.node_name other_configs ~cluster_id
+                       me.Node_cfg.Node_cfg.node_name other_configs' ~cluster_id
                        ((module S),store,tlc) mr_name >>= fun _ ->
        S.close store ~flush:true ~sync:true >>= fun () ->
        tlc # close () >>= fun () ->
@@ -246,7 +255,7 @@ let only_catchup
          Lwt.return ()
        else
          try_nodes others in
-  try_nodes other_configs
+  try_nodes other_configs'
 
 let build_ssl_context_helper f cluster = match cluster.tls with
   | None -> failwith "Node_main: No TLS configuration found"
@@ -394,7 +403,8 @@ let _main_2 (type s)
       (make_tlog_coll:Tlogcollection.tlc_factory)
       (make_config: unit -> 'a Lwt.t)
       get_snapshot_name ~name
-      ~daemonize ~catchup_only
+      ~daemonize
+      ~catchup_only ~source_node
       ~autofix
       ~stop
       ~lock
@@ -440,6 +450,7 @@ let _main_2 (type s)
         (module S)
         ~tls_ctx:ssl_context
         ~name ~cluster_cfg ~make_tlog_coll
+        ~source_node
         get_snapshot_name
       >>= fun () ->
       Lwt.return 0
@@ -1052,7 +1063,7 @@ let _main_2 (type s)
 
 
 let main_t (make_config: unit -> 'a Lwt.t)
-           name ~daemonize ~catchup_only ~autofix ~lock : int Lwt.t
+           name ~daemonize ~catchup_only ~source_node ~autofix ~lock : int Lwt.t
   =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let (make_tlog_coll :Tlogcollection.tlc_factory) =
@@ -1062,7 +1073,8 @@ let main_t (make_config: unit -> 'a Lwt.t)
   _main_2 (module S)
           make_tlog_coll
           make_config get_snapshot_name
-          ~name ~daemonize ~catchup_only ~autofix
+          ~name ~daemonize ~catchup_only ~source_node
+          ~autofix
           ~stop:(ref false) ~lock:true
 
 let test_t make_config name ~stop =
@@ -1074,7 +1086,8 @@ let test_t make_config name ~stop =
   let get_snapshot_name = fun () -> "DUMMY" in
   let daemonize = false
   and catchup_only = false
+  and source_node = None
   and autofix = false in
   _main_2 (module S) make_tlog_coll make_config get_snapshot_name
-          ~name ~daemonize ~catchup_only
+          ~name ~daemonize ~catchup_only ~source_node
           ~stop ~autofix ~lock:false

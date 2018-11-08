@@ -129,6 +129,7 @@ let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
       ~name
       ~daemonize:false
       ~catchup_only:false
+      ~source_node:None
       ~autofix:false
       ~stop:!stop
       ~lock:false

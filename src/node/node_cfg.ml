@@ -281,6 +281,7 @@ module Node_cfg = struct
 
   let make_test_config
         ?(base=4000) ?(cluster_id="ricky") ?(node_name = Printf.sprintf "t_arakoon_%i")
+        ?source_node
         n_nodes master lease_period =
     let make_one n =
       let ns = (string_of_int n) in
