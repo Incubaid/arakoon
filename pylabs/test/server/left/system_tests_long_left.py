@@ -62,13 +62,13 @@ def test_catchup_only2():
     C.stopOne(n1)
     C.wipe(n1)
     logging.info("catchup-only")
-    C.catchupOnly(n1, source_node = n0)
+    C.catchupOnly(n1, sourceNode = n0)
     logging.info("done with catchup-only from %s", n0)
     C.flush_store(n0)
     C.stopOne(n0)
     C.compare_stores(n1, n0)
     C.start_all()
-    C.assert_running_nodes(2)
+    C.assert_running_nodes(3)
 
 
 

@@ -407,9 +407,9 @@ def defragDb(name):
     cluster = _getCluster()
     cluster.defragDb(name)
 
-def catchupOnly(name):
+def catchupOnly(name, sourceNode = None):
     cluster = _getCluster()
-    cluster.catchupOnly(name)
+    cluster.catchupOnly(name, sourceNode)
 
 def restart_all():
     cluster = _getCluster()
