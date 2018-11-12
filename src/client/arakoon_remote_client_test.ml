@@ -49,6 +49,7 @@ let __client_server_wrapper__ (real_test:real_test) =
       Node_cfg.make_test_config
       ~cluster_id:_CLUSTER
       ~node_name:(Printf.sprintf "sweety_%i")
+      ~source_node:None
       1 (Master_type.Elected) lease_period
     in
     Lwt.return r

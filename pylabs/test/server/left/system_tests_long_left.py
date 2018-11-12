@@ -20,6 +20,7 @@ from ..system_tests_common import with_custom_setup
 
 from ..system_tests_common import setup_1_node, setup_2_nodes
 from ..system_tests_common import setup_2_nodes_forced_master
+from ..system_tests_common import setup_3_nodes_forced_master
 from ..system_tests_common import basic_teardown
 
 from .. import system_tests_common as C
@@ -51,6 +52,23 @@ def test_catchup_only():
     C.start_all()
     C.assert_running_nodes(2)
 
+@with_custom_setup(setup_3_nodes_forced_master, basic_teardown)
+def test_catchup_only2():
+    C.iterate_n_times(123000, C.simple_set)
+    n0 = C.node_names[0]
+    n1 = C.node_names[1]
+    n2 = C.node_names[2]
+    logging.info("stopping %s", n1)
+    C.stopOne(n1)
+    C.wipe(n1)
+    logging.info("catchup-only")
+    C.catchupOnly(n1, sourceNode = n0)
+    logging.info("done with catchup-only from %s", n0)
+    C.flush_store(n0)
+    C.stopOne(n0)
+    C.compare_stores(n1, n0)
+    C.start_all()
+    C.assert_running_nodes(3)
 
 
 

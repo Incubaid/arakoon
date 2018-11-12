@@ -1089,7 +1089,7 @@ class ArakoonCluster:
         return self._startOne(nodeName, extraParams)
 
 
-    def catchupOnly(self, nodeName):
+    def catchupOnly(self, nodeName, sourceNode = None):
         """
         make the node catchup, but don't start it.
         (This is handy if you want to minimize downtime before you,
@@ -1102,6 +1102,8 @@ class ArakoonCluster:
                '--node',
                nodeName,
                '-catchup-only']
+        if sourceNode:
+            cmd.extend(['-source-node', sourceNode])
         return X.subprocess.call(cmd)
 
     def stopOne(self, nodeName):

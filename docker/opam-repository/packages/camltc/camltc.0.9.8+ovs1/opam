@@ -1,0 +1,22 @@
+opam-version: "2.0"
+maintainer: "romain.slootmaekers@openvstorage.com"
+authors: ["Jan Doms" "Joost Damad" "Romain Slootmaekers" "Nicolas Trangez"]
+homepage: "http://github.com/toolslive/camltc"
+bug-reports: "http://github.com/toolslive/camltc/issues"
+dev-repo: "git+https://github.com/toolslive/camltc.git"
+license: "Apache-2.0"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "dune" {build & >= "1.1.0"}
+  "lwt" {>= "3.2.0"}
+  "logs"
+  "ounit" {with-test}
+]
+patches: "osx.patch" {os = "macos"}
+synopsis: "OCaml bindings for tokyo cabinet"
+
+
+
