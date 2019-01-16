@@ -263,7 +263,7 @@ let wrap (factory:factory) test (name:string) = lwt_bracket (setup factory name)
 let create_test_tlc ?tlog_max_entries ?tlog_max_size dn =
   Mem_tlogcollection.make_mem_tlog_collection
     ?tlog_max_entries ?tlog_max_size
-    dn None None ~fsync:false ~fsync_tlog_dir:false
+    dn None None ~should_fsync:false ~fsync_tlog_dir:false
     ~cluster_id:""
 
 let wrap_memory name = wrap create_test_tlc name

@@ -68,7 +68,9 @@ let _make_cfg name n lease_period =
     is_learner = false;
     is_witness = false;
     compressor = Compression.Snappy;
-    fsync = false;
+    fsync = Some false;
+    fsync_entries = None;
+    fsync_interval = None;
     _fsync_tlog_dir = false;
     is_test = true;
     reporting = 300;
@@ -83,12 +85,14 @@ let _make_tlog_coll
       ~tlcs ~values
       ~compressor ?(tlog_max_entries:int option) ?(tlog_max_size:int option)
       tlc_name tlf_dir head_dir
-      ~(fsync:bool) (node_id:string) ~(fsync_tlog_dir:bool)
+      ~(should_fsync:Sn.t -> float -> bool)
+      (node_id:string)
+      ~(fsync_tlog_dir:bool)
   =
   let () = ignore compressor in
   Mem_tlogcollection.make_mem_tlog_collection
     ?tlog_max_entries ?tlog_max_size
-    tlc_name tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir
+    tlc_name tlf_dir head_dir ~should_fsync node_id ~fsync_tlog_dir
     ?cluster_id
   >>= fun tlc ->
   let rec loop i = function

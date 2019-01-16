@@ -62,7 +62,9 @@ let test_collapse_until (dn, tlx_dir, head_dir) =
   Tlc2.make_tlc2 ~compressor
                  ~tlog_max_entries:1000
                  dn tlx_dir head_dir
-                 ~fsync:false node_id ~fsync_tlog_dir:false
+                 ~should_fsync:(fun _ _ -> false)
+                 node_id
+                 ~fsync_tlog_dir:false
                  ~cluster_id:""
   >>= fun tlc ->
   _make_values tlc 0 1111 >>= fun () ->
@@ -98,7 +100,7 @@ let test_collapse_many (dn, tlx_dir, head_dir) =
   let make_tlc () = 
     Tlc2.make_tlc2 ~compressor ~tlog_max_entries:100
                  dn tlx_dir head_dir
-                 ~fsync:false node_id ~fsync_tlog_dir:false
+                 ~should_fsync:(fun _ _ -> false) node_id ~fsync_tlog_dir:false
                  ?cluster_id
   in
   make_tlc () >>= fun tlc ->
@@ -126,7 +128,9 @@ let test_repeated_collapse (dn,tlx_dir, head_dir) =
   >>= fun () ->
   Tlc2.make_tlc2 ~compressor ~tlog_max_entries:100
                  dn tlx_dir head_dir
-                 ~fsync:false node_id ~fsync_tlog_dir:false
+                 ~should_fsync:(fun _ _ -> false)
+                 ~fsync_tlog_dir:false
+                 node_id
                  ?cluster_id
   >>= fun tlc ->
   let head_location= Filename.concat dn "head.db" in

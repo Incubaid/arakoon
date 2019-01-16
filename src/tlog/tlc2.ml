@@ -120,7 +120,9 @@ class tlc2
         (head_dir:string)
         (last:Entry.t option) (index:Index.index) (file:F.t option)
         (tlog_map: TlogMap.t)
-        (node_id:string) ~(fsync:bool) ~(fsync_tlog_dir:bool)
+        (node_id:string)
+        ~(should_fsync:Sn.t -> float -> bool)
+        ~(fsync_tlog_dir:bool)
   =
   let _previous_entry = ref (Some last) in
   let set_previous_entry e =
@@ -145,6 +147,9 @@ class tlc2
     val mutable _compression_q = Lwt_buffer.create_fixed_capacity 5
     val mutable _compression_thread = None
     val mutable _compressing = false
+
+    val mutable last_sync_time  = 0.0
+    val mutable entries_since_last_sync = (Sn.pred Sn.start)
 
     val _closing = ref false
     val _write_lock = Lwt_mutex.create ()
@@ -233,8 +238,9 @@ class tlc2
       _compression_thread <- Some t;
       Lwt.ignore_result t
 
+    method should_fsync now = should_fsync entries_since_last_sync (now -. last_sync_time)
 
-    method log_value_explicit i value ~sync marker =
+    method log_value_explicit i value ~sync_override marker =
       Lwt_mutex.with_lock _write_lock
         (fun () ->
            begin
@@ -244,9 +250,19 @@ class tlc2
              Tlogcommon.write_entry oc i value >>= fun total_size ->
              Lwt_io.flush oc >>= fun () ->
              begin
-               if sync
-               then F.fsync file
-               else Lwt.return ()
+               let () = entries_since_last_sync <- Sn.succ entries_since_last_sync in
+               let now = Unix.gettimeofday() in
+               let time_since_last_sync = now -. last_sync_time in
+               let should_fsync = sync_override || self # should_fsync time_since_last_sync in
+               if should_fsync
+               then
+                 let () =
+                   last_sync_time <- now;
+                   entries_since_last_sync  <- Sn.zero
+                 in
+                 F.fsync file
+               else
+                 Lwt.return_unit
              end
              >>= fun () ->
              begin
@@ -262,13 +278,12 @@ class tlc2
              Lwt.return total_size
            end)
 
-    method log_value i value =
-      self # log_value_explicit i value fsync None
+    method log_value i value = self # log_value_explicit i value ~sync_override:false None
 
     method accept i v =
-      let sync = fsync || Value.is_synced v in
+      let sync_override = Value.is_synced v in
       let marker = None in
-      self # log_value_explicit i v ~sync marker
+      self # log_value_explicit i v ~sync_override marker
 
     method private _prelude i =
       match _file with
@@ -482,6 +497,7 @@ class tlc2
               Logger.debug_f_ "wrote %S marker @i=%s for %S"
                               (Log_extra.string_option2s marker) (Sn.string_of i) node_id
               >>= fun () ->
+              F.fsync file >>= fun () ->
               F.close file
            | None -> Logger.fatal_f_ "how can this be?"
          end
@@ -575,7 +591,9 @@ let make_tlc2 ?cluster_id
               ?tlog_max_entries ?tlog_max_size
               ?(check_marker=true)
               tlog_dir tlf_dir
-              head_dir ~fsync node_id ~fsync_tlog_dir
+              head_dir
+              ~(should_fsync: Sn.t -> float -> bool)
+              node_id ~fsync_tlog_dir
   =
   Logger.debug_f_ "make_tlc2 %S" tlog_dir >>= fun () ->
   TlogMap.make ?tlog_max_entries ?tlog_max_size
@@ -616,7 +634,7 @@ let make_tlc2 ?cluster_id
   end >>= fun file ->
   let col = new tlc2 head_dir last index
                 file tlog_map
-                ~compressor node_id ~fsync ~fsync_tlog_dir
+                ~compressor node_id ~should_fsync ~fsync_tlog_dir
                 ?cluster_id
   in
   Lwt.return col

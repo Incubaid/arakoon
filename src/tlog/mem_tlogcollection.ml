@@ -76,7 +76,9 @@ class mem_tlog_collection _name =
     method tlogs_to_collapse ~head_i ~last_i ~tlogs_to_keep =
       failwith "tlogs_to_collapse not supported"
 
-    method log_value i v = self #log_value_explicit i v ~sync:false None
+    method should_fsync _ = false
+         
+    method log_value i v = self #log_value_explicit i v ~sync_override:false None
 
     method accept i v = self # log_value i v
     method dump_head _oc = Llio.lwt_failfmt "dump_head not implemented"
@@ -91,7 +93,7 @@ class mem_tlog_collection _name =
     method next_rollover _ = Some Int64.max_int
 
     method invalidate () = ()
-    method log_value_explicit i (v:Value.t) ~sync marker =
+    method log_value_explicit i (v:Value.t) ~sync_override marker =
       let entry = Entry.make i v 0L marker in
       let () = data <- entry::data in
       let () = last_entry <- (Some entry) in
@@ -108,8 +110,8 @@ class mem_tlog_collection _name =
 
 let make_mem_tlog_collection
       ?cluster_id
-      ?tlog_max_entries ?tlog_max_size _tlog_dir _tlf_dir _head_dir ~fsync name ~fsync_tlog_dir =
-  let () = ignore fsync in
+      ?tlog_max_entries ?tlog_max_size _tlog_dir _tlf_dir _head_dir ~should_fsync name ~fsync_tlog_dir =
+  let () = ignore should_fsync in
   let () = ignore fsync_tlog_dir in
   let x = new mem_tlog_collection name in
   let x2 = (x :> tlog_collection) in

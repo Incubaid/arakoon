@@ -219,7 +219,9 @@ let only_catchup
                  ~tlog_max_entries:cluster_cfg.tlog_max_entries
                  ~tlog_max_size:cluster_cfg.tlog_max_size
                  me.tlog_dir me.tlx_dir me.head_dir
-                 ~fsync:false name ~fsync_tlog_dir:false
+                 ~should_fsync:(fun _  _  -> false)
+                 ~fsync_tlog_dir:false
+                 name
                  ~cluster_id
   >>= fun tlc ->
   let other_configs' = match source_node with
@@ -542,13 +544,36 @@ let _main_2 (type s)
                          cluster_cfg.max_buffer_size
                          ~stop in
       Logger.info_f_ "cfg = %s" (string_of me) >>= fun () ->
-      begin
-        if not me.fsync
-        then
-          Logger.warning_ "Be careful, fsync is set to false! For durability and consistency reasons - in the case of powerloss - it's recommended to set fsync=true; please make sure you understand the risks of this configuration."
-        else
-          Lwt.return ()
-      end >>= fun () ->
+      let should_fsync =
+        match me.fsync, me.fsync_interval, me.fsync_entries with
+        | Some _, Some _, None
+          | Some _, None  , Some _
+          | Some _, Some _, Some _ ->
+           failwith ("fsync is deprecated, You should remove this entry as cannot combine this with 'fsync_entries'" ^
+                       " or 'fsync_interval'")
+        | Some fsync, None, None ->
+           let () =
+             if fsync then
+                Logger.ign_warning_ "Be careful, fsync is set to false! (fsync is deprecated: if you really want to live dangerously, use fsync_entries or/and fsync_interval)"
+           in
+           (fun i time_since_last_fsync -> fsync)
+
+        | None, None, None       -> (fun _ _ -> true) (* always *)
+        | None, Some dt, None    -> (fun _ time_since_last_fsync -> time_since_last_fsync >= dt)
+        | None, None   , Some di ->
+           let di64 = Sn.of_int di in
+           (fun n_entries_since_last_fsync _ -> n_entries_since_last_fsync >= di64)
+        | None, Some dt, Some di ->
+           let di64 = Sn.of_int di in
+           fun n_entries_since_last_fsync time_since_last_fsync ->
+           let () =
+             Lwt_log.ign_debug_f "fsync n_entries_since_last_fsync:%s time_since_last_fsync:%f"
+               (Sn.string_of n_entries_since_last_fsync) time_since_last_fsync
+           in
+           n_entries_since_last_fsync >= di64
+           || time_since_last_fsync >= dt
+      in
+
       Lwt_list.iter_s (fun m -> Logger.info_f_ "other: %s" m)
         other_names >>= fun () ->
       Logger.info_f_ "quorum_function gives %i for %i"
@@ -581,11 +606,13 @@ let _main_2 (type s)
             )
           >>= fun () ->
           let compressor = me.compressor in
+
           make_tlog_coll ~compressor
                          ~tlog_max_entries:cluster_cfg.tlog_max_entries
                          ~tlog_max_size:cluster_cfg.tlog_max_size
                          me.tlog_dir me.tlx_dir me.head_dir
-                         ~fsync:me.fsync name ~fsync_tlog_dir:me._fsync_tlog_dir
+                         ~should_fsync name
+                         ~fsync_tlog_dir:me._fsync_tlog_dir
                          ~cluster_id
           >>= fun (tlog_coll:Tlogcollection.tlog_collection) ->
           let lcnum = cluster_cfg.lcnum
