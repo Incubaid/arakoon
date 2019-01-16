@@ -42,7 +42,8 @@ let inspect_cluster ~tls (cfg : Node_cfg.cluster_cfg) =
         ~cluster_id:cfg.cluster_id
         ~compressor:Compression.Snappy
         path path path
-        ~fsync:false node_name ~fsync_tlog_dir:false
+        ~should_fsync:(fun _ _ -> false)
+        ~fsync_tlog_dir:false node_name
       >>= fun tlc ->
 
       let db_path = path ^ "/store.db" in

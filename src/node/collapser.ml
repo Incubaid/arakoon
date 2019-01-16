@@ -250,7 +250,8 @@ let collapse_out_of_band ?cluster_id cfg name tlogs_to_keep =
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   Tlc2.make_tlc2 ~compressor:me.compressor
                  me.tlog_dir me.tlx_dir me.head_dir
-                 ~fsync:true name ~fsync_tlog_dir:true
+                 ~should_fsync:(fun _ _ -> false) name
+                 ~fsync_tlog_dir:true
                  ~check_marker:false
                  ?cluster_id
   >>= fun tlog_coll ->

@@ -33,7 +33,8 @@ let create_test_tlc ?tlog_max_entries ?tlog_max_size dn =
   Tlc2.make_tlc2
     dn
     ?tlog_max_entries ?tlog_max_size tlx_dir tlx_dir
-    ~compressor ~fsync:false ~fsync_tlog_dir:false
+    ~compressor ~should_fsync:(fun _ _ -> false)
+    ~fsync_tlog_dir:false
     ~check_marker:true
     ~cluster_id
 

@@ -95,7 +95,7 @@ let catchup_tlog (type s) ~tls_ctx ~tcp_keepalive ~stop other_configs ~cluster_i
   let copy_tlog connection =
     make_remote_nodestream cluster_id connection >>= fun (client:nodestream) ->
     let f (i,value) =
-      tlog_coll # log_value_explicit i value ~sync:false None >>= fun _ ->
+      tlog_coll # log_value_explicit i value ~sync_override:false None >>= fun _ ->
       stop_fuse stop
     in
     client # iterate current_i

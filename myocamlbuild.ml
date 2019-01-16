@@ -128,6 +128,7 @@ let _ = dispatch & function
             A"-ccopt"; A"-Wextra";
             A"-ccopt"; A"-Werror";
             A"-ccopt"; A"-ggdb3";
+            A"-ccopt"; A"-Wcast-align";
             A"-ccopt"; A"-O2";
             (* Optionally add something like -march=core2 -mtune=corei7-avx for
              * a minor extra performance gain in CRC32 calculations *)

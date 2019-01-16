@@ -64,7 +64,7 @@ let test_generic network_factory n_nodes () =
   let inject_ev q e = Lwt_buffer.add e q in
   S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" ~cluster_id >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection
-    "MEM#tlog" None None ~fsync:false "???"
+    "MEM#tlog" None None ~should_fsync:false "???"
     ~fsync_tlog_dir:false ~cluster_id
   >>= fun tlog_coll ->
   let base = {me = "???";
@@ -266,7 +266,7 @@ let test_master_loop network_factory ()  =
   S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" ~cluster_id >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection
     "MEM#tlog" None None ~cluster_id
-    ~fsync:false me ~fsync_tlog_dir:false
+    ~should_fsync:false me ~fsync_tlog_dir:false
   >>= fun tlog_coll ->
 
   let constants = {me = me;
@@ -410,7 +410,7 @@ let test_simulation filters () =
   S.make_store ~lcnum:1024 ~ncnum:512 "MEM#store" ~cluster_id >>= fun store ->
   Mem_tlogcollection.make_mem_tlog_collection
     "MEM#tlog" None None
-    ~fsync:false me ~fsync_tlog_dir:false
+    ~should_fsync:false me ~fsync_tlog_dir:false
     ~cluster_id
   >>= fun tlog_coll ->
 

@@ -26,8 +26,10 @@ class type tlog_collection =
                   -> unit Lwt.t
   method accept : Sn.t -> Value.t    -> int Lwt.t
   method log_value : Sn.t -> Value.t -> int Lwt.t
-  method log_value_explicit : Sn.t -> Value.t ->
-                              sync:bool -> string option -> int Lwt.t
+
+  method should_fsync : float -> bool
+
+  method log_value_explicit : Sn.t -> Value.t -> sync_override:bool -> string option -> int Lwt.t
 
 
   method tlogs_to_collapse:
@@ -78,5 +80,7 @@ type tlc_factory =
   string ->
   string ->
   string ->
-  fsync:bool -> string -> fsync_tlog_dir:bool ->
+  should_fsync:(Sn.t -> float -> bool) ->
+  string
+  -> fsync_tlog_dir:bool ->
   tlog_collection Lwt.t

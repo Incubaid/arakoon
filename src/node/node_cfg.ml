@@ -137,7 +137,9 @@ module Node_cfg = struct
             is_learner : bool;
             is_witness : bool;
             compressor : Compression.compressor;
-            fsync : bool;
+            fsync : bool option;
+            fsync_interval : float option;
+            fsync_entries : int option;
             _fsync_tlog_dir : bool;
             is_test : bool;
             reporting: int;
@@ -168,7 +170,9 @@ module Node_cfg = struct
            ; "is_learner", bool t.is_learner
            ; "is_witness", bool t.is_witness
            ; "compressor", Compression.compressor2s t.compressor
-           ; "fsync", bool t.fsync
+           ; "fsync", option bool t.fsync
+           ; "fsync_interval", option float t.fsync_interval
+           ; "fsync_entries", option int t.fsync_entries
            ; "is_test", bool t.is_test
            ; "reporting", int t.reporting
            ; "_fsync_tlog_dir", bool t._fsync_tlog_dir
@@ -306,7 +310,9 @@ module Node_cfg = struct
         is_learner = false;
         is_witness = false;
         compressor = Compression.Snappy;
-        fsync = false;
+        fsync = Some false;
+        fsync_entries = None;
+        fsync_interval = None;
         _fsync_tlog_dir = false;
         is_test = true;
         reporting = 300;
@@ -554,7 +560,11 @@ module Node_cfg = struct
           | _         -> failwith (Printf.sprintf "no compressor named %s" s)
         end
     in
-    let fsync = Ini.get inifile node_name "fsync" Ini.p_bool (Ini.default true) in
+    let fsync = Ini.get inifile node_name "fsync" (Ini.p_option Ini.p_bool) (Ini.default None) in
+
+    let fsync_interval = Ini.get inifile node_name "fsync_interval" (Ini.p_option Ini.p_float) (Ini.default None) in
+    let fsync_entries  = Ini.get inifile node_name "fsync_entries"  (Ini.p_option Ini.p_int)   (Ini.default None) in
+
     let _fsync_tlog_dir = Ini.get
                             inifile
                             node_name
@@ -631,7 +641,11 @@ module Node_cfg = struct
      is_learner;
      is_witness;
      compressor;
+
      fsync;
+     fsync_interval;
+     fsync_entries;
+
      _fsync_tlog_dir;
      is_test = false;
      reporting;
