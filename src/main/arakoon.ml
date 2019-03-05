@@ -71,6 +71,8 @@ type local_action =
   | REV_RANGE_ENTRIES
   | VerifyStore
   | InspectCluster
+  | StoreSet
+
 
 type server_action =
   | Node
@@ -307,6 +309,12 @@ let main () =
                                      Arg.Set_string filename;
                                      Arg.Set_int i; ],
      "<filename> <i> : fiddle with the i value stored in a (tokyo cabinet) store. Be careful, this is dangerous!");
+    ("--dev-set-store", Arg.Tuple [ set_laction StoreSet;
+                                    Arg.Set_string filename;
+                                    Arg.Set_string key;
+                                    Arg.Set_string value;
+                          ],
+     "<filename> <key> <value> : <filename>[<key>] := <value>. Be careful, this is dangerous");
     ("--compress-tlog", Arg.Tuple[set_laction CompressTlog;
                                   Arg.Set_string filename],
      "<filename> : compress a tlog file");
@@ -574,6 +582,8 @@ let main () =
        in
        Lwt_main.run (t ());
        0
+    | StoreSet -> Dump_store.store_set !filename !key !value
+
   in
   let do_server node =
     match node with

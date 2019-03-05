@@ -125,6 +125,11 @@ def _getCluster( c_id = None):
     mgmt = ArakoonManagement.ArakoonManagement()
     return mgmt.getCluster(c_id)
 
+def call_arakoon(*params):
+    cmd = [CONFIG.binary_full_path] + list(params)
+    r = X.subprocess.check_output(cmd)
+    return r
+
 def dump_tlog (node_id, tlog_number) :
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
