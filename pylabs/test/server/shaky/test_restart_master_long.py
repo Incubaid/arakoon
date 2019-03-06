@@ -28,8 +28,9 @@ from Compat import X
 
 @Common.with_custom_setup( Common.setup_3_nodes_mini, Common.basic_teardown )
 def test_restart_master_long ():
-    restart_iter_cnt = 10
-    factor = 100
+    scale = 3
+    restart_iter_cnt = 10 * scale
+    factor = 100 * scale
     def write_loop ():
         Common.iterate_n_times( 100* factor,
                                 Common.retrying_set_get_and_delete,
