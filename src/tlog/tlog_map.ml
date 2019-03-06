@@ -118,10 +118,11 @@ let first_i_of filename tlx_dir =
            Printf.sprintf "%s/%s" tlx_dir (to_archive_name c f |> Filename.basename)
          in
          Lwt.catch
-           (fun () -> get_i (to_archive_name Compression.Snappy filename))
+           (fun () -> to_archive_name Compression.Snappy filename |> get_i)
            (function
-             | Unix.Unix_error(Unix.ENOENT, _, _) ->
-                get_i (to_archive_name Compression.Bz2 filename))
+             | Unix.Unix_error(Unix.ENOENT, _, _) -> to_archive_name Compression.Bz2 filename |> get_i
+             | e -> Lwt.fail e
+           )
       | exn ->
          Lwt_log.warning_f ~exn "Exception during first_i_of %s" filename >>= fun () ->
          Lwt.fail exn)
