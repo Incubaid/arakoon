@@ -57,10 +57,27 @@ let summary store =
   _dump_interval store >>= fun () ->
   _dump_cluster_id store
 
-let dump_store filename =
+let dump_store ~dump_values filename =
   let t () =
-    S.make_store ~lcnum:1024 ~ncnum:512 filename >>= fun store ->
+    let open Simple_store in
+    S.make_store ~lcnum:1024 ~ncnum:512 ~read_only:true filename >>= fun store ->
     summary store >>= fun () ->
+    let rec loop (first:string option) =
+      if first = None then Lwt.return_unit
+      else
+        let n,kvs = S.range_entries store first false None true 100 in
+        Lwt_list.fold_left_s
+          (fun last (k,v)  ->
+            let (kx:string) = Key.get k in
+            Lwt_io.printlf "%S\t%S" kx v >>= fun () ->
+            Lwt.return (Some kx)
+          )
+          None kvs
+        >>= fun lo ->
+        loop lo
+    in
+    loop (Some "")
+    >>= fun () ->
     S.close store ~sync:false ~flush:false
   in
   Lwt_extra.run t;

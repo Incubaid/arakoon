@@ -506,7 +506,7 @@ let main () =
     | MarkTlog -> Tlog_main.mark_tlog !filename !key
     | CloseTlog -> Tlog_main.mark_tlog !filename (Tlog_map._make_close_marker !node_id)
     | ReplayTlogs -> Replay_main.replay_tlogs !tlog_dir !tlf_dir !filename !end_i
-    | DumpStore -> Dump_store.dump_store !filename
+    | DumpStore -> Dump_store.dump_store !filename ~dump_values:!dump_values
     | InspectStore -> Dump_store.inspect_store !filename !left !max_results
     | FiddleStoreI -> Dump_store.set_store_i !filename !i
     | VerifyStore -> Dump_store.verify_store !filename None

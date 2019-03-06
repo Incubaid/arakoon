@@ -166,21 +166,11 @@ def dump_store( node_id ):
 
     db_file = get_node_db_file ( node_id )
     dump_file = '/'.join([X.tmpDir,"%s.dump" % node_id])
-    cmd = get_tcbmgr_path() + " list -pv " + db_file
-    try:
-        dump_fd = open( dump_file, 'w' )
+    cmd = [CONFIG.binary_full_path, "--dump-store", db_file, "-dump-values"]
+
+    with open( dump_file, 'w' ) as dump_fd:
         logging.info( "Dumping store of %s to %s" % (node_id, dump_file) )
-        stdout= X.subprocess.check_output(cmd)
-        dump_fd.write(stdout)
-        dump_fd.close()
-    except OSError as ose:
-        if ose.errno == 2:
-            logging.info("store :%s is empty" % db_file)
-        else:
-            raise ose
-    except Exception as ex:
-        logging.info("Unexpected error: %s" % sys.exc_info()[0])
-        raise ex
+        rc = X.subprocess.check_call(cmd, stdout = dump_fd)
     return dump_file
 
 def flush_store(node_name):
@@ -1159,8 +1149,10 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
             master_id = cli.whoMaster()
             cli.dropConnections()
             stopOne( master_id )
+            logging.info("stopped master %s", master_id)
             cli.set('delayed_master_restart_loop', 'slaves elect new master and can make progress')
             startOne( master_id )
+            logging.info("started ex-master %s", master_id)
         except:
             logging.critical("!!!! Failing test. Exception in restart loop.")
             test_failed = True
