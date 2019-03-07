@@ -16,8 +16,6 @@ limitations under the License.
 
 import sys
 
-from pymonkey import InitBase
-
 import copy
 import re
 import logging
@@ -28,9 +26,10 @@ import threading
 import time
 import os
 import nose.tools as NT
-from pymonkey import q
+
+from Compat import X
+import server.system_tests_common as C
 import arakoon_monkey_config as MConfig
-from arakoon_system_tests.server import system_tests_common as C
 from arakoon.ArakoonProtocol import ArakoonProtocol
 from arakoon.ArakoonExceptions import *
 MEM_MAX_KB = 1024 * 256
@@ -40,7 +39,7 @@ monkey_dies = False
 random.seed(42)
 
 def get_monkey_work_dir() :
-    return q.system.fs.joinPaths( q.dirs.tmpDir, "arakoon_monkey" )
+    return '/'.join([X.tmpDir,"arakoon_monkey"])
 
 def get_work_list_log_read ( iter_cnt ):
     return get_work_list_log ( iter_cnt, "r")
@@ -49,7 +48,7 @@ def get_work_list_log_write ( iter_cnt ):
     return get_work_list_log ( iter_cnt, "w")
 
 def get_work_list_log ( iter_cnt, flag ):
-    log_file_name = q.system.fs.joinPaths( get_monkey_work_dir() , "arakoon_monkey_%012d.wlist" % iter_cnt )
+    log_file_name = '/'.join([get_monkey_work_dir() , "arakoon_monkey_%012d.wlist" % iter_cnt] )
     file = open( log_file_name , flag )
     return file
 
@@ -320,20 +319,20 @@ def make_monkey_run() :
 
     global monkey_dies
 
-    C.data_base_dir = '/opt/qbase3/var/tmp/arakoon-monkey'
+    C.data_base_dir = '/'.join([X.tmpDir,"/arakoon_monkey/"])
 
     t = threading.Thread( target=memory_monitor)
     t.start()
 
     C.stop_all()
-    cluster = q.manage.arakoon.getCluster(C.cluster_id)
+    cluster = C._getCluster(C.cluster_id)
     cluster.tearDown()
     #setup_3_nodes_forced_master()
     C.setup_3_nodes( C.data_base_dir )
     monkey_dir = get_monkey_work_dir()
-    if q.system.fs.exists( monkey_dir ) :
-        q.system.fs.removeDirTree( monkey_dir )
-    q.system.fs.createDir( monkey_dir )
+    if X.fileExists( monkey_dir ) :
+        X.removeDirTree( monkey_dir )
+    X.createDir( monkey_dir )
     iteration = 0
     C.start_all()
     time.sleep( 1.0 )

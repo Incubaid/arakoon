@@ -24,7 +24,10 @@ module S = (val (Store.make_store_module (module Batched_store.Local_store)))
 let ensure_dir d p =
   Lwt.catch
     (fun () -> File_system.mkdir d p)
-    (function | Unix.Unix_error (Unix.EEXIST, _, _) -> Lwt.return ())
+    (function
+     | Unix.Unix_error (Unix.EEXIST, _, _) -> Lwt.return ()
+     | exn -> Lwt.fail exn
+    )
 
 let inspect_cluster ~tls (cfg : Node_cfg.cluster_cfg) =
 

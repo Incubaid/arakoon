@@ -125,6 +125,11 @@ def _getCluster( c_id = None):
     mgmt = ArakoonManagement.ArakoonManagement()
     return mgmt.getCluster(c_id)
 
+def call_arakoon(*params):
+    cmd = [CONFIG.binary_full_path] + list(params)
+    r = X.subprocess.check_output(cmd)
+    return r
+
 def dump_tlog (node_id, tlog_number) :
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
@@ -161,21 +166,11 @@ def dump_store( node_id ):
 
     db_file = get_node_db_file ( node_id )
     dump_file = '/'.join([X.tmpDir,"%s.dump" % node_id])
-    cmd = get_tcbmgr_path() + " list -pv " + db_file
-    try:
-        dump_fd = open( dump_file, 'w' )
+    cmd = [CONFIG.binary_full_path, "--dump-store", db_file, "-dump-values"]
+
+    with open( dump_file, 'w' ) as dump_fd:
         logging.info( "Dumping store of %s to %s" % (node_id, dump_file) )
-        stdout= X.subprocess.check_output(cmd)
-        dump_fd.write(stdout)
-        dump_fd.close()
-    except OSError as ose:
-        if ose.errno == 2:
-            logging.info("store :%s is empty" % db_file)
-        else:
-            raise ose
-    except Exception as ex:
-        logging.info("Unexpected error: %s" % sys.exc_info()[0])
-        raise ex
+        rc = X.subprocess.check_call(cmd, stdout = dump_fd)
     return dump_file
 
 def flush_store(node_name):
@@ -503,11 +498,11 @@ def get_memory_usage(node_name):
     pid = cluster._getPid(node_name )
     if pid is None:
         return 0
-    cmd = ["ps", "-p", pid, "-o", "vsz"]
+    cmd = ["ps", "-p", str(pid), "-o", "vsz"]
     try:
         stdout = X.subprocess.check_output( cmd )
-    except:
-        logging.error( "Coud not determine memory usage: %s" % stderr )
+    except Exception,e:
+        logging.error( "Coud not determine memory usage: %s" % e)
         return 0
 
     try:
@@ -1154,8 +1149,10 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
             master_id = cli.whoMaster()
             cli.dropConnections()
             stopOne( master_id )
+            logging.info("stopped master %s", master_id)
             cli.set('delayed_master_restart_loop', 'slaves elect new master and can make progress')
             startOne( master_id )
+            logging.info("started ex-master %s", master_id)
         except:
             logging.critical("!!!! Failing test. Exception in restart loop.")
             test_failed = True
@@ -1338,3 +1335,49 @@ def reverse_range_entries_scenario(start_suffix):
         assert_equals(kv_list[0][0], 'key_000000001099')
     except Exception, ex:
         raise ex
+
+
+def compare_files(fn0, fn1):
+    with open(fn0, 'r') as f0:
+        with open(fn1, 'r') as f1:
+            go_on = True
+            count = 0
+            while go_on:
+                f0_line = f0.readline()
+                f1_line = f1.readline()
+                logging.debug("l0:%s\nl1:%s\n", f0_line.strip(), f1_line.strip())
+                if f0_line <> f1_line :
+                    raise Exception("%s and %s diff on line %i" % (fn0,fn1, count))
+                if len(f0_line) == 0:
+                    assert(len(f1_line) == 0)
+                    go_on = False
+                count = count + 1
+
+
+def inspect_cluster(cluster):
+
+    # cleanup inspect dumps
+    cluster_id = cluster._getClusterId()
+    node_names = cluster.listLocalNodes()
+    for node_name in node_names:
+        dn = '%s/%s/' % (cluster_id, node_name,)
+        logging.info( "deleting %s", dn)
+        X.removeDirTree(dn)
+
+    cfg_fn = cluster._getConfigFileName()
+    r = call_arakoon("--inspect-cluster", "-config", "%s.cfg" % cfg_fn)
+
+
+    dump_paths = []
+    for node_name in node_names:
+        dump_path = './%s/%s/store.db.dump' % (cluster_id, node_name)
+        dump_paths.append(dump_path)
+
+    size = len(node_names)
+    for i in xrange(size -1):
+        for j in xrange(i+1, size):
+            fn0 = dump_paths[i]
+            fn1 = dump_paths[j]
+            compare_files(fn0,fn1)
+            logging.info("%s == %s",fn0,fn1)
+    logging.info("inspect_cluster(%s): ok", cluster_id)

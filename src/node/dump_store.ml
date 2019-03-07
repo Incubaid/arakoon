@@ -57,10 +57,27 @@ let summary store =
   _dump_interval store >>= fun () ->
   _dump_cluster_id store
 
-let dump_store filename =
+let dump_store ~dump_values filename =
   let t () =
-    S.make_store ~lcnum:1024 ~ncnum:512 filename >>= fun store ->
+    let open Simple_store in
+    S.make_store ~lcnum:1024 ~ncnum:512 ~read_only:true filename >>= fun store ->
     summary store >>= fun () ->
+    let rec loop (first:string option) =
+      if first = None then Lwt.return_unit
+      else
+        let n,kvs = S.range_entries store first false None true 100 in
+        Lwt_list.fold_left_s
+          (fun last (k,v)  ->
+            let (kx:string) = Key.get k in
+            Lwt_io.printlf "%S\t%S" kx v >>= fun () ->
+            Lwt.return (Some kx)
+          )
+          None kvs
+        >>= fun lo ->
+        loop lo
+    in
+    loop (Some "")
+    >>= fun () ->
     S.close store ~sync:false ~flush:false
   in
   Lwt_extra.run t;
@@ -173,26 +190,33 @@ let verify_store fn start_key =
             | None -> ()
             | Some key -> Bdb.jump bdb cursor key
           in
-          let rec loop i =
-            let key = Bdb.key bdb cursor in
-            let _value = Bdb.value bdb cursor in
-            begin
-              if (i < 10 || i mod 20000 = 0)
-              then Lwt_io.eprintlf "%10i: %S\tok%!" i key |> Lwt.ignore_result
-            end;
-            let cont =
-              try
-                Bdb.next bdb cursor;
-                true
-              with Not_found -> false
-            in
-            if cont
-            then loop (i+1)
-            else 0
+          let rec loop checksum cont i =
+            if not cont
+            then
+              Lwt_io.eprintlf "     ...\n%10i: checksum =  %04lx" i checksum >>= fun () ->
+              Lwt.return 0
+            else
+              begin
+                let key = Bdb.key bdb cursor in
+                let value = Bdb.value bdb cursor in
+                let checksum' =
+                  let tmp = Crc32c.update_crc32c checksum key    0 (String.length key)   in
+                  let tmp = Crc32c.update_crc32c tmp      value  0 (String.length value) in
+                  tmp
+                in
+                begin
+                  if (i < 10 || i mod 10000 = 0)
+                  then Lwt_io.eprintlf "%10i: %S\tok%!" i key
+                  else Lwt.return_unit
+                end
+                >>= fun () ->
+                let cont' = try Bdb.next bdb cursor; true with Not_found -> false in
+                loop checksum' cont' (i+1)
+              end;
           in
-          loop 0
+          let checksum0 = 0xffffl in
+          loop checksum0 true 0
         )
-      |> Lwt.return
     in
     go ()
   in
@@ -262,6 +286,19 @@ let set_store_i fn new_i =
         Local_store.set store tx Simple_store.__i_key (Buffer.contents buf);
         Lwt.return ()) >>= fun () ->
 
+    Lwt.return 0
+  in
+  Lwt_extra.run t
+
+let store_set fn key value =
+  let t () =
+    Local_store.make_store ~lcnum:1024 ~ncnum:512 false fn >>= fun store ->
+    Local_store.with_transaction
+      store
+      (fun tx ->
+        Local_store.set store tx key value;
+        Lwt.return_unit)
+    >>= fun () ->
     Lwt.return 0
   in
   Lwt_extra.run t

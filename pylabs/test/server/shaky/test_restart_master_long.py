@@ -26,10 +26,11 @@ from threading import Thread
 from nose.tools import *
 from Compat import X
 
-@Common.with_custom_setup( Common.default_setup, Common.basic_teardown )
+@Common.with_custom_setup( Common.setup_3_nodes_mini, Common.basic_teardown )
 def test_restart_master_long ():
-    restart_iter_cnt = 10
-    factor = 100
+    scale = 1
+    restart_iter_cnt = 10 * scale
+    factor = 100 * scale
     def write_loop ():
         Common.iterate_n_times( 100* factor,
                                 Common.retrying_set_get_and_delete,
@@ -90,6 +91,12 @@ def test_restart_master_long ():
     Common.stop_all()
     Common.start_all()
     Common.flush_stores()
+
+    logging.info("going to inspect the running cluster")
+    cluster = Common._getCluster()
+    Common.inspect_cluster(cluster)
+    logging.info("inspection succesful")
+
     Common.stop_all()
     node_names = Common.node_names
 
