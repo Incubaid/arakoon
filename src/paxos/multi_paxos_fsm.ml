@@ -199,6 +199,16 @@ let wait_for_promises (type s) constants state event =
                     then
                       Fsm.return (Slave_discovered_other_master (source, n'', i'))
                     else
+                      if i' = i && n'' > n
+                      then
+                        drop msg
+                          (Printf.sprintf "%s has n:%s (> my n:%s, and i'=i=%s). stand down"
+                             source
+                             (Sn.string_of n'')
+                             (Sn.string_of n)
+                             (Sn.string_of i)
+                          )
+                      else
                       let new_n = update_n constants (max n n'') in
                       Fsm.return (Election_suggest (new_n, counter + 1))
                   end
