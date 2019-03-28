@@ -55,7 +55,7 @@ let __wrap__ port conversation =
                                   master_cfg.Arakoon_client_config.port) in
     Lwt_io.open_connection address >>= fun (ic,oc) ->
     conversation (ic, oc) >>= fun () ->
-    Logger.debug section "end_of_senario" >>= fun () ->
+    Logger.debug ~section "end_of_senario" >>= fun () ->
     Lwt_io.close ic >>= fun () ->
     Lwt_io.close oc >>= fun () ->
     Lwt.return ()

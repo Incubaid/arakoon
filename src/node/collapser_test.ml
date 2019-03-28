@@ -19,7 +19,6 @@ limitations under the License.
 open Lwt
 open OUnit
 open Update
-open Tlog_map
 
 let section = Logger.Section.main
 let compressor = Compression.Snappy

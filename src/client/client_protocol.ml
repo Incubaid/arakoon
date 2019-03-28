@@ -406,7 +406,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
         (fun () ->
            backend # read_allowed consistency;
 
-           let open Registry in
+           let open Arakoon_registry in
            (match HookRegistry.lookup name with
              | h ->
                h conn (backend # get_read_user_db ()) (backend :> backend)

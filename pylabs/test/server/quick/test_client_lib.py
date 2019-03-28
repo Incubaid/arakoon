@@ -28,11 +28,13 @@ def test_client_lib():
     env['OCAML_LIBDIR'] = OCAML_LIBDIR
     cmds = [
         (['make', 'uninstall_client'], None),
-        (['make', 'install_client'], None),
+        (['make', 'install'], None),
         (['mkdir', '-p',  my_temp], None),
-        (['cp', './examples/ocaml/demo.ml',
-          './examples/ocaml/_tags', my_temp], None),
-        (['ocamlbuild', '-use-ocamlfind', 'demo.native'], my_temp),
+        (['cp', './examples/ocaml/demo.ml', my_temp], None),
+        (['ocamlbuild', '-use-ocamlfind', '-package','lwt' ,
+          '-package','arakoon_client',
+          '-tags', 'annot,debug,thread',
+          'demo.native'], my_temp),
         (['make', 'uninstall_client'], None),
     ]
     for cmd, cwd in cmds:

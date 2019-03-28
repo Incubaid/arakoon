@@ -1,0 +1,47 @@
+(executable
+ (name        arakoon)
+ (public_name arakoon)
+ (modules     arakoon replay_main inspect)
+ (libraries   arakoon_lib)
+ (flags       :standard -unsafe-string -annot)
+ (package     arakoon)
+)
+
+(executable
+ (name        bs_bench)
+ (libraries   camltc)
+ (modules     bs_bench)
+ (flags       :standard -unsafe-string -annot)
+)
+
+(executable
+ (name        lwt_buffer_test)
+ (libraries   arakoon_client.logger)
+ (modules     lwt_buffer_test)
+ (flags       :standard -unsafe-string -annot)
+)
+
+
+;;
+; Below is a crude attempt of getting bisect to work.
+; The major problem is that we need all compilation units to depend on bisect.
+; but since we linkall, bisect main will be there multiple times, and thats no good.
+; Bisect is only added to the main lib, but it is not added to any other compilation units.
+
+; (rule
+;  (targets arakoon_bisect.ml)
+;   (deps    arakoon.ml)
+;   (action  (copy# ${<} ${@}))
+; ))
+
+;(executable
+; (name        arakoon_bisect)
+; (public_name arakoon_bisect)
+; (libraries  arakoon_lib)
+; (modules arakoon_bisect replay_main inspect)
+; (preprocess (action (run camlp4orf.opt src/camlp4/arakoon_logger.cmxs ${<})))
+; (preprocessor_deps ../camlp4/arakoon_logger.cmxs)
+; (flags       :standard -unsafe-string -w -3-8-52)
+; (package arakoon)
+; (modes (native))
+;)

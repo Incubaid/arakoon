@@ -70,7 +70,7 @@ type t = {
   tcp_keepalive : tcp_keepalive_cfg;
 }
 
-let show { cluster_id; node_cfgs; ssl_cfg; } =
+let show { cluster_id; node_cfgs; ssl_cfg; _ } =
   Printf.sprintf
     "(cluster_id=%s, node_cfgs=%s, ssl_cfg=%s)"
     cluster_id
@@ -89,7 +89,7 @@ let get_node_cfg ({ node_cfgs; _ } as ccfg) node_name =
       node_cfgs
     |> List.hd
     |> snd
-  with exn ->
+  with _exn ->
     failwith (node_name ^ " is not known in config " ^ (show ccfg))
 
 let tcp_keepalive_from_ini inifile =

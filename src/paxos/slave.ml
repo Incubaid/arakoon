@@ -72,7 +72,7 @@ let slave_fake_prepare constants (current_i,current_n) () =
   in
   Fsm.return ~sides:sides (Slave_steady_state (current_n, current_i, None))
 
-let handle_timeout ((n,i,maybe_previous) as state) constants invalidate_lease_start_until n' i' =
+let handle_timeout ((n,i,_maybe_previous) as state) constants invalidate_lease_start_until n' i' =
   if not (is_election constants)
   then
     begin
@@ -222,7 +222,7 @@ let handle_from_node ((n,i,maybe_previous) as state) (type s) (module S : Store.
       Fsm.return ~sides:[log_e0;log_e] (Slave_steady_state state)
 
 let common_steady_state (type s) handle_from_node handle_timeout next constants state event =
-  let (n,i,maybe_previous) = state in
+  let (n,i,_maybe_previous) = state in
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   match event with
     | FromNode (msg,source) ->
@@ -252,7 +252,7 @@ let common_steady_state (type s) handle_from_node handle_timeout next constants 
 
 (* a pending slave that is in sync on i and is ready
    to receive accepts *)
-let slave_steady_state (type s) constants state event =
+let slave_steady_state (type _s) constants state event =
   common_steady_state handle_from_node handle_timeout (fun x -> Slave_steady_state x)
   constants state event
 

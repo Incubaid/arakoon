@@ -83,17 +83,6 @@ let setOfList list =
   in
   dosetOfList list Strset.empty
 
-let rec filterfile ?(buf=Buffer.create 500) f fd =
-  try
-    let theline = input_line fd in
-    if f theline then begin
-      Buffer.add_string buf (theline ^ "\n");
-      filterfile ~buf f fd
-    end
-    else
-      filterfile ~buf f fd
-  with End_of_file -> Buffer.contents buf
-
 let parse_inifile txt tbl =
   let lxbuf =
     let lines = Str.split (Str.regexp "\n") txt in
@@ -116,8 +105,9 @@ let parse_inifile txt tbl =
               (Hashtbl.create 10)
               values))
       parsed_txt
-  with Parsing.Parse_error | Failure "lexing: empty token" ->
-    raise (Ini_parse_error (lxbuf.Lexing.lex_curr_p.Lexing.pos_lnum, txt))
+  with
+  | Parsing.Parse_error                     -> raise (Ini_parse_error (lxbuf.Lexing.lex_curr_p.Lexing.pos_lnum, txt))
+  | Failure s when "lexing: empty token"= s -> raise (Ini_parse_error (lxbuf.Lexing.lex_curr_p.Lexing.pos_lnum, txt))
 
 let write_inifile oc tbl =
   let open Lwt.Infix in
@@ -269,7 +259,7 @@ class inifile ?(spec=[]) txt =
 
     method save file =
       Lwt_io.with_file
-        Lwt_io.Output file
+        ~mode:Lwt_io.Output file
         (fun oc -> write_inifile oc data)
 
     method to_string =

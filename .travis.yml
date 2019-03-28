@@ -1,4 +1,6 @@
+dist: xenial
 language: c
+
 sudo: required
 
 install: ./travis.sh install

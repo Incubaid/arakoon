@@ -88,15 +88,18 @@ class type client = object
   method nop : unit -> unit Lwt.t
   (** [nop ()] is a paxos no-operation.
    *)
+
   method confirm: key -> value -> unit Lwt.t
   (** [confirm key value] does nothing if this value was already
       associated to the key, otherwise, it behaves as [set key value]
   *)
+
   method aSSert: ?consistency:consistency -> key -> value option -> unit Lwt.t
   (**
      [aSSert key vo] throws Arakoon_exc.Exception (E_ASSERTION_FAILED,_) if
      the value associated with the key is not what was expected.
   *)
+
   method aSSert_exists: ?consistency:consistency -> key -> unit Lwt.t
 
   method delete: key -> unit Lwt.t

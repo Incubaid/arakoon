@@ -14,14 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 *)
 
-module Section =
-struct
-  let make = Lwt_log.Section.make
-  let set_level = Lwt_log.Section.set_level
-  let level = Lwt_log.Section.level
-  let main = Lwt_log.Section.main
-end
-
+module Section = Lwt_log.Section
 type level =
     Lwt_log.level =
   | Debug
@@ -31,20 +24,40 @@ type level =
   | Error
   | Fatal
 
+let debug        = Lwt_log.debug 
+let debug_       = Lwt_log.debug
+let debug_f      = Lwt_log.debug_f
+let debug_f_     = Lwt_log.debug_f
+let ign_debug_f_ = Lwt_log.ign_debug_f
+let ign_debug_   = Lwt_log.ign_debug_f
+
+let info         = Lwt_log.info
+let info_        = Lwt_log.info
+let info_f       = Lwt_log.info_f
+let info_f_      = Lwt_log.info_f
+let ign_info_f_  = Lwt_log.ign_info_f
+
+let warning_f_   = Lwt_log.warning_f
+let warning_     = Lwt_log.warning
+let ign_warning_ = Lwt_log.ign_warning
+
+let error_       = Lwt_log.error
+let error_f_     = Lwt_log.error_f
+
+let fatal_       = Lwt_log.fatal
+let fatal        = Lwt_log.fatal
+let fatal_f_     = Lwt_log.fatal_f
+let ign_fatal_   = Lwt_log.ign_fatal
+let ign_fatal_f  = Lwt_log.ign_fatal_f
+
 let log ?exn section level msg =
   Crash_logger.add_to_crash_log section level (Crash_logger.Message.Immediate1_exn (msg, exn));
   if level < Lwt_log.Section.level section
   then Lwt.return_unit
   else Lwt_log.log ?exn ~section ~level msg
 
-let ign_log ?exn section level msg =
-  Lwt.ignore_result (log ?exn section level msg)
-
 let log_ ?exn section level dmsg =
   Crash_logger.add_to_crash_log section level (Crash_logger.Message.Delayed1_exn (dmsg, exn));
   if level < Lwt_log.Section.level section
   then Lwt.return_unit
-  else Lwt_log.log ?exn ~section ~level (dmsg ())
-
-let ign_log_ ?exn section level dmsg =
-  Lwt.ignore_result (log_ ?exn section level dmsg)
+else Lwt_log.log ?exn ~section ~level (dmsg ())

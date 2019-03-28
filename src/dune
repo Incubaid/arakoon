@@ -1,0 +1,143 @@
+(copy_files# msg/*.ml*)
+(copy_files# nursery/*.ml*)
+(copy_files# plugins/*.ml*)
+(copy_files# tlog/*.ml*)
+(copy_files# client/*.ml*)
+(copy_files# lib/*.ml*)
+(copy_files# node/*.ml*)
+(copy_files# paxos/*.ml*)
+(copy_files# system/*.ml*)
+(copy_files# tools/*.ml*)
+(copy_files# inifiles/arakoon_inifiles_test.ml)
+(copy_files# tools/*.c)
+(copy_files# tools/*.h)
+; We could consider moving these modules to a alba_client subdir. that would make things easier.
+
+(library
+ (name        arakoon_client)
+ (public_name arakoon_client)
+ (modules     Statistics
+              Client_log
+              Sn
+              Ncfg
+              Log_extra Client_cfg
+              Stamp
+              Arakoon_exc
+              Arakoon_client_config
+              Arakoon_client
+              Arakoon_remote_client
+              Protocol_common
+              Client_helper
+              Std
+              Arakoon_registry
+              Plugin_helper
+              Key
+              Simple_store
+              Routing
+              Arakoon_interval
+              Update
+              Ini
+              Arakoon_redis
+              Arakoon_logger
+              Llio
+              Crc32c
+              Network
+              Lwt_extra
+              Typed_ssl
+              Unix_fd
+              Arakoon_etcd
+              Arakoon_config_url
+              Tcp_keepalive
+              To_string)
+  (libraries  arakoon_version parse_ini logger
+              lwt lwt.unix lwt_ssl lwt_log oUnit
+              bz2 str camltc dynlink snappy
+              ocplib-endian uri redis redis-lwt core )
+  (c_names    tcp_keepalive_sockopt_stubs
+              arakoon_crc32c bsd_crc32c)
+  (c_flags    :standard -msse4.2 -Wall -Wextra -Werror -ggdb3 -O2)
+  (modules_without_implementation Arakoon_client)
+  (flags      :standard -unsafe-string -annot)
+  (library_flags   -linkall)
+  (wrapped    false)
+)
+
+(library
+ (name        logger)
+ (public_name arakoon_client.logger)
+ (modules     Lwt_buffer Logger Crash_logger Ring_buffer Arakoon_log_sink)
+ (libraries   lwt lwt_log uri redis-lwt logs logs.lwt)
+ (flags       :standard -annot)
+ (wrapped     false)
+)
+
+
+(library
+ (name        arakoon_lib)
+ (modules     :standard \
+               ; exclude modules in lwt_buffer
+               Lwt_buffer
+               Logger
+               Crash_logger
+               Ring_buffer
+               Arakoon_log_sink
+               ; exclude modules in arakoon_client
+               Statistics
+               Client_log
+               Sn
+               Ncfg
+               Log_extra Client_cfg
+               Stamp
+               Arakoon_exc
+               Arakoon_client_config
+               Arakoon_client
+               Arakoon_remote_client
+               Protocol_common
+               Client_helper
+               Std
+               Arakoon_registry
+               Plugin_helper
+               Key
+               Simple_store
+               Routing
+               Arakoon_interval
+               Update
+               Ini
+               Arakoon_redis
+               Arakoon_logger
+               Llio
+               Crc32c
+               Network
+               Lwt_extra
+               Typed_ssl
+               Unix_fd
+               Arakoon_etcd
+               Arakoon_config_url
+               Tcp_keepalive
+               To_string
+  )
+  (libraries   arakoon_client.version arakoon_client arakoon_client.parse_ini
+               lwt lwt.unix lwt_ssl lwt_log oUnit
+               bz2 str camltc dynlink snappy
+               ocplib-endian uri redis redis-lwt core cmdliner )
+  (c_names     arakoon_limits
+               tcp_info_stubs)
+  (c_flags     :standard -msse4.2 -Wall -Wextra -Werror -ggdb3 -O2)
+  (flags       :standard -unsafe-string -annot)
+  (wrapped false)
+)
+
+
+;; Bisect would be implemented usign the :include stanza in both the pps and lib.
+;; The outside makefile could add the needed lines there.
+;; If jbuilder should create the include files, then we need to call promote.
+(rule
+  (targets bisect)
+  (deps force)
+  (action (with-stdout-to %{targets} (system "if [ -n $USE_BISECT ]; then echo \"${lib:str:str.cma} -unsafe ${lib:bisect:bisect_pp.cmo}\"; fi; date > %{depends}")))
+)
+
+(rule
+ (targets force)
+ (action (system "date > %{targets}"))
+)

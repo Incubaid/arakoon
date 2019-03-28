@@ -1,0 +1,4 @@
+(executables
+ (names        demo plugin_demo)
+ (libraries    arakoon_client lwt)
+)

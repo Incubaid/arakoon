@@ -95,7 +95,7 @@ sig
 
   val on_consensus : t -> Value.t * int64 * Int64.t -> update_result list Lwt.t
 
-  val get_read_user_db : t -> Registry.read_user_db
+  val get_read_user_db : t -> Arakoon_registry.read_user_db
 
   val _set_i : t -> Sn.t -> unit
 end
@@ -640,7 +640,7 @@ struct
     S.set store.s tx __interval_key range_s
 
   class store_cursor_db cur =
-    object(self: #Registry.cursor_db)
+    object(self: #Arakoon_registry.cursor_db)
       val mutable is_valid = None
 
       method assert_valid () =
@@ -696,7 +696,7 @@ struct
   end
 
   class store_read_user_db store =
-    object(_ : #Registry.read_user_db)
+    object(_ : #Arakoon_registry.read_user_db)
       method get k =
         _get_option store k
 
@@ -709,7 +709,7 @@ struct
       method with_cursor f =
         S.with_cursor
           store.s
-          (fun cur -> f (new store_cursor_db cur :> Registry.cursor_db))
+          (fun cur -> f (new store_cursor_db cur :> Arakoon_registry.cursor_db))
 
       method get_interval () =
         store.interval
@@ -729,7 +729,7 @@ struct
   let _user_function store (name:string) (po:string option) tx =
     Lwt.catch
       (fun () ->
-        let f = Registry.Registry.lookup name in
+        let f = Arakoon_registry.Registry.lookup name in
         let user_db = new store_user_db store tx in
         let ro = f user_db po in
         Lwt.return (Ok ro))

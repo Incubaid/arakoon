@@ -19,7 +19,6 @@ limitations under the License.
 open Lwt
 type 'a store_maker= ?read_only:bool -> string -> 'a Lwt.t
 open Tlogcommon
-open Tlog_map
 
 let section = Logger.Section.main
 
@@ -60,7 +59,7 @@ let collapse_until (type s) (tlog_coll:Tlogcollection.tlog_collection)
     new_location >>= fun new_store ->
   Lwt.finalize (
     fun () ->
-      tlog_coll # get_infimum_i () >>= fun min_i ->
+      tlog_coll # get_infimum_i () >>= fun _min_i ->
       let store_i = S.consensus_i new_store in
       let tfs = Sn.string_of too_far_i in
       let start_i =

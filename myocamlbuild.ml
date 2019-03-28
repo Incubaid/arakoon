@@ -5,7 +5,6 @@ let dependencies = [ "lwt";
                      "snappy";
                      "ssl";
                      "bz2";
-                     "quickcheck";
                      "ocplib-endian";
                      "redis";
                      "uri";

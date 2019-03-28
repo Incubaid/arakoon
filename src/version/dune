@@ -1,0 +1,23 @@
+(executable
+ (name        mk_version)
+ (libraries   unix)
+ (modules     Mk_version)
+)
+
+(library
+ (name        arakoon_version)
+ (public_name arakoon_client.version)
+ (modules     arakoon_version)
+ (flags       :standard -opaque -annot)
+)
+
+(rule
+ (targets arakoon_version.ml)
+ (deps    version.force mk_version.exe)
+ (action  (progn (with-stdout-to %{targets} (run ./mk_version.exe)) (system "date >> version.force")))
+)
+
+(rule
+ (targets version.force)
+ (action  (write-file version.force "force"))
+)

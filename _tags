@@ -2,7 +2,6 @@ true: debug
 true: annot
 true: thread
 true: package(lwt)
-true: package(lwt.preemptive)
 true: package(lwt.unix)
 true: package(lwt_ssl)
 true: package(oUnit)
@@ -10,14 +9,14 @@ true: package(bz2)
 true: package(str)
 true: package(camltc)
 true: package(dynlink)
-true: package(quickcheck)
 true: pp(camlp4of)
-true: package(snappy)
-true: package(ocplib-endian)
+true: package(lwt_log)
 true: package(uri)
-true: package(redis)
 true: package(redis-lwt)
 true: package(core)
+true: package(snappy)
+true: package(ocplib-endian)
+
 "src":include
 "src/lib":include
 "src/tools":include
@@ -31,13 +30,13 @@ true: package(core)
 "src/inifiles": include
 "src/nursery": include
 "src/plugins": include
-"examples/ocaml": include
+#"examples/ocaml": include
 "src/main" : include
 <**/arakoon.*{byte,native}>: is_main, linkall
 <**/nursery.*{byte,native}>: is_main
 <**/profile.*{byte,native}>: is_main, package(ocamlviz)
 <**/bs_bench.*{byte,native}>: is_main
-<examples/ocaml/*.{byte,native}>: is_main
+#<examples/ocaml/*.{byte,native}>: is_main
 "logger_macro.cmo" : use_camlp4, camlp4orf
 <src/**/*.ml> : camlp4of, use_log_macro, maybe_use_bisect, unsafe_string
 "rpmbuild": -traverse

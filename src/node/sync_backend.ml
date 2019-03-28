@@ -285,7 +285,7 @@ struct
 
       method user_function name po =
         log_o self "user_function %s" name >>= fun () ->
-        if Registry.Registry.exists name
+        if Arakoon_registry.Registry.exists name
         then
           begin
             let update = Update.UserFunction(name,po) in
@@ -713,7 +713,7 @@ struct
             (* remove all but tlogs_to_keep last tlogs *)
             Collapser._head_i (module S) head_path ~cluster_id >>= fun head_io ->
 
-            let head_i, head_n = match head_io with
+            let _head_i, head_n = match head_io with
               | None -> failwith "impossible i for copied head"
               | Some i -> i, tlog_collection # get_tlog_from_i i
             in

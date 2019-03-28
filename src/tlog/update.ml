@@ -304,7 +304,7 @@ module Update = struct
     let inner = function
     | Set(k,v)                -> ss k + ss v
     | Delete k                -> ss k
-    | MasterSet(m, f)         -> ss m + 8
+    | MasterSet(m, _f)        -> ss m + 8
     | TestAndSet(k,e,w)       -> ss k + sos e + sos w
     | Sequence us             -> seq_ssize us
     | Nop                     -> 0

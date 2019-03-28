@@ -93,7 +93,6 @@ let strip_tlog filename =
 
 let _mark_tlog file_name node_name =
   assert (Tlog_map.extension_of file_name = ".tlog");
-  let section = Logger.Section.main in
   Logger.debug_f_ "_mark_tlog %s %s" file_name node_name >>= fun () ->
   _last_entry file_name >>= fun last ->
   match last with

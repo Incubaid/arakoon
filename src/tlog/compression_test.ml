@@ -26,7 +26,7 @@ let section = Logger.Section.main
 
 let test_compress_file which () =
   let archive_name, compressor, _tlog_name = which in
-  Logger.info Logger.Section.main "test_compress_file" >>= fun () ->
+  Logger.info ~section "test_compress_file" >>= fun () ->
   let tlog_name = "/tmp/test_compress_file.tlog" in
   Lwt_io.with_file tlog_name ~mode:Lwt_io.output
     (fun oc ->

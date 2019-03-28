@@ -1,8 +1,9 @@
 #!/bin/bash -xue
+OUTPUT=temp_file.txt
 
 timeout_with_progress () (
     set +x
-    OUTPUT=`mktemp`
+    
     timeout "$@" > $OUTPUT 2>&1 &
     PID=$!
 
@@ -17,7 +18,7 @@ timeout_with_progress () (
     wait $PID
     RESULT=$?
 
-    tail -n256 $OUTPUT
+    tail -n512 $OUTPUT
 
     return $RESULT
 )
@@ -27,34 +28,14 @@ install () {
 
     date
 
-    if [ "$USE_CACHE" == "1" ];
-    then
-        if [[ -e ~/cache/image.tar.gz ]];
-        then docker load -i ~/cache/image.tar.gz; fi;
-    fi
-
     START_BUILD=$(date +%s.%N)
     echo $START_BUILD
 
     timeout_with_progress 9000 ./docker/run.sh ubuntu-16.04 clean
 
     END_BUILD=$(date +%s.%N)
-    echo $END_BUILD
+    echo "build stopped after $END_BUILD"
 
-    if [ "$USE_CACHE" == "1" ];
-    then
-        DIFF=$(echo "$END_BUILD - $START_BUILD" | bc)
-        if [ $DIFF \> 5 ]
-        then
-            df -h
-            mkdir ~/cache || true
-            rm -f ~/cache/image.tar.gz
-            docker save -o ~/cache/image.tar.gz arakoon_ubuntu-16.04
-            ls -ahl ~/cache;
-        else
-            echo Building of container took only $DIFF seconds, not updating cache this time;
-        fi;
-    fi
 }
 
 script () {
@@ -67,12 +48,22 @@ script () {
     date
 }
 
+
+after_failure () {
+    echo "Something went wrong"
+    url= `cat temp_file.txt | nc termbin.com 9999`
+    echo $url
+}
+
 case "${1-undefined}" in
     install)
         install
         ;;
     script)
         script
+        ;;
+    after_failure)
+        after_failure
         ;;
     *)
         echo "Usage: $0 {install|script}"

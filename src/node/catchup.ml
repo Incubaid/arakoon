@@ -311,6 +311,7 @@ let last_entries
       (tlog_collection:Tlogcollection.tlog_collection)
       (start_i:Sn.t) (oc:Lwt_io.output_channel)
   =
+  let () = ignore (store, tlog_collection, start_i, oc) in
   Lwt.fail_with "no longer supported"
 
 let last_entries2
