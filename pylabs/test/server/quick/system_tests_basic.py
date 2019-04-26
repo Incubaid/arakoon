@@ -400,6 +400,24 @@ def test_aSSert_exists_sequences():
     v = client.get('test_assert')
     assert_equals(v, 'changed', 'second_sequence: %s <> %s' % (v,'changed'))
 
+@C.with_custom_setup(C.setup_1_node_forced_master, C.basic_teardown)
+def test_assert_range():
+    client = C.get_client()
+    client.set("test_assert_range_sequence", "bla bla bla")
+
+    seq = client.makeSequence()
+    seq.addSet("ok","BAD")
+    seq.addAssertPrefixContainsExactly("test_assert_range", ["test_assert_range_sequence_XXXX"])
+    assert_raises(X.arakoon_client.ArakoonAssertionFailed, client.sequence, seq)
+
+    
+    seq2 = client.makeSequence()
+    seq2.addAssertPrefixContainsExactly("test_assert_range", ["test_assert_range_sequence"])
+    seq2.addSet("ok","OK")
+    client.sequence(seq2)
+    v = client.get("ok")
+    assert_equals(v,"OK")
+    
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_prefix ():
     C.prefix_scenario(1000)

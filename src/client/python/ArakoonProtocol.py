@@ -31,6 +31,7 @@ import select
 import operator
 import cStringIO
 import types
+from abc import ABCMeta, abstractmethod
 
 FILTER = ''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
@@ -533,6 +534,7 @@ class AtLeast(Consistency):
 
 class Update(object):
     pass
+
 class Set(Update):
     def __init__(self,key,value):
         self._key = key
@@ -576,6 +578,33 @@ class AssertExists(Update):
         fob.write(_packInt(15))
         fob.write(_packString(self._key))
 
+class RangeAssertion:
+    __metaclass__ = ABCMeta
+
+    def write(self, fob):
+        raise NotImplementedError()
+
+class ContainsExactly(RangeAssertion):
+    def __init__(self, keys):
+        self._keys = keys
+
+    def write(self, fob):
+        fob.write(_packInt(1))
+        fob.write(_packInt(len(self._keys)))
+        for s in self._keys:
+            fob.write(_packString(s))
+
+class AssertRange(Update):
+    def __init__(self, prefix, rangeAssertion):
+        self._prefix = prefix
+        self._rangeAssertion = rangeAssertion
+
+    def write(self, fob):
+      fob.write(_packInt(17))
+      fob.write(_packString(self._prefix))
+      self._rangeAssertion.write(fob)
+
+
 class Sequence(Update):
     def __init__(self):
         self._updates = []
@@ -600,6 +629,10 @@ class Sequence(Update):
 
     def addAssertExists(self, key):
         self._updates.append(AssertExists(key))
+
+    def addAssertPrefixContainsExactly(self, prefix, keys):
+        ar = AssertRange(prefix, ContainsExactly(keys))
+        self.addUpdate(ar)
 
     def write(self, fob):
         fob.write( _packInt(5))
