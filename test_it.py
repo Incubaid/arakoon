@@ -5,7 +5,8 @@ import sys
 
 root = os.environ.get('TEST_HOME')
 if root is None:
-    root = os.environ['HOME']
+    raise Exception("TEST_HOME in undefined")
+
 
 bin_dir = '%s/apps/arakoon/bin' % root
 bin = bin_dir +'/arakoon'
@@ -25,6 +26,8 @@ def prologue():
             subprocess.call(['cp','./arakoon.native', bin])
         else:
             print "not copying arakoon executable"
+
+    subprocess.call(['rm','-rf', '%s/tmp/' % root])
 
 
 prologue()
