@@ -74,6 +74,7 @@ class mem_tlog_collection _name =
     method which_tlog_file _start_i = failwith "which_tlog_file not supported"
 
     method tlogs_to_collapse ~head_i ~last_i ~tlogs_to_keep =
+      let () = ignore (head_i,last_i,tlogs_to_keep) in
       failwith "tlogs_to_collapse not supported"
 
     method should_fsync _ = false
@@ -88,12 +89,14 @@ class mem_tlog_collection _name =
     method get_head_name () = failwith "get_head_name not implemented"
 
     method get_tlog_from_i _ = 0
-    method get_start_i n = Some Sn.zero
+    method get_start_i _n = Some Sn.zero
     method is_rollover_point _ = false
     method next_rollover _ = Some Int64.max_int
 
     method invalidate () = ()
+
     method log_value_explicit i (v:Value.t) ~sync_override marker =
+      let () = ignore sync_override in
       let entry = Entry.make i v 0L marker in
       let () = data <- entry::data in
       let () = last_entry <- (Some entry) in
@@ -111,8 +114,7 @@ class mem_tlog_collection _name =
 let make_mem_tlog_collection
       ?cluster_id
       ?tlog_max_entries ?tlog_max_size _tlog_dir _tlf_dir _head_dir ~should_fsync name ~fsync_tlog_dir =
-  let () = ignore should_fsync in
-  let () = ignore fsync_tlog_dir in
+  let () = ignore (cluster_id, should_fsync,fsync_tlog_dir, tlog_max_entries, tlog_max_size) in
   let x = new mem_tlog_collection name in
   let x2 = (x :> tlog_collection) in
   Lwt.return x2

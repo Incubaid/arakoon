@@ -1,130 +1,69 @@
 # This makefile wrapper makes DEBIAN packaging easier.
-PREFIX ?=/usr
 
-START = $(DESTDIR)$(PREFIX)
+# The debian installer defined DESTDIR. If set, we install where debian expects it,
+# othervice we install where opam expects it
+ifdef DESTDIR
+  LIBDIR=$(DESTDIR)/usr/lib/ocaml
+  PREFIX=$(DESTDIR)/usr
+else
+  PREFIX=$(shell opam config var prefix)
+  LIBDIR=$(shell opam config var lib)
+endif
 
-OCAML_LIBDIR ?= $(START)/lib/ocaml/
-#OCAML_LIBDIR ?= `ocamlfind printconf destdir`
-OCAML_FIND ?= ocamlfind
-
-JOBS := $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 1)
-
-all: build
-
-clean:
-	rm -rf ./debian/tmp/*
-	rm -rf ./debian/libarakoon-ocaml-dev/*
-	ocamlbuild -clean
-	rm -f  ./arakoon.byte ./arakoon.native
+all: arakoon.native bench.native lwt_buffer_test.native
 
 build:
-	ocamlbuild -j $(JOBS) arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
+	@dune build
 
-bench:
-	ocamlbuild bs_bench.native
+arakoon.native: build
+	@ln -sf _build/default/src/main/arakoon.exe arakoon.native
 
-arakoon.byte arakoon.native:
-	ocamlbuild -j $(JOBS) $@
+bench.native:
+	@dune build src/main/bs_bench.exe
+	@ln -sf _build/default/src/main/bs_bench.exe bs_bench.native
 
-test:	arakoon.native
-	ocamlbuild -j $(JOBS) arakoon.native
-	./arakoon.native --run-all-tests
+lwt_buffer_test.native:
+	@dune build src/main/lwt_buffer_test.exe
+	@ln -sf _build/default/src/main/lwt_buffer_test.exe lwt_buffer_test.native
 
-install: install_client install_server man
+clean:
+	dune clean
+	rm -f arakoon.native bs_bench.native lwt_buffer_test.native
 
-install_server:
-	mkdir -p $(START)/bin/
-	cp ./arakoon.native $(START)/bin/arakoon
+test:	build
+	dune exec -- arakoon test
 
-install_client:
-	mkdir -p $(OCAML_LIBDIR)
-	$(OCAML_FIND) install arakoon_client -destdir $(OCAML_LIBDIR) META \
-          _build/src/arakoon_client.cma \
-          _build/src/arakoon_client.cmxa \
-          _build/src/arakoon_client.cmxs \
-          _build/src/client/stamp.cmi \
-	  _build/src/client/stamp.cmx \
-          _build/src/client/arakoon_exc.mli \
-          _build/src/client/arakoon_exc.cmi \
-	  _build/src/client/arakoon_exc.cmx \
-          _build/src/client/arakoon_client_config.cmi \
-	  _build/src/client/arakoon_client_config.cmx \
-          _build/src/client/arakoon_client.mli \
-          _build/src/client/arakoon_client.cmi \
-          _build/src/client/arakoon_remote_client.mli \
-          _build/src/client/arakoon_remote_client.cmi \
-	  _build/src/client/arakoon_remote_client.cmx \
-          _build/src/client/protocol_common.cmi \
-	  _build/src/client/protocol_common.cmx \
-          _build/src/client/client_helper.cmi \
-	  _build/src/client/client_helper.cmx \
-          _build/src/inifiles/arakoon_inifiles.mli \
-          _build/src/inifiles/arakoon_inifiles.cmi \
-	  _build/src/inifiles/arakoon_inifiles.cmx \
-          _build/src/lib/std.cmi \
-          _build/src/lib/std.cmx \
-          _build/src/plugins/registry.mli \
-          _build/src/plugins/registry.cmi \
-	  _build/src/plugins/registry.cmx \
-          _build/src/plugins/plugin_helper.mli \
-          _build/src/plugins/plugin_helper.cmi \
-	  _build/src/plugins/plugin_helper.cmx \
-          _build/src/node/key.mli \
-          _build/src/node/key.cmi \
-	  _build/src/node/key.cmx \
-          _build/src/node/simple_store.cmi \
-	  _build/src/node/simple_store.cmx \
-          _build/src/nursery/routing.cmi \
-          _build/src/tlog/arakoon_interval.cmi \
-          _build/src/tlog/arakoon_interval.cmx \
-          _build/src/tlog/update.mli \
-          _build/src/tlog/update.cmi \
-	  _build/src/tlog/update.cmx \
-          _build/src/tools/ini.cmi \
-          _build/src/tools/ini.cmx \
-          _build/src/tools/arakoon_log_sink.cmi \
-	  _build/src/tools/arakoon_log_sink.cmx \
-          _build/src/tools/crash_logger.cmi \
-	  _build/src/tools/crash_logger.cmx \
-          _build/src/tools/arakoon_redis.cmi \
-          _build/src/tools/arakoon_redis.cmx \
-          _build/src/tools/arakoon_logger.cmi \
-	  _build/src/tools/arakoon_logger.cmx \
-          _build/src/tools/llio.mli \
-          _build/src/tools/llio.cmi \
-	  _build/src/tools/llio.cmx \
-          _build/src/tools/network.cmi \
-	  _build/src/tools/network.cmx \
-          _build/src/tools/lwt_buffer.cmi \
-	  _build/src/tools/lwt_buffer.cmx \
-          _build/src/tools/lwt_extra.cmi \
-	  _build/src/tools/lwt_extra.cmx \
-          _build/src/tools/typed_ssl.mli \
-          _build/src/tools/typed_ssl.cmi \
-	  _build/src/tools/typed_ssl.cmx \
-          _build/src/tools/unix_fd.cmi \
-          _build/src/tools/unix_fd.cmx \
-          _build/src/tools/arakoon_etcd.cmi \
-	  _build/src/tools/arakoon_etcd.cmx \
-          _build/src/tools/arakoon_config_url.cmi \
-	  _build/src/tools/arakoon_config_url.cmx \
-          _build/src/tools/tcp_keepalive_sockopt_stubs.o \
-          _build/src/tools/tcp_keepalive.cmi \
-	  _build/src/tools/tcp_keepalive.cmx \
-          _build/src/arakoon_client.a
+install: build
+	@mkdir -p $(LIBDIR) $(PREFIX)
+ifdef DESTDIR
+	mkdir -p $(DESTDIR)/usr/lib
+	ldd arakoon.native | \
+          grep librocksdb | \
+          awk '/=> /{print $$3}' | \
+          xargs cp --target-directory $(DESTDIR)/usr/lib
+endif
+	dune install --libdir=$(LIBDIR) --prefix=$(PREFIX)
 
-uninstall_client:
-	$(OCAML_FIND) remove arakoon_client -destdir $(OCAML_LIBDIR)
+uninstall: build
+	dune uninstall --libdir=$(LIBDIR) --prefix=$(PREFIX)
 
-coverage:
-	ocamlbuild -tag use_bisect arakoon.d.byte
+uninstall_client: build
+	dune uninstall -p arakoon_client --libdir=$(LIBDIR) --prefix=$(PREFIX)
 
 man:
 	ln -s ./arakoon.native arakoon
 	help2man --name='Arakoon, a consistent key value store' ./arakoon > debian/arakoon.man
 	rm arakoon
 
-.PHONY: install test build install_client bench arakoon.byte arakoon.native
+examples:
+	dune build examples/ocaml/plugin_demo.exe examples/ocaml/demo.exe
+
+doc:
+	dune build @doc
+
+
+.PHONY: install uninstall test build bench examples arakoon.native doc man
+
 
 
 indent-tabs-to-spaces:

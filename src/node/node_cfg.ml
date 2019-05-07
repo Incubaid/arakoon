@@ -287,6 +287,7 @@ module Node_cfg = struct
         ?(base=4000) ?(cluster_id="ricky") ?(node_name = Printf.sprintf "t_arakoon_%i")
         ?source_node
         n_nodes master lease_period =
+    let () = ignore source_node in
     let make_one n =
       let ns = (string_of_int n) in
       let home = ":MEM#t_arakoon_" ^ ns in

@@ -185,7 +185,7 @@ let make (type s) ~catchup_tls_ctx ~tcp_keepalive me is_learner others learners 
     max_buffer_size;
   }
 
-let mcast {send; me; others; learners} msg =
+let mcast {send; me; others; learners ;_ } msg =
   let dst = match msg with
       Accept _ | Nak _ -> learners @ others
     | _ -> others in

@@ -1,0 +1,11 @@
+(ocamllex arakoon_inilexer)
+(ocamlyacc arakoon_parseini)
+
+(library
+ (name        parse_ini)
+ (public_name arakoon_client.parse_ini)
+ (modules     :standard \ arakoon_inifiles_test)
+ (libraries   lwt lwt.unix str unix)
+ (flags       :standard -w -3-8-52 -annot)
+ (wrapped     false)
+)

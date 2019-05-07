@@ -64,18 +64,18 @@ let test_find_start () =
     let itemss = List.map (fun item -> Printf.sprintf "{i:%Li;...}" item.i) items
     in Printf.sprintf "[%s]" (String.concat "; " itemss)
   in
-  let to_remove, to_keep =
+  let to_remove, _to_keep =
     _find_start 12000L i_to_tlog_number
   in
   let expected = List.tl i_to_tlog_number |> List.rev in
   OUnit.assert_equal expected to_remove ~printer ~msg:"test1";
-  let to_remove2, to_keep2 =
+  let to_remove2, _to_keep2 =
     _find_start 11002L i_to_tlog_number
   in
   let expected2 = i_to_tlog_number |> List.tl |> List.tl |> List.rev in
   OUnit.assert_equal expected2 to_remove2 ~printer ~msg:"test2";
 
-  let to_remove3, to_keep3 =
+  let to_remove3, _to_keep3 =
     _find_start 12002L i_to_tlog_number
   in
   OUnit.assert_equal expected to_remove3 ~printer ~msg:"test3";

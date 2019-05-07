@@ -414,7 +414,7 @@ let _main_2 (type s)
   =
   make_config () >>= fun cluster_cfg ->
   let cfgs = cluster_cfg.cfgs in
-  let me, others = Node_cfg.Node_cfg.split name cfgs in
+  let me, _others = Node_cfg.Node_cfg.split name cfgs in
   _config_logging me.node_name make_config >>= fun maybe_dump_crash_log ->
 
   (let lock_file = me.home ^ "/LOCK" in
@@ -556,7 +556,7 @@ let _main_2 (type s)
              if fsync then
                 Logger.ign_warning_ "Be careful, fsync is set to false! (fsync is deprecated: if you really want to live dangerously, use fsync_entries or/and fsync_interval)"
            in
-           (fun i time_since_last_fsync -> fsync)
+           (fun _i _time_since_last_fsync -> fsync)
 
         | None, None, None       -> (fun _ _ -> true) (* always *)
         | None, Some dt, None    -> (fun _ time_since_last_fsync -> time_since_last_fsync >= dt)
@@ -635,7 +635,6 @@ let _main_2 (type s)
                Tlog_main._mark_tlog fn (Tlog_map._make_close_marker me.node_name) >>= fun _ ->
                _open_tlc_and_store()
              in
-             let open Tlog_map in
              match exn with
              | Tlog_map.TLCNotProperlyClosed (fn,_) ->
                 begin
@@ -885,12 +884,12 @@ let _main_2 (type s)
                 | Multi_paxos.Unquiesce
                 | Multi_paxos.DropMaster _ -> (fun () -> Lwt_buffer.add e inject_buffer), "inject"
             in
-            Logger.debug_f Multi_paxos.section "XXX injecting event %s into '%s'"
+            Logger.debug_f ~section:Multi_paxos.section "XXX injecting event %s into '%s'"
               (Multi_paxos.paxos_event2s e)
               name
             >>= fun () ->
             add_to_buffer () >>= fun () ->
-            Logger.debug_f Multi_paxos.section "XXX injected event into '%s'" name
+            Logger.debug_f ~section:Multi_paxos.section "XXX injected event into '%s'" name
           in
           let buffers = Multi_paxos_fsm.make_buffers
                           (client_buffer,
@@ -1092,6 +1091,7 @@ let _main_2 (type s)
 let main_t (make_config: unit -> 'a Lwt.t)
            name ~daemonize ~catchup_only ~source_node ~autofix ~lock : int Lwt.t
   =
+  let () = ignore lock in
   let module S = (val (Store.make_store_module (module Batched_store.Local_store))) in
   let (make_tlog_coll :Tlogcollection.tlc_factory) =
     Tlc2.make_tlc2 ~check_marker:true

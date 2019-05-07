@@ -11,19 +11,19 @@ open Mp_msg.MPMessage
 
 (* a forced slave or someone who is outbidded sends a fake prepare
    in order to receive detailed info from the others in a Nak msg *)
-let fake_prepare constants (current_i, current_n) () =
+let fake_prepare _constants (current_i, current_n) () =
   (* fake a prepare, and hopefully wake up a dormant master *)
   Logger.ign_debug_f_ "Learner.fake_prepare: sending Prepare(-1, %Li)" current_i;
   let fake = Prepare (Sn.of_int (-1), current_i) in
   let sides = [EMCast fake] in
   Fsm.return ~sides (Learner_steady_state (current_n, current_i, None))
 
-let handle_timeout ((n,i,maybe_previous) as state) constants invalidate_lease_start_until n' i' =
+let handle_timeout state _constants _invalidate_lease_start_until _n' _i' =
   Logger.ign_debug_f_ "steady_state: ignoring lease expiration because I am a learner";
   Fsm.return (Learner_steady_state state)
 
 let handle_from_node ((n,i,previous) as state) (type s) (module S : Store.STORE with type t = s)
-      {store; me;on_witness} msg source =
+      {store; me;on_witness; _ } msg source =
   Logger.ign_debug_f_ "Learner.steady_state n:%s i:%s v:%s store_i:%Li got %S from %s"
     (Sn.string_of n) (Sn.string_of i) (To_string.option Value.value2s previous)
     (match S.consensus_i store with None -> -1L | Some v -> v)
@@ -92,7 +92,7 @@ let handle_from_node ((n,i,previous) as state) (type s) (module S : Store.STORE 
      Logger.ign_debug_f_ "Learner.steady state :: ignoring %S" (string_of msg);
      Fsm.return (Learner_steady_state state)
 
-let steady_state (type s) constants state event =
+let steady_state (type _s) constants state event =
   Slave.common_steady_state
     handle_from_node handle_timeout (fun x -> Learner_steady_state x)
     constants state event

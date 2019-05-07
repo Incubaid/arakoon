@@ -165,7 +165,6 @@ module MasterLookupResult = struct
   (** Create a {! string } representation of a {! MasterLookupResult.t } *)
   let to_string t =
     let open Arakoon_client_config in
-    let open To_string in
     match t with
       | Found (name, cfg) -> Printf.sprintf "Found %s (%s)" name (show_node_cfg cfg)
       | No_master -> "No_master"
@@ -308,7 +307,7 @@ let with_client'' ?tls ccfg node_name f =
 let with_master_client' cluster_cfg f =
   let open MasterLookupResult in
   find_master' cluster_cfg >>= function
-  | Found (master_name, master_cfg) ->
+  | Found (master_name, _master_cfg) ->
      with_client'' cluster_cfg master_name f
   | master_result ->
     Lwt.fail (Error master_result)

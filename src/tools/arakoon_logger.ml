@@ -71,6 +71,7 @@ let format_message
       ~(ts:Core.Time.t) ~seqnum
       ~section ~level ~lines
   =
+  let _s = section in
   Printf.sprintf
     "%s - %s - %i/%04i - %s - %i - %s - %s"
     (let open Unix in

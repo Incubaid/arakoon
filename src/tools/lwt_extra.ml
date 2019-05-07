@@ -83,7 +83,7 @@ let read_txt ic =
     stream >>= fun () ->
   Lwt.return (Buffer.contents buf)
 
-let read_file fn = Lwt_io.with_file Lwt_io.Input fn read_txt
+let read_file fn = Lwt_io.with_file ~mode:Lwt_io.Input fn read_txt
 
 let run f =
   Lwt_main.run (

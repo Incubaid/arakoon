@@ -35,7 +35,7 @@ let collapse_remote ~tls ~tcp_keepalive ip port cluster_id n =
     in
     Lwt.catch
       (fun () -> Client_main.with_connection ~tls ~tcp_keepalive address collapse)
-      (fun exn -> Logger.fatal Logger.Section.main ~exn "remote_collapsing_failed"
+      (fun exn -> Logger.fatal ~exn "remote_collapsing_failed"
         >>= fun () -> Lwt.return (-1)
       )
   in
@@ -52,7 +52,7 @@ let collapse_local make_config node_id n_tlogs =
 
       )
       (fun exn ->
-        Logger.fatal Logger.Section.main ~exn "collapse_local failed"
+        Logger.fatal ~exn "collapse_local failed"
         >>= fun () ->
         Lwt.return 1
       )

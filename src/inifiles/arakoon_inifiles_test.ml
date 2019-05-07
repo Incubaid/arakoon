@@ -63,7 +63,6 @@ let test_parsing1 () =
 
 let test_parsing2 () =
   let txt =
-    let open Lwt.Infix in
     Lwt_extra.run
       (fun () ->
        Lwt_extra.read_file "./cfg/arakoon.ini"

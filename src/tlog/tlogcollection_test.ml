@@ -22,7 +22,6 @@ open Lwt
 open Update
 open Tlogcollection
 open Tlogcommon
-open Tlog_map
 
 let section = Logger.Section.main
 let node_id = "node_id"

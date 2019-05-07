@@ -336,6 +336,7 @@ module TlogMap = struct
 
 
   let _init tlog_dir tlx_dir node_id tlog_max_entries tlog_max_size ~check_marker ~check_sabotage =
+    let () = ignore (tlog_max_size, tlog_max_entries) in
     Logger.info_f_ "_init ~check_marker:%b ~check_sabotage:%b"
                    check_marker check_sabotage
     >>= fun () ->
@@ -424,7 +425,7 @@ module TlogMap = struct
         _init
           t.tlog_dir t.tlx_dir t.node_id ~check_marker:false ~check_sabotage:false
           t.tlog_max_entries t.tlog_max_size
-        >>= fun ((tlog_entries, tlog_size, tlog_number,i_to_tlog_number,should_roll), last,_) ->
+        >>= fun ((_tlog_entries, tlog_size, tlog_number,i_to_tlog_number,should_roll), last,_) ->
         t.tlog_size   <- tlog_size;
         t.tlog_number <- tlog_number;
         t.i_to_tlog_number <- i_to_tlog_number;

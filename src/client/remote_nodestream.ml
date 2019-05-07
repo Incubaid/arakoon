@@ -21,7 +21,6 @@ open Lwt
 open Client_cfg
 open Ncfg
 
-let section = Logger.Section.main
 
 class type nodestream = object
   method iterate:

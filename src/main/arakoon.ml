@@ -652,11 +652,7 @@ let main () =
   (* let () = Printf.printf "[rc=%i]\n" rc in *)
   let () =
     (* no exit hook processing needed: we've done everything we needed to do *)
-    let rec loop () =
-      let _ = Lwt_sequence.take_l Lwt_main.exit_hooks in
-      loop ()
-    in
-    try loop () with Lwt_sequence.Empty -> ()
+    Lwt_main.Exit_hooks.remove_all ()
   in
   exit exit_code
 

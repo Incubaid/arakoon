@@ -325,7 +325,7 @@ let ahead_master_loses_role () =
   (* sleep a bit so the previous 2 slaves can make progress *)
   Lwt_unix.sleep ((float lease_period) *. 3.0) >>= fun () ->
   Lwt.catch
-    (fun () -> Client_main.find_master (to_client_cfg cluster_cfg) >>= fun master ->
+    (fun () -> Client_main.find_master (to_client_cfg cluster_cfg) >>= fun _master ->
                Lwt.return_unit)
     (fun exn ->
       Logger.fatal_f_ ~exn "NO MASTER" >>= fun () ->

@@ -103,7 +103,7 @@ let nothing_on_slave (_tn, make_cluster_cfg, all_t) =
       )
   in
 
-  let test_slave cluster_id cfg =
+  let test_slave _cluster_id cfg =
     Logger.info_f_ "slave=%s" cfg.node_name  >>= fun () ->
     let f with_client =
       with_client set_on_slave >>= fun () ->
@@ -141,7 +141,7 @@ let dirty_on_slave (_tn, make_cluster_cfg,_) =
     let slave_cfgs = List.filter (fun cfg -> cfg.node_name <> master_name) cfgs in
     Lwt.return slave_cfgs
   in
-  let do_slave cluster_id cfg =
+  let do_slave _cluster_id cfg =
     let dirty_get (client:Arakoon_client.client) =
       Logger.debug_ "dirty_get" >>= fun () ->
       should_fail
@@ -553,13 +553,14 @@ let _multi_get_option (client:client) =
 
 
 let find_master ~tls cluster_cfg =
+  let () = ignore tls in
   let lp = cluster_cfg._lease_period in
   let timeout = 3 * lp in
   let go () =
     let open Client_helper.MasterLookupResult in
     Client_helper.find_master_loop
       (Node_cfg.Node_cfg.to_client_cfg cluster_cfg) >>= function
-      | Found (name, cfg) -> return name
+      | Found (name, _cfg) -> return name
       | No_master -> Lwt.fail (Failure "No Master")
       | Too_many_nodes_down -> Lwt.fail (Failure "too many nodes down")
       | Unknown_node (n, _) -> return n

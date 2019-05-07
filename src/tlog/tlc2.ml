@@ -43,7 +43,7 @@ let _validate_list tlog_names node_id ~check_marker=
       _validate_one tlog_name node_id ~check_marker ~check_sabotage:true)
     (None,None,0)
     tlog_names
-  >>= fun (eo,index, pos) ->
+  >>= fun (eo,index, _pos) ->
   Logger.info_f_ "_validate_list %s => %s" (String.concat ";" tlog_names) (Index.to_string index) >>= fun () ->
   Lwt.return (TlogValidIncomplete, eo, index)
 

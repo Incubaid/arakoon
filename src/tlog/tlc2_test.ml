@@ -52,7 +52,6 @@ let prepare_tlog_scenarios (dn,(factory:factory)) =
   Lwt.return ()
 
 let test_interrupted_rollover (dn, tlx_dir, factory) =
-  let open Tlog_map in
   prepare_tlog_scenarios (dn,factory) >>= fun () ->
   factory ~tlog_max_entries:5 dn node_id >>= fun tlog_coll ->
   let value = Value.create_master_value ~lease_start:0. "me" in
@@ -222,7 +221,7 @@ let test_iterate7 (dn, tlx_dir, (factory:factory)) =
             (0L, 0);
           ] =
             List.map
-              (fun ({ TlogMap.i; n; is_archive; }) ->
+              (fun ({ TlogMap.i; n; _ }) ->
                i, n)
               tlog_map.TlogMap.i_to_tlog_number);
 
@@ -234,7 +233,7 @@ let test_iterate7 (dn, tlx_dir, (factory:factory)) =
        assert (!next = Tlogcommon.Entry.i_of entry);
        next := Int64.succ !next;
        Lwt.return ())
-      (fun i -> Lwt.return ())
+      (fun _i -> Lwt.return ())
   >>= fun () ->
   assert (!next = 6L);
   Lwt.return ()
@@ -357,7 +356,7 @@ let test_size_based_roll_over1 (dn, tlx_dir, (factory:factory)) =
   OUnit.assert_equal 3 (TlogMap.get_tlog_number second_map) ~printer;
   Lwt.return_unit
 
-let test_get_last_i (dn, tlx_dir, (factory:factory)) =
+let test_get_last_i (dn, _tlx_dir, (factory:factory)) =
   let make_value size =
     Value.create_client_value [ Update.Set ("", Bytes.create size); ] false
   in
@@ -397,7 +396,7 @@ let test_get_last_i (dn, tlx_dir, (factory:factory)) =
               (0L, 0);
             ] =
               List.map
-                (fun ({ TlogMap.i; n; is_archive; }) ->
+                (fun ({ TlogMap.i; n; _ }) ->
                  i, n)
                 tlog_map.TlogMap.i_to_tlog_number);
 
@@ -431,7 +430,6 @@ let first_i_of_compress_race (dn, tlx_dir, (factory : factory)) =
   let tlog_max_size = 1000 in
   factory ~tlog_max_size dn "node_id" >>= fun tlc ->
   let make_value size =
-    let open Update in
     Value.create_client_value [ Update.Set ("", Bytes.create size); ] false
   in
   let value = make_value 0 in

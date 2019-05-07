@@ -89,7 +89,6 @@ let suite = "universe" >::: [
     store;
     Client_cfg_test.suite;
     Node_cfg_test.suite;
-    Std.List.Test.suite;
     Arakoon_log_sink_test.suite;
     Arakoon_etcd_test.suite;
     Arakoon_client_config_test.suite;

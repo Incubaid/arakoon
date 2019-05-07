@@ -123,6 +123,7 @@ let range ms first finc last linc max =
   Array.of_list keys
 
 let optimize _ms ~quiesced ~stop ~slowdown_factor =
+    let () = ignore slowdown_factor in
     let () = ignore quiesced in
     let () = ignore stop in
     Lwt.return true

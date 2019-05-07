@@ -77,7 +77,7 @@ let setup_logger file_name =
   Lwt_log.default := file_logger;
   Lwt.return ()
 
-let _get_keeper_config_generic fetcher url=
+let _get_keeper_config_generic fetcher _url=
   fetcher() >>= fun txt ->
   let inifile = new Arakoon_inifiles.inifile txt in
   let m_cfg = Node_cfg.get_nursery_cfg inifile in

@@ -46,7 +46,7 @@ let loop ?(trace=nop_trace)
   let rec _interprete key =
     if !stop
     then
-      Logger.debug Logger.Section.main "Stopping fsm"
+      Logger.debug ~section:Logger.Section.main "Stopping fsm"
     else
       begin
         let arg, product_type = lookup key in

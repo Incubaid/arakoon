@@ -45,7 +45,7 @@ let test_parsing () =
     let contents = List.fold_left (fun acc v -> acc ^ "\n" ^ v) "" lines in
     let fn = "/tmp/client_cfg_test.ml" in
     Lwt_io.with_file
-      Lwt_io.Output fn
+      ~mode:Lwt_io.Output fn
       (fun oc -> Lwt_io.write oc contents)
     >>= fun () ->
     Arakoon_config_url.(retrieve (File fn)) >|= (ClientCfg._from_txt "global") >>= fun cfg ->
