@@ -1,8 +1,7 @@
 opam-version: "1.2"
 name: "arakoon"
 maintainer: "Romain Slootmaekers <romain.slootmaekers@openvstorage.com>"
-authors: ["Romain Slootmaekers <romain.slootmaekers@openvstorage.com>"
-          "Jan Doms <jan.doms@openvstorage.com>"]
+authors: ["Romain Slootmaekers <romain.slootmaekers@openvstorage.com>"]
 homepage: "https://github.com/openvstorage/arakoon"
 bug-reports: "https://github.com/openvstorage/arakoon/issues"
 license: "Apache 2.0"
