@@ -41,7 +41,9 @@ let master_consensus (type s) constants {mo;v;n;i; lew} () =
   let inject_e = EGen (fun () ->
       match v with
         | Value.Vm _ ->
-          let event = Multi_paxos.FromClient [(Update.Nop, fun _ -> Lwt.return ())] in
+           let open Update in
+           let event = Multi_paxos.FromClient
+                         [Nop, serialized_size Nop, fun _ -> Lwt.return_unit] in
           Lwt.ignore_result (constants.inject_event event);
           Lwt.return ()
         | Value.Vc _ ->
@@ -135,7 +137,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
       end
     | FromClient ufs ->
       begin
-        let updates, finished_funs = List.split ufs in
+        let updates, _, finished_funs = Std.List.split3 ufs in
         let synced = List.fold_left (fun acc u -> acc || Update.is_synced u) false updates in
         let v = Value.create_client_value updates synced in
         let ms = {mo = Some finished_funs;v;n;i = new_i;
@@ -174,9 +176,8 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                       Fsm.return (Slave_steady_state (n', new_i, None))
                     end
                   | Promise_sent_needs_catchup ->
-                    let i = S.get_catchup_start_i constants.store in
                     Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
-                    Fsm.return (Slave_discovered_other_master (source, i, n', i'))
+                    Fsm.return (Slave_discovered_other_master (source, n', i'))
                 end
             end
           | Accepted(_n,i) ->
@@ -204,8 +205,7 @@ let stable_master (type s) constants ((n,new_i, lease_expire_waiters) as current
                 begin
                   (* Become slave, goto catchup *)
                   Logger.debug_f_ "%s: stable_master: received Accept from new master %S" me (string_of msg) >>= fun () ->
-                  let cu_pred = S.get_catchup_start_i constants.store in
-                  let new_state = (source,cu_pred,n',i') in
+                  let new_state = (source, n', i') in
                   Multi_paxos.safe_wakeup_all () lease_expire_waiters >>= fun () ->
                   Fsm.return (Slave_discovered_other_master new_state)
                 end

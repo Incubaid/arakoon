@@ -51,35 +51,35 @@ module MPMessage = struct
       Printf.sprintf "Nak (%s,(%s,%s))"
         (Sn.string_of n) (Sn.string_of n') (Sn.string_of i')
 
-  let generic_of = function
+  let generic_of' buf = function
     | Prepare (n,i) ->
-      let buf = Buffer.create 20 in
       Sn.sn_to buf n;
       Sn.sn_to buf i;
       Message.create "prepare" (Buffer.contents buf)
     | Promise (n,i, vo) ->
-      let buf = Buffer.create 20 in
       Sn.sn_to buf n;
       Sn.sn_to buf i;
       Llio.option_to Value.value_to buf vo;
       Message.create "promise" (Buffer.contents buf)
     | Accept(n,i , v) ->
-      let buf = Buffer.create 20 in
       Sn.sn_to buf n;
       Sn.sn_to buf i;
       Value.value_to buf v;
       Message.create "accept" (Buffer.contents buf)
     | Accepted(n,i) ->
-      let buf = Buffer.create 20 in
       Sn.sn_to buf n;
       Sn.sn_to buf i;
       Message.create "accepted" (Buffer.contents buf)
     | Nak (n,(n',i')) ->
-      let buf = Buffer.create 20 in
       Sn.sn_to buf n;
       Sn.sn_to buf n';
       Sn.sn_to buf i';
       Message.create "nak" (Buffer.contents buf)
+
+  let generic_of m =
+    let buf = Buffer.create 20 in
+    generic_of' buf m
+
 
   let of_generic m =
     let kind, payload = Message.kind_of m, Message.payload_of m in
@@ -92,7 +92,7 @@ module MPMessage = struct
       | "nak"     ->
         let n = Sn.sn_from buf in
         let n' = Sn.sn_from buf in
-        let i' = Sn.sn_from buf in
+       let i' = Sn.sn_from buf in
         Nak (n,(n',i'))
       | "promise" ->
         let n = Sn.sn_from buf in

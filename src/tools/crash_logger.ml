@@ -72,7 +72,7 @@ let add_to_crash_log section level msgs =
   }) in
   R.insert entry circ_buf
 
-let setup_crash_log crash_file_gen =
+let dump_crash_log crash_log_sink =
   let string_of_level = function
     | Lwt_log.Debug -> "debug"
     | Lwt_log.Info -> "info"
@@ -82,79 +82,52 @@ let setup_crash_log crash_file_gen =
     | Lwt_log.Fatal -> "fatal"
   in
 
-  let dump_crash_log () =
-    let log_entry oc e =
-      let format_message msg exn = Entry.(
-        Printf.sprintf "%Ld: %s %s: %s"
-          (Int64.of_float e.time)
-          (Lwt_log.Section.name e.section)
-          (string_of_level e.level)
-          (match exn with
-            | None -> msg
-            | Some e -> msg ^ Printexc.to_string e))
-      in
-      Message.traverse_ (fun m e ->
-        Lwt_io.write_line oc (format_message m e))
-        e.Entry.payload
-    in
-
-    let log_buffer oc buffer =
-      let go = R.fold ~f:(fun acc e -> fun () ->
-        acc () >>= fun () ->
-        log_entry oc e)
-        ~acc:(fun () -> Lwt.return_unit)
-        buffer
-      in
-      go ()
-    in
-
-    let crash_file_path = crash_file_gen () in
-    Lwt_io.with_file ~mode:Lwt_io.output crash_file_path
-      (fun oc -> log_buffer oc circ_buf)
+  let format_message e msg exn = Entry.(
+      Printf.sprintf "%Ld: %s %s: %s"
+                     (Int64.of_float e.time)
+                     (Lwt_log.Section.name e.section)
+                     (string_of_level e.level)
+                     (match exn with
+                      | None -> msg
+                      | Some e -> msg ^ Printexc.to_string e))
   in
 
-  let fake_close () = Lwt.return () in
+  let log_entry oc e =
+    Message.traverse_ (fun m exn ->
+                       Lwt_io.write_line oc (format_message e m exn))
+                      e.Entry.payload
+  in
 
-  (add_to_crash_log, fake_close, dump_crash_log)
-
-
-let setup_default_logger file_log_path crash_log_prefix =
-  Lwt.catch
-    (fun () ->
-       Lwt_log.file
-         ~template:"$(date) $(milliseconds): ($(section)|$(level)): $(message)"
-         ~mode:`Append ~file_name:file_log_path ()
-    )
-    (fun exn ->
-       let msg = Printexc.to_string exn in
-       let text = Printf.sprintf "could not create file logger %S : %s" file_log_path msg in
-       Lwt.fail (Failure text)
-    )
-  >>= fun file_logger ->
-  let (log_crash_msg, close_crash_log, dump_crash_log) =
-    setup_crash_log crash_log_prefix in
-
-  let add_log_msg section level msgs =
-    let log_file_msg msg = Lwt_log.log
-                             ~section
-                             ~logger:file_logger
-                             ~level msg
+  let log_buffer oc =
+    let go = R.fold ~f:(fun acc e -> fun () ->
+                                     acc () >>= fun () ->
+                                     log_entry oc e)
+                    ~acc:(fun () -> Lwt.return_unit)
+                    circ_buf
     in
-    Lwt.catch
-      (fun () ->
-         Lwt_list.iter_s log_file_msg msgs >>= fun () ->
-         log_crash_msg section level (Message.ImmediateN msgs);
-         Lwt.return_unit)
-      (function
-        | Lwt_log.Logger_closed -> Lwt.return ()
-        | e -> Lwt.fail e
-      )
+    go ()
   in
 
-  let close_default_logger () =
-    Lwt_log.close file_logger >>= fun () ->
-    close_crash_log ()
-  in
-  let default_logger = Lwt_log.make ~output:add_log_msg ~close:close_default_logger in
-  Lwt_log.default := default_logger;
-  Lwt.return dump_crash_log
+  let open Arakoon_log_sink in
+  match crash_log_sink with
+  | File file_name ->
+     Lwt_io.with_file
+       ~mode:Lwt_io.output (Printf.sprintf "%s.debug.%f" file_name (Unix.time ()))
+       (fun oc -> log_buffer oc)
+  | Redis (host, port, key) ->
+     let key = Printf.sprintf "%s.debug.%f" key (Unix.time ()) in
+     let module Re = Redis_lwt.Client in
+     Re.connect Re.({ host ;port; }) >>= fun client ->
+     R.fold
+       ~f:(fun acc e -> fun () ->
+                        acc () >>= fun () ->
+                        Message.traverse_
+                          (fun m exn ->
+                           Re.rpush client key [format_message e m exn] >>= fun _list_length ->
+                           Lwt.return_unit)
+                          e.Entry.payload)
+       ~acc:(fun () -> Lwt.return_unit)
+       circ_buf
+       ()
+  | Console ->
+     log_buffer Lwt_io.stdout

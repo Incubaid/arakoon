@@ -13,7 +13,7 @@ The simplest is to download and install the debian archive. It's not difficult t
 
 ::
 
-    $> wget https://github.com/Incubaid/arakoon/releases/download/1.7.1/arakoon_1.7.1_amd64.deb
+    $> wget https://github.com/openvstorage/arakoon/releases/download/1.7.1/arakoon_1.7.1_amd64.deb
     ...
     $> sudo dpkg -i ./arakoon_1.7.1_amd64.deb
     ...

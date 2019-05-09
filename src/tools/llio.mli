@@ -154,4 +154,6 @@ val input_string_list: string list lwt_deserializer
 val input_kv_list: (string * string) list lwt_deserializer
 val input_hashtbl: 'a lwt_deserializer -> 'b lwt_deserializer -> ('a,'b) Hashtbl.t lwt_deserializer
 
+val string_ssize : string -> int
+val string_option_ssize : string option -> int
 val copy_stream:  length:int64 -> ic:lwtic -> oc:lwtoc -> unit Lwt.t

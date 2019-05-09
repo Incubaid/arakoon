@@ -35,23 +35,60 @@ let default_create_client_context ~ca_cert ~creds ~protocol =
   ctx
 
 
-let with_connection ~tls sa do_it = match tls with
-  | None -> Lwt_io.with_connection sa do_it
-  | Some ctx ->
-    let fd = Lwt_unix.socket (Unix.domain_of_sockaddr sa) Unix.SOCK_STREAM 0 in
-    Lwt_unix.set_close_on_exec fd;
-    Lwt_unix.connect fd sa >>= fun () ->
-    Typed_ssl.Lwt.ssl_connect fd ctx >>= fun (_, sock) ->
-    let ic = Lwt_ssl.in_channel_of_descr sock
-    and oc = Lwt_ssl.out_channel_of_descr sock in
-    Lwt.finalize
-      (fun () -> do_it (ic, oc))
-      (fun () -> Lwt_ssl.close sock)
+let get_tls_from_ssl_cfg (ssl_cfg : Arakoon_client_config.ssl_cfg option) =
+  let open Arakoon_client_config in
+  match ssl_cfg with
+  | None -> None
+  | Some ssl ->
+     let ca_cert = ssl.ca_cert in
+     let protocol = ssl.protocol in
+     let creds = ssl.creds in
+     let ctx = default_create_client_context ~ca_cert ~creds ~protocol in
+     Some ctx
 
+
+let with_connection ~tls ~tcp_keepalive sa do_it =
+  let fd = Lwt_unix.socket (Unix.domain_of_sockaddr sa) Unix.SOCK_STREAM 0 in
+  Lwt.catch
+    (fun () ->
+      Tcp_keepalive.apply fd tcp_keepalive;
+      Lwt_unix.setsockopt fd Lwt_unix.TCP_NODELAY true;
+      Lwt_unix.set_close_on_exec fd;
+      Lwt_unix.connect fd sa)
+    (fun exn ->
+      Lwt.catch
+        (fun () -> Lwt_unix.close fd)
+        (fun _ -> Lwt.return_unit)
+      >>= fun () ->
+      Lwt.fail exn
+    )
+  >>= fun () ->
+  begin
+  match tls with
+  | None ->
+     let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd
+     and oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
+     let conn = (ic,oc)
+     and fin = fun () -> Lwt_unix.close fd
+     in
+     Lwt.return (conn,fin)
+  | Some ctx ->
+     Typed_ssl.Lwt.ssl_connect fd ctx >>= fun (_, sock) ->
+     let ic = Lwt_ssl.in_channel_of_descr sock
+     and oc = Lwt_ssl.out_channel_of_descr sock in
+     let conn = (ic,oc)
+     and fin = fun () -> Lwt_ssl.close sock
+     in
+     Lwt.return (conn,fin)
+  end
+  >>= fun (conn,fin) ->
+  Lwt.finalize
+    (fun () -> do_it conn)
+    fin
 
 exception No_connection
 
-let with_connection' ~tls addrs f =
+let with_connection' ~tls ~tcp_keepalive addrs f =
   let count = List.length addrs in
   let res = Lwt_mvar.create_empty () in
   let err = Lwt_mvar.create None in
@@ -61,7 +98,7 @@ let with_connection' ~tls addrs f =
   let f' addr =
     Lwt.catch
       (fun () ->
-        with_connection ~tls addr (fun c ->
+        with_connection ~tls ~tcp_keepalive addr (fun c ->
           if Lwt_mutex.is_locked l
           then Lwt.return ()
           else
@@ -116,7 +153,6 @@ let with_client'
 
 (** Result type and utilities for {! find_master' } *)
 module MasterLookupResult = struct
-  open Node_cfg
 
   (** Result type for a master lookup using {! find_master' } *)
   type t =
@@ -129,7 +165,6 @@ module MasterLookupResult = struct
   (** Create a {! string } representation of a {! MasterLookupResult.t } *)
   let to_string t =
     let open Arakoon_client_config in
-    let open To_string in
     match t with
       | Found (name, cfg) -> Printf.sprintf "Found %s (%s)" name (show_node_cfg cfg)
       | No_master -> "No_master"
@@ -147,8 +182,13 @@ end
     applicable) exceptions, except {! Lwt.Canceled } which is passed through
     (you most likely don't want to catch that anyway).
 *)
-let find_master' ~tls cluster_cfg =
+let find_master' ?tls cluster_cfg =
   let open Arakoon_client_config in
+
+  let tls = match tls with
+    | None -> get_tls_from_ssl_cfg cluster_cfg.ssl_cfg
+    | Some x -> Some x
+  in
 
   let lookup_cfg n =
     let rec loop = function
@@ -164,7 +204,7 @@ let find_master' ~tls cluster_cfg =
 
   let open MasterLookupResult in
 
-  let rec loop down unknown = function
+  let rec loop unknown = function
     | [] -> begin
         let res =
           if unknown = []
@@ -181,15 +221,20 @@ let find_master' ~tls cluster_cfg =
         Logger.debug_f_ "Client_main.find_master': Trying %S" node_name >>= fun () ->
         Lwt.catch
           (fun () ->
-            with_client'
-              ~tls
-              cfg cluster_cfg.cluster_id
-              (fun client ->
-                client # who_master ()) >>= function
+           Lwt.choose
+             [ (Lwt_unix.sleep 1. >>= fun () ->
+                Lwt.return None);
+               with_client'
+                 ~tls
+                 ~tcp_keepalive:cluster_cfg.tcp_keepalive
+                 cfg cluster_cfg.cluster_id
+                 (fun client ->
+                  client # who_master ()); ]
+           >>= function
                 | None -> begin
                     Logger.debug_f_
                       "Client_main.find_master': %S doesn't know" node_name >>= fun () ->
-                    loop down ((node_name, cfg) :: unknown) rest
+                    loop ((node_name, cfg) :: unknown) rest
                 end
                 | Some n -> begin
                     Logger.debug_f_ "Client_main.find_master': %S thinks %S" node_name n >>= fun () ->
@@ -202,7 +247,7 @@ let find_master' ~tls cluster_cfg =
                       else
                         match lookup_cfg n with
                           | Some ncfg ->
-                              loop down unknown ((n, ncfg) :: rest)
+                              loop unknown ((n, ncfg) :: rest)
                           | None -> begin
                               let res = Unknown_node (n, (node_name, cfg)) in
                               Logger.warning_f_
@@ -211,21 +256,16 @@ let find_master' ~tls cluster_cfg =
                           end
                 end)
           (function
-            | Unix.Unix_error(Unix.ECONNREFUSED, _, _) ->
-                Logger.debug_f_
-                  "Client_main.find_master': Connection to %S refused" node_name >>= fun () ->
-                loop (cfg :: down) unknown rest
-            | Lwt.Canceled as exn ->
-                Lwt.fail exn
-            | exn -> begin
-                let res = Exception exn in
-                Logger.debug_f_
-                  "Client_main.find_master': %s" (to_string res) >>= fun () ->
-                return res
-            end)
+           | Lwt.Canceled as exn ->
+              Lwt.fail exn
+           | exn ->
+              Logger.debug_f_ ~exn
+                "Client_main.find_master': problem with %S" node_name >>= fun () ->
+              loop unknown rest
+          )
     end
   in
-  loop [] [] (cluster_cfg.node_cfgs)
+  loop [] (cluster_cfg.node_cfgs)
 
 
 (** Lookup the master of a cluster in a loop
@@ -238,10 +278,10 @@ let find_master' ~tls cluster_cfg =
     In some circumstances, this action could loop forever, so it's mostly
     useful in combination with {! Lwt_unix.with_timeout } or something related.
 *)
-let find_master_loop ~tls cluster_cfg =
+let find_master_loop cluster_cfg =
   let open MasterLookupResult in
   let rec loop () =
-    find_master' ~tls cluster_cfg >>= fun r -> match r with
+    find_master' cluster_cfg >>= fun r -> match r with
       | No_master
       | Too_many_nodes_down -> begin
           Logger.debug_f_ "Client_main.find_master_loop: %s" (to_string r) >>=
@@ -253,10 +293,21 @@ let find_master_loop ~tls cluster_cfg =
   in
   loop ()
 
-let with_master_client' ~tls cluster_cfg f =
+let with_client'' ?tls ccfg node_name f =
+  let open Arakoon_client_config in
+  with_client'
+    ~tls:(match tls with
+          | None -> get_tls_from_ssl_cfg ccfg.ssl_cfg
+          | Some x -> Some x)
+    ~tcp_keepalive:ccfg.tcp_keepalive
+    (get_node_cfg ccfg node_name)
+    ccfg.cluster_id
+    f
+
+let with_master_client' cluster_cfg f =
   let open MasterLookupResult in
-  find_master' ~tls cluster_cfg >>= function
-  | Found (master_name, master_cfg) ->
-    with_client' ~tls master_cfg cluster_cfg.Arakoon_client_config.cluster_id f
+  find_master' cluster_cfg >>= function
+  | Found (master_name, _master_cfg) ->
+     with_client'' cluster_cfg master_name f
   | master_result ->
     Lwt.fail (Error master_result)

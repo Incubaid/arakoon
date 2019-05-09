@@ -66,11 +66,11 @@ let _compress_tlog
     | No -> failwith "compressor is 'No'"
   in
   Lwt_io.with_file
-    ~buffer_size:131072
+    ~buffer:(Lwt_bytes.create 131072)
     ~mode:Lwt_io.input tlog_name
     (fun ic ->
        let tmp_file = archive_name ^ ".part" in
-       Logger.info_f Logger.Section.main
+       Logger.info_f ~section:Logger.Section.main
                      "Compressing %S to %S via %S"
                      tlog_name archive_name tmp_file >>= fun () ->
        File_system.unlink ~verbose:false tmp_file >>= fun () ->
@@ -103,8 +103,7 @@ let _compress_tlog
           let compress_and_write last_i buffer =
             let contents = Buffer.contents buffer in
             let t0 = Unix.gettimeofday () in
-            Lwt_preemptive.detach (fun () -> compress contents) ()
-            >>= fun output ->
+            let output = compress contents in
             begin
               if !cancel
               then Lwt.fail Canceled
@@ -115,12 +114,13 @@ let _compress_tlog
             let cl = String.length contents in
             let ol = String.length output in
             let factor = (float cl) /. (float ol) in
-            Logger.debug_f Logger.Section.main "compression: %i bytes into %i (in %f s) (factor=%2f)" cl ol d factor
+            let section = Logger.Section.main in 
+            Logger.debug_f ~section "compression: %i bytes into %i (in %f s) (factor=%2f)" cl ol d factor
             >>= fun () ->
             Llio.output_int64 oc last_i >>= fun () ->
             Llio.output_string oc output >>= fun () ->
             let sleep = 2.0 *. d in
-            Logger.debug_f Logger.Section.main "compression: sleeping %f" sleep >>= fun () ->
+            Logger.debug_f ~section "compression: sleeping %f" sleep >>= fun () ->
             Lwt_unix.sleep sleep
           in
           let buffer = Buffer.create buffer_size in

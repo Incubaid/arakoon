@@ -28,15 +28,18 @@ open Master_type
 let election_suggest (type s) constants (n, counter) () =
   let module S = (val constants.store_module : Store.STORE with type t = s) in
   let i = S.get_succ_store_i constants.store in
-  let vo = constants.get_value i in
+  constants.get_value i >>= fun vo ->
   let me = constants.me in
   let v_lims, msg =
     match vo with
-      | None ->
-        (1,[]) , "None"
-      | Some x -> (0,[(x,1)]) , "Some _"
+      | None ->   (1,[]), "None"
+      | Some x -> (0,[(x,1)]), Value.value2s x
   in
-  Logger.info_f_ "%s: election_suggest: n=%s i=%s %s" me  (Sn.string_of n) (Sn.string_of i) msg >>= fun () ->
+  Logger.info_f_
+    "%s: election_suggest: n=%s i=%s %s"
+    me
+    (Sn.string_of n) (Sn.string_of i)
+    msg >>= fun () ->
   start_election_timeout constants n i >>= fun () ->
   let delay =
     match constants.master with
@@ -49,12 +52,6 @@ let election_suggest (type s) constants (n, counter) () =
   let who_voted = [me] in
   let state = (n, i, who_voted, v_lims, [], counter) in
   Fsm.return (Promises_check_done state)
-
-let read_only constants (_state : unit) () =
-  Lwt_unix.sleep 60.0 >>= fun () ->
-  Logger.debug_f_ "%s: read_only ..." constants.me >>= fun () ->
-  Fsm.return Read_only
-
 
 (* a potential master is waiting for promises and if enough
    promises are received the value is accepted and Accept is broadcasted *)
@@ -69,11 +66,10 @@ let promises_check_done constants state () =
   let me = constants.me in
   let nnones, v_s = v_lims in
   let bv,bf =
-    begin
-      match v_s with
-        | [] ->  Value.create_master_value me, 0
-        | hd::_ -> hd
-    end in
+    match v_s with
+    | [] ->  Value.create_master_value me, 0
+    | hd::_ -> hd
+  in
   let nnodes = List.length constants.others + 1 in
   let needed = constants.quorum_function nnodes in
   let nvoted = List.length who_voted in
@@ -201,9 +197,18 @@ let wait_for_promises (type s) constants state event =
                     >>= fun () ->
                     if i' > i
                     then
-                      let cu_pred = S.get_catchup_start_i constants.store in
-                      Fsm.return (Slave_discovered_other_master (source,cu_pred,n'',i'))
+                      Fsm.return (Slave_discovered_other_master (source, n'', i'))
                     else
+                      if i' = i && n'' > n
+                      then
+                        drop msg
+                          (Printf.sprintf "%s has n:%s (> my n:%s, and i'=i=%s). stand down"
+                             source
+                             (Sn.string_of n'')
+                             (Sn.string_of n)
+                             (Sn.string_of i)
+                          )
+                      else
                       let new_n = update_n constants (max n n'') in
                       Fsm.return (Election_suggest (new_n, counter + 1))
                   end
@@ -233,8 +238,7 @@ let wait_for_promises (type s) constants state event =
                     start_lease_expiration_thread constants >>= fun () ->
                     Fsm.return (Slave_steady_state (n', i, None))
                   | Promise_sent_needs_catchup ->
-                    let i = S.get_catchup_start_i constants.store in
-                    Fsm.return (Slave_discovered_other_master (source, i, n', i'))
+                    Fsm.return (Slave_discovered_other_master (source, n', i'))
               end
             | Accept (n',_i,_v) when n' < n ->
               begin
@@ -242,7 +246,7 @@ let wait_for_promises (type s) constants state event =
                 then
                   begin
                     Logger.debug_f_ "%s: wait_for_promises: still have an active master (received %s) -> catching up from master" me  (string_of msg) >>= fun () ->
-                    Fsm.return (Slave_discovered_other_master (source, i, n', _i))
+                    Fsm.return (Slave_discovered_other_master (source, n', _i))
                   end
                 else
                   Logger.debug_f_ "%s: wait_for_promises: ignoring old Accept %s" me (Sn.string_of n')
@@ -442,10 +446,9 @@ let wait_for_accepteds
                       end
                     | Promise_sent_needs_catchup ->
                       begin
-                        let i = S.get_catchup_start_i constants.store in
                         lost_master_role mo >>= fun () ->
                         Multi_paxos.safe_wakeup_all () lew >>= fun () ->
-                        Fsm.return (Slave_discovered_other_master (source, i, n', i'))
+                        Fsm.return (Slave_discovered_other_master (source, n', i'))
                       end
                   end
               end
@@ -478,8 +481,7 @@ let wait_for_accepteds
                   begin
                     (* Become slave, goto catchup *)
                     Logger.debug_f_ "%s: wait_for_accepteds: received Accept from new master %S" me (string_of msg) >>= fun () ->
-                    let cu_pred = S.get_catchup_start_i constants.store in
-                    let new_state = (source,cu_pred,n',i') in
+                    let new_state = (source, n', i') in
                     Logger.debug_f_ "%s: wait_for_accepteds: drop %S (it's still me)" me (string_of msg) >>= fun () ->
                     Fsm.return (Slave_discovered_other_master new_state)
                   end
@@ -585,9 +587,17 @@ let machine constants =
 
     | Election_suggest state ->
       (Unit_arg (election_suggest constants state), nop)
-    | Read_only ->
-      (Unit_arg (read_only constants ()), nop)
     | Start_transition -> failwith "Start_transition?"
+
+
+let learner_machine constants =
+  let nop = [] in
+  let full = [Node; Inject; Election_timeout; Client] in
+  function
+    | Learner_fake_prepare state ->		(Unit_arg (Learner.fake_prepare constants state), nop)
+    | Learner_steady_state state ->		(Msg_arg (Learner.steady_state constants state), full)
+    | Learner_discovered_other_master state ->	(Unit_arg (Learner.discovered_other_master constants state), nop)
+
 
 (* Warning: This currently means we have only 1 fsm / executable. *)
 let __state = ref Start_transition
@@ -659,11 +669,16 @@ let paxos_produce buffers constants product_wanted =
                Lwt_buffer.take buffers.inject_buffer
              end
            | Some Client ->
-             begin
-               Lwt_buffer.harvest buffers.client_buffer >>= fun reqs ->
-               let event = FromClient reqs in
-               Lwt.return event
-             end
+              begin
+                let weight (_, size, _)= size in
+                let safety = 100 (* value & message will add ~ 40 bytes *) in
+                let max = constants.max_buffer_size - safety in
+                Lwt_buffer.harvest_limited
+                  buffers.client_buffer weight max
+                >>= fun reqs ->
+                let event = FromClient reqs in
+                Lwt.return event
+              end
            | Some Node ->
              begin
                Lwt_buffer.take buffers.node_buffer >>= fun (msg,source) ->
@@ -733,6 +748,25 @@ let _execute_effects constants e =
 
 
 (* the entry methods *)
+
+let enter_learner ?(stop = ref false) constants buffers new_i =
+  let me = constants.me in
+  Logger.debug_f_ "%s: +starting FSM for learner." me >>= fun () ->
+  let produce = paxos_produce buffers constants in
+  let new_n = update_n constants Sn.start in
+
+  Lwt.catch
+    (fun () ->
+       Fsm.loop ~stop
+         (_execute_effects constants)
+         produce
+         (learner_machine constants)
+         (Learner.fake_prepare constants (new_i,new_n))
+    )
+    (fun exn ->
+       Logger.warning_ ~exn "FSM BAILED due to uncaught exception"
+       >>= fun () -> Lwt.fail exn
+    )
 
 let enter_forced_slave ?(stop = ref false) constants buffers new_i =
   let me = constants.me in
@@ -810,24 +844,6 @@ let enter_simple_paxos (type s) ?(stop = ref false) constants buffers current_i 
       Logger.debug_f_ "%s: +starting FSM election." me >>= fun () ->
       run (election_suggest constants (current_n, 0))
     end
-
-let enter_read_only ?(stop = ref false) constants buffers _current_i =
-  let me = constants.me in
-  Logger.debug_f_ "%s: +starting FSM for read_only." me >>= fun () ->
-  let trace = trace_transition in
-  let produce = paxos_produce buffers constants in
-  Lwt.catch
-    (fun () ->
-       Fsm.loop ~trace ~stop
-         (_execute_effects constants)
-         produce
-         (machine constants)
-         (read_only constants ())
-    )
-    (fun exn ->
-       Logger.warning_ ~exn "READ ONLY BAILS OUT" >>= fun () ->
-       Lwt.fail exn
-    )
 
 let expect_run_forced_slave constants buffers expected step_count new_i =
   Logger.debug_f_ "%s: +starting forced_slave FSM with expect" constants.me >>= fun () ->

@@ -99,19 +99,23 @@ struct
     match s._ls_tx with
       | None -> ()
       | Some _ ->
-        S._trancommit s.s;
-        s._ls_tx <- None;
-        s._entries <- 0;
-        s._size <- 0
+         begin
+           S._trancommit s.s;
+           s._ls_tx <- None;
+           s._entries <- 0;
+           s._size <- 0
+         end
 
   let _abort_ls_tx_if_any s =
     match s._ls_tx with
       | None -> ()
       | Some _ ->
-        S._tranabort s.s;
-        s._ls_tx <- None;
-        s._entries <- 0;
-        s._size <- 0
+         begin
+           S._tranabort s.s;
+           s._ls_tx <- None;
+           s._entries <- 0;
+           s._size <- 0
+         end
 
   let with_transaction s f =
     Lwt_mutex.with_lock s._tx_lock (fun () ->
@@ -187,7 +191,7 @@ struct
 
   let flush s =
     _commit_ls_tx_if_any s;
-    Lwt.return ()
+    Lwt.return_unit
 
   let close s ~flush ~sync =
     begin

@@ -75,7 +75,7 @@ let split e =
         then
           `No_match
         else
-          let level' = String.capitalize level in
+          let level' = String.capitalize_ascii level in
           if implicit_section
           then
             `Log_e_l_ (arg::acc, level', ign)
@@ -83,7 +83,7 @@ let split e =
             `Log_e_l(acc, level', arg, ign)
       else
         let level = String.sub func 0 (pos - 1) in
-        let level' = String.capitalize level in
+        let level' = String.capitalize_ascii level in
         if implicit_section
         then
           `Log_e_f_l_ (arg::acc, level', ign)
@@ -108,7 +108,7 @@ let split e =
         then
           `No_match
         else
-          let level' = String.capitalize level in
+          let level' = String.capitalize_ascii level in
           if implicit_section
           then
             `Log_l_(arg::acc, level', ign)
@@ -116,7 +116,7 @@ let split e =
             `Log_l (acc, level', arg, ign)
       else
         let level = String.sub func 0 (pos - 1) in
-        let level' = String.capitalize level in
+        let level' = String.capitalize_ascii level in
         if implicit_section
         then
           `Log_f_l_ (arg::acc, level', ign)

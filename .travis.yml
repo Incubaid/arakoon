@@ -1,9 +1,22 @@
+dist: xenial
 language: c
-env:
-  - PPA=avsm/ocaml42+opam11
 
-before_install: ./travis.sh before_install
+sudo: required
+
 install: ./travis.sh install
 script: ./travis.sh script
+
 git:
     submodules: false
+
+services:
+  - docker
+
+# cache:
+#   directories:
+#     - ~/cache
+#   timeout:
+#     1000
+
+env:
+  - USE_CACHE=0 # set to 1 to enable

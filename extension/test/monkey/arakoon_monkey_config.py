@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 from arakoon.ArakoonExceptions import *
-from arakoon_system_tests.server import system_tests_common as C
+import server.system_tests_common as C
 #from right.system_tests_anomaly import *
 #from quick.system_tests_basic import *
 

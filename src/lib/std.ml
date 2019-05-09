@@ -16,8 +16,6 @@ limitations under the License.
 
 
 
-open Test_utils
-
 module type Show = sig
   type t
   val show : t -> string
@@ -39,16 +37,6 @@ module EqLib : sig
   module Make : functor(S : S) -> Equable with type t := S.s
   module Default : functor(S : sig type s end) -> Equable with type t := S.s
 
-  module Test : sig
-    module type S = sig
-      type t
-      include QuickCheckUtils.Testable with type t := t
-      include Equable with type t := t
-    end
-
-    val quickCheck :
-      (module S with type t = 'a) -> 'a QuickCheckUtils.test
-  end
 end = struct
   module type S = sig
     type s
@@ -65,19 +53,7 @@ end = struct
     let (<>:) = (<>)
   end
 
-  module Test = struct
-    module type S = sig
-      type t
-      include QuickCheckUtils.Testable with type t := t
-      include Equable with type t := t
-    end
-
-    let quickCheck (type t)
-      (module M : S with type t = t) =
-      let open M in
-
-      QuickCheckUtils.prop_test (module M) (fun v -> v =: v)
-  end
+  
 end
 
 module Compare : sig
@@ -200,6 +176,19 @@ end
 external id : 'a -> 'a = "%identity"
 let const v = fun _ -> v
 
+module Option = struct
+  type 'a t = 'a option =
+            | None
+            | Some of 'a
+
+  let some x = Some x
+
+  let get_some = function
+    | None -> assert false
+    | Some x -> x
+end
+
+
 module String = struct
   include String
   module C = CompareLib.Default(String)
@@ -209,6 +198,12 @@ end
 module List = struct
   include List
 
+  let split3 xs =
+    let x0s_r, x1s_r, x2s_r =
+      fold_left
+        (fun (x0s,x1s,x2s) (x0,x1,x2) -> (x0::x0s, x1::x1s, x2::x2s))
+        ([], [], []) xs
+    in rev x0s_r, rev x1s_r, rev x2s_r
   let is_empty = function
     | [] -> true
     | _ -> false
@@ -229,11 +224,11 @@ module List = struct
   @param key Key to look-up
   @param default Optional default value if key isn't found
   @param f Update function *)
-  let alter ~list ~key ?default f =
+  let alter ?(equals=(=)) ~list ~key ?default f =
     let rec loop found acc = function
       | [] -> (found, acc)
       | ((k, v) as p :: r) ->
-          if k = key
+          if equals k key
             then match f v with
               | None -> loop true acc r
               | Some v' -> loop true ((k, v') :: acc) r
@@ -247,60 +242,7 @@ module List = struct
         | None -> l
         | Some v -> (key, v) :: l
 
-  module Test = struct
-    open OUnit
 
-    let assert_set_equal ?printer ?msg l1 l2 =
-      let l1' = List.sort compare l1
-      and l2' = List.sort compare l2 in
-      assert_equal ?printer ?msg l1' l2'
-
-    let printer l =
-      List.map (fun (k, v) -> Printf.sprintf "(%S, %d)" k v) l
-      |> String.concat "; "
-      |> Printf.sprintf "[%s]"
-
-    let suite = "List" >::: [
-      "alter" >::: [
-        "empty" >::
-          (fun () -> assert_set_equal ~printer
-            (alter ~list:[] ~key:"k" (const (Some 1)))
-            []);
-        "empty_add_default" >::
-          (fun () -> assert_set_equal ~printer
-            (alter ~list:[] ~key:"k" ~default:1 (const None))
-            [("k", 1)]);
-        "delete" >::
-          (fun () -> assert_set_equal ~printer
-            (alter ~list:[("k", 1)] ~key:"k" (const None))
-            []);
-        "delete_multi" >::
-          (fun () -> assert_set_equal ~printer
-            (alter ~list:[("k", 1); ("k", 2)] ~key:"k" (const None))
-            []);
-        "delete_multi_keep_others" >::
-          (fun () -> assert_set_equal ~printer
-            (alter ~list:[("k", 1); ("l", 2); ("k", 3); ("m", 4)] ~key:"k" (const None))
-            [("l", 2); ("m", 4)]);
-        "update" >::
-          (fun () -> assert_set_equal ~printer
-            (alter ~list:[("k", 1); ("l", 2); ("m", 3)] ~key:"l" (fun v -> Some (v + 1)))
-            [("k", 1); ("l", 3); ("m", 3)]);
-        "update_all" >::
-          (fun () -> assert_set_equal ~printer
-            (alter ~list:[("k", 1); ("l", 2); ("m", 3); ("l", 4)] ~key:"l" (fun v -> Some (v + 1)))
-            [("k", 1); ("l", 3); ("m", 3); ("l", 5)]);
-        "update_no_default" >::
-          (fun () -> assert_set_equal ~printer
-            (alter ~list:[("k", 1); ("l", 2)] ~key:"l" (fun v -> Some (v + 1)))
-            [("k", 1); ("l", 3)]);
-        "remove_no_default" >::
-          (fun () -> assert_set_equal ~printer
-            (alter ~list:[("k", 1); ("l", 2); ("m", 3)] ~key:"l" ~default:4 (const None))
-            [("k", 1); ("m", 3)]);
-      ]
-    ]
-  end
 end
 
 type direction =

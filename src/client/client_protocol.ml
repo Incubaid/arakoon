@@ -19,7 +19,7 @@ open Protocol_common
 open Lwt
 open Log_extra
 open Update
-open Interval
+open Arakoon_interval
 open Routing
 open Statistics
 open Ncfg
@@ -103,7 +103,14 @@ let handle_exception oc exn=
       | Server.FOOBAR ->
         Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unkown failure", true, Logger.Error)
       | Canceled ->
-        Lwt.fail Canceled
+         Lwt.fail Canceled
+      | Unix.Unix_error(Unix.ECONNRESET, _, _) ->
+         Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE,
+                     "ECONNRESET because the client disconnected",
+                    true, Logger.Debug)
+      | End_of_file ->
+        Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "end of file because the client disconnected",
+                    true, Logger.Debug)
       | _ ->
         Lwt.return (Arakoon_exc.E_UNKNOWN_FAILURE, "unknown failure", true, Logger.Error)
   end
@@ -327,6 +334,12 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
       backend # last_entries2 i oc >>= fun () ->
       Lwt.return false
     end
+  | LAST_ENTRIES3 ->
+     Sn.input_sn ic >>= fun i ->
+      Logger.debug_f_ "connection=%s LAST_ENTRIES3: i=%Li" id i >>= fun () ->
+      response_ok oc >>= fun () ->
+      backend # last_entries3 i oc >>= fun () ->
+      Lwt.return false
   | WHO_MASTER ->
     begin
       Logger.debug_f_ "connection=%s WHO_MASTER" id >>= fun () ->
@@ -393,7 +406,7 @@ let one_command stop (ic,oc,id as conn) (backend:Backend.backend) =
         (fun () ->
            backend # read_allowed consistency;
 
-           let open Registry in
+           let open Arakoon_registry in
            (match HookRegistry.lookup name with
              | h ->
                h conn (backend # get_read_user_db ()) (backend :> backend)

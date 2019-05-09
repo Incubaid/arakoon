@@ -61,20 +61,30 @@ class TestCmdTools:
             if status[key] == X.AppStatusType.RUNNING:
                 c = c + 1
         if c != n:
-            for key in status.keys():
-                if status[key] == X.AppStatusType.HALTED:
+            for node in status.keys():
+                if status[node] == X.AppStatusType.HALTED:
                     cfg = cluster._getConfigFile()
-                    logDir = cfg.get(key, "log_dir")
-                    fn = "%s/%s.log" % (logDir, key)
+                    logDir = cfg.get(node, "log_dir")
+                    fn = "%s/%s.log" % (logDir, node)
                     logging.info("fn=%s",fn)
-                    with open(fn,'r') as f:
-                        lines = f.readlines()
-                        logging.info("log file for %s", key)
-                        for l in lines:
-                            ls = l.strip()
-                            logging.info(ls)
+                    def cat_log(fn):
+                        with open(fn,'r') as f:
+                            lines = f.readlines()
+                            logging.info("fn:%s for %s", fn, node)
+                            for l in lines:
+                                ls = l.strip()
+                                logging.info(ls)
 
-        assert_equals(c, n)
+                    #crash log ?
+                    cat_log(fn)
+                    filter = '%s.debug.*' % node    
+                    crash = X.listFilesInDir(logDir,filter = filter)
+                    if len(crash):
+                        crash_fn = crash[0]
+                        cat_log(crash_fn)
+                                             
+        msg = "expected %i running nodes, but got %i" % (n,c)
+        assert_equals(c, n, msg = msg)
 
     def testStart(self):
         cluster = self._getCluster()

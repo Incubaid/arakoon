@@ -26,21 +26,24 @@ let stop = ref (ref false)
 let setup tn master base () =
   let lease_period = 2 in
   let stop = !stop in
-  let make_config () = Node_cfg.Node_cfg.make_test_config ~base 3 master lease_period in
+  let make_config () =
+    Node_cfg.Node_cfg.make_test_config ~base 3 master lease_period
+    |> Lwt.return
+  in
   let t0 = Node_main.test_t make_config "t_arakoon_0" ~stop >>= fun _ -> Lwt.return () in
   let t1 = Node_main.test_t make_config "t_arakoon_1" ~stop >>= fun _ -> Lwt.return () in
   (* let t2 = Node_main.test_t make_config "t_arakoon_2" stop >>= fun _ -> Lwt.return () in *)
   let all_t = [t0;t1(* ;t2 *)] in
-  Lwt.return (tn, make_config (), all_t)
+  Lwt.return (tn, make_config , all_t)
 
 let find_master cluster_cfg =
   Lwt.catch
     (fun () ->
-      Client_main.find_master ~tls:None cluster_cfg >>= fun m ->
+      Client_main.find_master cluster_cfg >>= fun m ->
       Lwt.return (Some m))
     (function
-    | Failure "too many nodes down"
-    | Failure "No Master" ->
+    | Failure x when (x = "too many nodes down" || x = "No Master")
+      ->
       Lwt.return None
     | exn ->
       Lwt.fail exn)
@@ -64,11 +67,15 @@ let teardown (_tn, _, all_t) =
   stop := ref false;
   Lwt.join all_t
 
-let _drop_master do_maintenance (_tn, cluster_cfg, _) =
+let _drop_master do_maintenance
+                 (_tn, (make_cluster_cfg: unit -> cluster_cfg Lwt.t), _)
+  =
+  make_cluster_cfg () >>= fun cluster_cfg ->
+  let client_cluster_cfg = to_client_cfg cluster_cfg in
   let lease_period = cluster_cfg._lease_period in
   let sp = (float lease_period) *. 1.2 in
   Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
-  Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
+  Client_main.find_master client_cluster_cfg >>= fun master_name ->
   if do_maintenance
   then
     begin
@@ -93,37 +100,40 @@ let _drop_master do_maintenance (_tn, cluster_cfg, _) =
   let sa = Network.make_address host port in
   let cid = cluster_cfg.cluster_id in
   Lwt.pick
-    [(Lwt_io.with_connection sa
-                             (fun conn ->
-                              Remote_nodestream.make_remote_nodestream cid conn >>= fun client ->
-                              Logger.info_ "drop_master scenario" >>= fun () ->
-                              client # drop_master () >>= fun () ->
-                              if not do_maintenance
-                              then
-                                begin
-                                  Client_main.find_master ~tls:None cluster_cfg >>= fun new_master ->
-                                  Logger.info_f_ "new? master = %s" new_master >>= fun () ->
-                                  OUnit.assert_bool "master should have been changed" (new_master <> master_name);
-                                  Lwt.return ()
-                                end
-                              else
-                                  wait_until_master cluster_cfg >>= fun new_master ->
-                                  Logger.info_f_ "new? master = %s" new_master >>= fun () ->
-                                  OUnit.assert_bool "master should be the same" (new_master = master_name);
-                                  Lwt.return ()));
+    [(Lwt_io.with_connection
+        sa
+        (fun conn ->
+         Remote_nodestream.make_remote_nodestream cid conn >>= fun client ->
+         Logger.info_ "drop_master scenario" >>= fun () ->
+         client # drop_master () >>= fun () ->
+         if not do_maintenance
+         then
+           begin
+             Client_main.find_master client_cluster_cfg >>= fun new_master ->
+             Logger.info_f_ "new? master = %s" new_master >>= fun () ->
+             OUnit.assert_bool "master should have been changed" (new_master <> master_name);
+             Lwt.return ()
+           end
+         else
+           wait_until_master client_cluster_cfg >>= fun new_master ->
+           Logger.info_f_ "new? master = %s" new_master >>= fun () ->
+           OUnit.assert_bool "master should be the same" (new_master = master_name);
+           Lwt.return ()));
      (Lwt_unix.sleep 60. >>= fun () ->
-      Lwt.fail (Failure "drop master did not terminate quickly enough"))] >>= fun () ->
+      Lwt.fail (Failure "drop master did not terminate quickly enough"))
+    ]
+  >>= fun () ->
   if do_maintenance
   then
     Lwt_condition.signal Mem_store.defrag_condition ();
   Lwt_unix.sleep (float lease_period) >>= fun () ->
-  find_master cluster_cfg >>= fun _ ->
+  find_master client_cluster_cfg >>= fun _ ->
   Lwt_unix.sleep (float lease_period) >>= fun () ->
-  find_master cluster_cfg >>= fun _ ->
+  find_master client_cluster_cfg >>= fun _ ->
   Lwt.return ()
 
-let drop_master tpl = _drop_master false tpl
-let drop_master_while_maintenance tpl = _drop_master true tpl
+let drop_master                   tpl = _drop_master false tpl
+let drop_master_while_maintenance tpl = _drop_master true  tpl
 
 
 let make_suite base name w =

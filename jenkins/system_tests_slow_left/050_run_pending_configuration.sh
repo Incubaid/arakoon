@@ -1,1 +1,0 @@
-../050_run_pending_configuration.sh

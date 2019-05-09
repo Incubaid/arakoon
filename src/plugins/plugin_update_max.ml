@@ -15,7 +15,7 @@ limitations under the License.
 *)
 
 
-open Registry
+open Arakoon_registry
 
 let s2i = int_of_string
 let i2s = string_of_int

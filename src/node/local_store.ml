@@ -41,7 +41,7 @@ let copy_store2 old_location new_location
   if not src_exists
   then
     Logger.info_f_ "File at %s does not exist" old_location >>= fun () ->
-    raise Not_found
+    Lwt.fail Not_found
   else
     File_system.copy_file old_location new_location ~overwrite ~throttling
 
@@ -205,7 +205,7 @@ let copy_store ls networkClient (oc: Lwt_io.output_channel) =
 let relocate ls new_location =
   copy_store2 ls.location new_location ~overwrite:true
               ~throttling:0.0
-  >>= fun () ->
+  >>= fun _copied ->
   let old_location = ls.location in
   let () = ls.location <- new_location in
   Logger.info_f_ "Attempting to unlink file '%s'" old_location >>= fun () ->
@@ -283,7 +283,7 @@ let make_store ~lcnum ~ncnum read_only db_name  =
                lcnum;}
 
 
-let optimize ls ~quiesced ~stop =
+let optimize ls ~quiesced ~stop ~slowdown_factor =
   let open Camltc in
   let batch_size = 10_000 in
   let log_size = 1_000_000 in
@@ -302,17 +302,25 @@ let optimize ls ~quiesced ~stop =
           Bdb.first source cursor;
           let max = Some batch_size in
           let rec loop i =
+            let t0 = Unix.gettimeofday () in
             let count =
               Bdb.copy_from_cursor
                 ~source
                 ~cursor
                 ~target
                 ~max in
+            let t1 = Unix.gettimeofday () in
+            let dt = t1 -. t0 in
             if !stop
             then
               false
             else if count = batch_size
             then
+              let () =
+                match slowdown_factor with
+                | None -> ()
+                | Some factor -> Unix.sleepf (factor *. dt)
+              in
               begin
                 if i = log_batch_count
                 then

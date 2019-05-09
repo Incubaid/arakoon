@@ -18,6 +18,7 @@ open OUnit
 open Lwt
 open Log_extra
 open Node_cfg
+open Arakoon_registry
 
 let section = Logger.Section.main
 
@@ -44,33 +45,33 @@ type real_test = Arakoon_client.client -> unit Lwt.t
 let __client_server_wrapper__ (real_test:real_test) =
   let stop = ref false in
   let lease_period = 2 in
-  let make_config () = Node_cfg.make_test_config
-                         ~cluster_id:_CLUSTER
-                         ~node_name:(Printf.sprintf "sweety_%i")
-                         1 (Master_type.Elected) lease_period
+  let make_config () =
+    let r =
+      Node_cfg.make_test_config
+      ~cluster_id:_CLUSTER
+      ~node_name:(Printf.sprintf "sweety_%i")
+      ~source_node:None
+      1 (Master_type.Elected) lease_period
+    in
+    Lwt.return r
   in
-  let cluster_cfg = make_config () in
-  let t0 = Node_main.test_t make_config "sweety_0" ~stop >>= fun _ -> Lwt.return () in
+  let t0 =
+    Node_main.test_t make_config "sweety_0" ~stop >>= fun _ -> Lwt.return ()
+  in
 
-  let client_t () =
+  let client_t cluster_cfg =
     let sp = float(lease_period) *. 0.5 in
     Lwt_unix.sleep sp >>= fun () -> (* let the cluster reach stability *)
     Logger.info_ "cluster should have reached stability" >>= fun () ->
-    Client_main.find_master ~tls:None cluster_cfg >>= fun master_name ->
+    Client_main.find_master cluster_cfg >>= fun master_name ->
     Logger.info_f_ "master=%S" master_name >>= fun () ->
-    let master_cfg =
-      List.hd
-        (List.filter (fun cfg -> cfg.Node_cfg.node_name = master_name) cluster_cfg.Node_cfg.cfgs)
-    in
-    Client_main.with_client
-      ~tls:None
-      master_cfg
-      cluster_cfg.Node_cfg.cluster_id
-      real_test
+    Client_helper.with_client'' cluster_cfg master_name real_test
   in
   let main () =
+    make_config () >>= fun cluster_cfg ->
     Lwt.pick [(t0 >>= fun () -> Lwt.return false);
-              (client_t () >>= fun () -> Lwt.return true);] >>= fun succeeded ->
+              (client_t (Node_cfg.to_client_cfg cluster_cfg) >>= fun () ->
+               Lwt.return true);] >>= fun succeeded ->
     stop := true;
     OUnit.assert_bool "client thread should finish before server" succeeded;
     Lwt.return ()
@@ -183,7 +184,7 @@ let _test_user_function (client:Arakoon_client.client) =
        String.iter (fun c -> r := (String.make 1 c ^ !r)) s;
        Some !r
   in
-  Registry.Registry.register "reverse" uf;
+  Registry.register "reverse" uf;
 
   client # user_function "reverse" (Some "echo") >>= fun ro ->
   Logger.debug_f_ "we got %s" (string_option2s ro) >>= fun () ->
@@ -195,8 +196,8 @@ let _test_user_function (client:Arakoon_client.client) =
     "non existing user function should throw exception"
     "ok!" >>= fun () ->
 
-  Registry.Registry.register "notfound" (fun _ _ -> raise Not_found);
-  Registry.Registry.register "failure" (fun _ _ -> raise (Failure ""));
+  Registry.register "notfound" (fun _ _ -> raise Not_found);
+  Registry.register "failure" (fun _ _ -> raise (Failure ""));
 
   should_fail
     (fun () -> Lwt.map ignore (client # user_function "notfound" None))
@@ -215,39 +216,39 @@ let test_user_function () =
   __client_server_wrapper__ _test_user_function
 
 let test_user_hook () =
-  Registry.HookRegistry.register "t3k"
-                                 (fun (ic,oc,_) _ _ ->
-                                  Llio.input_string ic >>= fun arg ->
-                                  Llio.output_string oc ("cucu " ^ arg));
-  Registry.HookRegistry.register "rev_range"
-                                 (fun (_,oc,_) user_db _ ->
-                                  let _count, keys = user_db # with_cursor
-                                                         (fun cur ->
-                                                          Registry.Cursor_store.fold_rev_range
-                                                            cur
-                                                            (Some "t")
-                                                            false
-                                                            "a"
-                                                            false
-                                                            (-1)
-                                                            (fun _ k _ acc ->
-                                                             k :: acc)
-                                                            []) in
-                                  Llio.output_list Llio.output_key oc keys
-                                 );
+  HookRegistry.register "t3k"
+    (fun (ic,oc,_) _ _ ->
+      Llio.input_string ic >>= fun arg ->
+      Llio.output_string oc ("cucu " ^ arg));
+  HookRegistry.register "rev_range"
+    (fun (_,oc,_) user_db _ ->
+      let _count, keys = user_db # with_cursor
+                           (fun cur ->
+                             Arakoon_registry.Cursor_store.fold_rev_range
+                               cur
+                               (Some "t")
+                               false
+                               "a"
+                               false
+                               (-1)
+                               (fun _ k _ acc ->
+                                 k :: acc)
+                               []) in
+      Llio.output_list Llio.output_key oc keys
+    );
   __client_server_wrapper__ (fun client ->
-                             client # user_hook "t3k" >>= fun (ic,oc) ->
-                             Llio.output_string oc "cthulhu" >>= fun () ->
-                             Llio.input_string ic >>= fun response ->
-                             OUnit.assert_equal response "cucu cthulhu";
+      client # user_hook "t3k" >>= fun (ic,oc) ->
+      Llio.output_string oc "cthulhu" >>= fun () ->
+      Llio.input_string ic >>= fun response ->
+      OUnit.assert_equal response "cucu cthulhu";
 
-                             let keys = ["a"; "b"; "c"; "f"; "t"] in
-                             Lwt_list.iter_p (fun k -> client # set k k) keys >>= fun () ->
+      let keys = ["a"; "b"; "c"; "f"; "t"] in
+      Lwt_list.iter_p (fun k -> client # set k k) keys >>= fun () ->
 
-                             client # user_hook "rev_range" >>= fun (ic,_) ->
-                             Llio.input_list Llio.input_string ic >>= fun response ->
-                             OUnit.assert_equal response ["f"; "c"; "b"];
-                             Lwt.return ())
+      client # user_hook "rev_range" >>= fun (ic,_) ->
+      Llio.input_list Llio.input_string ic >>= fun response ->
+      OUnit.assert_equal response ["f"; "c"; "b"];
+      Lwt.return ())
 
 let _clear (client:Arakoon_client.client)  () =
   client # range None true None true 1000 >>= fun xn ->

@@ -1,84 +1,69 @@
 # This makefile wrapper makes DEBIAN packaging easier.
-PREFIX ?=/usr
 
-START = $(DESTDIR)$(PREFIX)
+# The debian installer defined DESTDIR. If set, we install where debian expects it,
+# othervice we install where opam expects it
+ifdef DESTDIR
+  LIBDIR=$(DESTDIR)/usr/lib/ocaml
+  PREFIX=$(DESTDIR)/usr
+else
+  PREFIX=$(shell opam config var prefix)
+  LIBDIR=$(shell opam config var lib)
+endif
 
-OCAML_LIBDIR ?= $(START)/lib/ocaml/
-#OCAML_LIBDIR ?= `ocamlfind printconf destdir`
-OCAML_FIND ?= ocamlfind
-
-all: build
-
-clean:
-	ocamlbuild -clean
+all: arakoon.native bench.native lwt_buffer_test.native
 
 build:
-	ocamlbuild -j 4 -use-ocamlfind arakoon.byte arakoon.native arakoon_client.cma arakoon_client.cmxa arakoon_client.a arakoon_client.cmxs plugin_helper.cmi
+	@dune build
 
-bench:
-	ocamlbuild -use-ocamlfind bs_bench.native
+arakoon.native: build
+	@ln -sf _build/default/src/main/arakoon.exe arakoon.native
 
-test:
-	./arakoon.native --run-all-tests
+bench.native:
+	@dune build src/main/bs_bench.exe
+	@ln -sf _build/default/src/main/bs_bench.exe bs_bench.native
 
-install: install_client install_server man
+lwt_buffer_test.native:
+	@dune build src/main/lwt_buffer_test.exe
+	@ln -sf _build/default/src/main/lwt_buffer_test.exe lwt_buffer_test.native
 
-install_server:
-	mkdir -p $(START)/bin/
-	cp ./arakoon.native $(START)/bin/arakoon
+clean:
+	dune clean
+	rm -f arakoon.native bs_bench.native lwt_buffer_test.native
 
-install_client:
-	mkdir -p $(OCAML_LIBDIR)
-	$(OCAML_FIND) install arakoon_client -destdir $(OCAML_LIBDIR) META \
-	  _build/src/arakoon_client.cma \
-	  _build/src/arakoon_client.cmxa \
-	  _build/src/arakoon_client.cmxs \
-	  _build/src/client/stamp.cmi \
-	  _build/src/client/arakoon_exc.mli \
-	  _build/src/client/arakoon_exc.cmi \
-          _build/src/client/arakoon_client_config.cmi \
-	  _build/src/client/arakoon_client.mli \
-	  _build/src/client/arakoon_client.cmi \
-	  _build/src/client/arakoon_remote_client.mli \
-	  _build/src/client/arakoon_remote_client.cmi \
-          _build/src/client/protocol_common.cmi \
-          _build/src/client/client_helper.cmi \
-          _build/src/inifiles/inifiles.mli \
-          _build/src/inifiles/inifiles.cmi \
-          _build/src/lib/std.cmi \
-          _build/src/plugins/registry.mli \
-          _build/src/plugins/registry.cmi \
-          _build/src/plugins/plugin_helper.mli \
-          _build/src/plugins/plugin_helper.cmi \
-          _build/src/node/key.mli \
-          _build/src/node/key.cmi \
-          _build/src/node/simple_store.cmi \
-          _build/src/nursery/routing.cmi \
-          _build/src/tlog/interval.cmi \
-          _build/src/tlog/update.cmi \
-          _build/src/tools/ini.cmi \
-          _build/src/tools/llio.mli \
-          _build/src/tools/llio.cmi \
-          _build/src/tools/network.cmi \
-          _build/src/tools/lwt_extra.cmi \
-          _build/src/tools/typed_ssl.mli \
-          _build/src/tools/typed_ssl.cmi \
-          _build/src/arakoon_client.a
+test:	build
+	dune exec -- arakoon test
 
-uninstall_client:
-	$(OCAML_FIND) remove arakoon_client -destdir $(OCAML_LIBDIR)
+install: build
+	@mkdir -p $(LIBDIR) $(PREFIX)
+ifdef DESTDIR
+	mkdir -p $(DESTDIR)/usr/lib
+	ldd arakoon.native | \
+          grep librocksdb | \
+          awk '/=> /{print $$3}' | \
+          xargs cp --target-directory $(DESTDIR)/usr/lib
+endif
+	dune install --libdir=$(LIBDIR) --prefix=$(PREFIX)
 
-coverage:
-	ocamlbuild -use-ocamlfind \
-	-tag use_bisect \
-	arakoon.d.byte
+uninstall: build
+	dune uninstall --libdir=$(LIBDIR) --prefix=$(PREFIX)
+
+uninstall_client: build
+	dune uninstall -p arakoon_client --libdir=$(LIBDIR) --prefix=$(PREFIX)
 
 man:
 	ln -s ./arakoon.native arakoon
 	help2man --name='Arakoon, a consistent key value store' ./arakoon > debian/arakoon.man
 	rm arakoon
 
-.PHONY: install test build install_client bench
+examples:
+	dune build examples/ocaml/plugin_demo.exe examples/ocaml/demo.exe
+
+doc:
+	dune build @doc
+
+
+.PHONY: install uninstall test build bench examples arakoon.native doc man
+
 
 
 indent-tabs-to-spaces:

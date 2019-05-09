@@ -23,8 +23,8 @@ Extra
 File_system
 Fsm
 Ini
-Inifiles
-Interval
+Arakoon_inifiles
+Arakoon_interval
 Key
 Limits
 Llio

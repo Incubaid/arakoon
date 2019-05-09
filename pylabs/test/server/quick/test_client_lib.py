@@ -15,19 +15,40 @@ limitations under the License.
 """
 
 from Compat import X
+import os
+import logging
+import subprocess
 
 def test_client_lib():
     my_temp = '/tmp/client_lib_test'
+    OCAML_LIBDIR = X.subprocess.check_output('ocamlfind printconf destdir',
+                                             shell=True)
+    OCAML_LIBDIR = OCAML_LIBDIR.strip()
+    env = os.environ.copy()
+    env['OCAML_LIBDIR'] = OCAML_LIBDIR
     cmds = [
         (['make', 'uninstall_client'], None),
-        (['make', 'install_client'], None),
+        (['make', 'install'], None),
         (['mkdir', '-p',  my_temp], None),
-        (['cp', './examples/ocaml/demo.ml', './examples/ocaml/_tags', my_temp], None),
-        (['ocamlbuild', '-use-ocamlfind', 'demo.native'], my_temp),
+        (['cp', './examples/ocaml/demo.ml', my_temp], None),
+        (['ocamlbuild', '-use-ocamlfind', '-package','lwt' ,
+          '-package','arakoon_client',
+          '-tags', 'annot,debug,thread',
+          'demo.native'], my_temp),
         (['make', 'uninstall_client'], None),
     ]
     for cmd, cwd in cmds:
         if cwd == None:
             cwd = '../..'
-        r = X.subprocess.check_output(cmd, cwd = cwd)
-        print r
+        print cmd
+        try:
+            r = X.subprocess.check_output(cmd,
+                                          cwd = cwd,
+                                          env = env,
+                                          stderr= X.subprocess.STDOUT
+            )
+            print r
+        except subprocess.CalledProcessError as ex:
+            logging.info("ex:%s" % ex)
+            logging.info("output=%s" % ex.output)
+            raise ex

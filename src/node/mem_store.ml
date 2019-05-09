@@ -122,7 +122,8 @@ let range ms first finc last linc max =
                      []) in
   Array.of_list keys
 
-let optimize _ms ~quiesced ~stop =
+let optimize _ms ~quiesced ~stop ~slowdown_factor =
+    let () = ignore slowdown_factor in
     let () = ignore quiesced in
     let () = ignore stop in
     Lwt.return true
@@ -148,7 +149,7 @@ let get_key_count ms =
 let copy_store2 (_old_location:string) (_new_location:string)
                 ~(overwrite:bool) ~(throttling:float) =
   ignore (overwrite,throttling);
-  Lwt.return ()
+  Lwt.return_false
 
 let relocate _new_location = failwith "Memstore.relocation not implemented"
 

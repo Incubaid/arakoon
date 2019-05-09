@@ -15,7 +15,7 @@ limitations under the License.
 *)
 
 open Routing
-open Interval
+open Arakoon_interval
 open Client_cfg
 open Ncfg
 
@@ -23,7 +23,7 @@ class type nodestream = object
   method iterate:
     Sn.t -> (Sn.t * Value.t -> unit Lwt.t) ->
     Tlogcollection.tlog_collection ->
-    head_saved_cb:(string -> unit Lwt.t) -> unit Lwt.t
+    head_saved_cb:(string -> unit Lwt.t) -> bool Lwt.t
 
   method collapse: int -> unit Lwt.t
 
@@ -33,6 +33,7 @@ class type nodestream = object
 
   method optimize_db: unit -> unit Lwt.t
   method defrag_db:unit -> unit Lwt.t
+  method copy_db_to_head : int -> unit Lwt.t
   method get_db: string -> unit Lwt.t
 
   method get_fringe: string option -> Routing.range_direction -> ((string * string) list) Lwt.t

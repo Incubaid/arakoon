@@ -24,7 +24,7 @@ import logging
 import tempfile
 import unittest
 import contextlib
-import subprocess
+
 
 from .. import system_tests_common as C
 from Compat import X
@@ -79,8 +79,8 @@ def wait_for_master(cfg, nodes, settings, ca_path, key, timeout, interval):
     while time.time() < end:
         LOGGER.info('Retrieving master')
 
-        proc = subprocess.Popen(args, close_fds=True,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = X.subprocess.Popen(args, close_fds=True,
+                                  stdout = X.subprocess.PIPE, stderr = X.subprocess.PIPE)
 
         rc = proc.wait()
 
@@ -124,7 +124,7 @@ class ProcessManager(object):
         return map(lambda n: self.start_node(config_path, n), nodes)
 
     def run_async(self, *a, **k):
-        proc = subprocess.Popen(*a, **k)
+        proc = X.subprocess.Popen(*a, **k)
         self._processes.add(proc)
         return proc
 
@@ -167,12 +167,12 @@ def make_ca(path):
         'openssl req -new -nodes -out cacert-req.pem -keyout cacert.key -subj'.split()
     args.append(subject)
 
-    subprocess.check_call(args, close_fds=True, cwd=path)
+    X.subprocess.check_call(args, close_fds=True, cwd=path)
 
     # Self-sign CA CSR
     args = \
         'openssl x509 -signkey cacert.key -req -in cacert-req.pem -out cacert.pem'.split()
-    subprocess.check_call(args, close_fds=True, cwd=path)
+    X.subprocess.check_call(args, close_fds=True, cwd=path)
 
     os.unlink(os.path.join(path, 'cacert-req.pem'))
 
@@ -185,7 +185,7 @@ def make_node_cert(path, name, serial):
     args = args.split()
     args.append(subject)
 
-    subprocess.check_call(args, close_fds=True, cwd=path)
+    X.subprocess.check_call(args, close_fds=True, cwd=path)
 
     # Sign
     args = \
@@ -193,7 +193,7 @@ def make_node_cert(path, name, serial):
         {'name': name, 'serial': serial}
     args = args.split()
 
-    subprocess.check_call(args, close_fds=True, cwd=path)
+    X.subprocess.check_call(args, close_fds=True, cwd=path)
 
     os.unlink(os.path.join(path, '%s-req.pem' % name))
 
@@ -202,7 +202,7 @@ def make_node_cert(path, name, serial):
         'openssl verify -CAfile cacert.pem %(name)s.pem' % {'name': name}
     args = args.split()
 
-    subprocess.check_call(args, close_fds=True, cwd=path)
+    X.subprocess.check_call(args, close_fds=True, cwd=path)
 
 @contextlib.contextmanager
 def config(template, nodes):
@@ -345,8 +345,8 @@ class TestTLS(unittest.TestCase):
 
                 args = args.split()
 
-                proc = subprocess.Popen(args, stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                proc = X.subprocess.Popen(args, stdin = X.subprocess.PIPE,
+                    stdout=subprocess.PIPE, stderr= X.subprocess.PIPE,
                     close_fds=True)
                 proc.stdin.close()
 

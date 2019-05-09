@@ -112,12 +112,18 @@ let with_tmp_file tmp dest f =
      rename tmp dest)
     (fun () -> Lwt_unix.close fd)
 
+let with_fd filename ~flags ~perm f =
+  Lwt_unix.openfile filename flags perm >>= fun fd ->
+  Lwt.finalize
+    (fun () -> f fd)
+    (fun () -> Lwt_unix.close fd)
+
 let copy_file source target ~overwrite ~throttling =
   (* LOOKS LIKE Clone.copy_stream ... *)
-  Logger.info_f_ "copy_file %s %s (overwrite=%b,throttling=%f)"
-                 source target overwrite throttling >>= fun () ->
-  let bs = Lwt_io.default_buffer_size () in
-  let buffer = String.make bs 'a' in
+  let bs = 1024 * 1024 in
+  Logger.info_f_ "copy_file %s %s (overwrite=%b,throttling=%f) buffer_size:%i"
+                 source target overwrite throttling bs >>= fun () ->
+
   let throttle =
     match throttling with
     | 0.0   -> fun f  -> f ()
@@ -130,22 +136,29 @@ let copy_file source target ~overwrite ~throttling =
        Lwt_unix.sleep (factor *. dt) >>= fun () ->
        Lwt.return r
   in
-  let copy_all ic oc =
+  let copy_all buffer ~fd_in ~fd_out =
     let rec loop () =
       throttle
         (fun () ->
-         Lwt_io.read_into ic buffer 0 bs >>= fun bytes_read ->
+         Lwt_bytes.read fd_in buffer 0 bs >>= fun bytes_read ->
          if bytes_read > 0
          then
            begin
-             Lwt_io.write oc buffer >>= fun () ->
+             let rec inner offset todo =
+               Lwt_bytes.write fd_out buffer offset todo >>= fun bytes_written ->
+               let todo = todo - bytes_written in
+               if todo > 0
+               then inner (offset + bytes_written) todo
+               else Lwt.return_unit
+             in
+             inner 0 bytes_read >>= fun () ->
              Lwt.return `Continue
            end
          else
            Lwt.return `Stop)
       >>= function
         | `Continue -> loop ()
-        | `Stop -> Lwt.return ()
+        | `Stop -> Lwt.return_unit
     in
     loop () >>= fun () ->
     Logger.info_ "done: copy_file"
@@ -153,15 +166,34 @@ let copy_file source target ~overwrite ~throttling =
   exists target >>= fun target_exists ->
   if target_exists && not overwrite
   then
-    Logger.info_f_ "Not copying %s to %s because target already exists" source target
+    Logger.info_f_ "Not copying %s to %s because target already exists" source target >>= fun () ->
+    Lwt.return_false
   else
     begin
       let tmp_file = target ^ ".tmp" in
       unlink tmp_file >>= fun () ->
-      Lwt_io.with_file ~mode:Lwt_io.input source
-        (fun ic ->
-         with_tmp_file tmp_file target
-                       (fun oc -> copy_all ic oc))
+      with_fd
+        source
+        ~flags:[ Unix.O_RDONLY; Unix.O_NONBLOCK; ]
+        ~perm:0
+        (fun fd_in ->
+          with_fd
+            tmp_file
+            ~flags:[ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; Unix.O_NONBLOCK; Unix.O_EXCL; ]
+            ~perm:0o644
+            (fun fd_out ->
+              let buffer = Lwt_bytes.create bs in
+              Lwt.finalize
+                (fun () -> copy_all buffer ~fd_in ~fd_out)
+                (fun () -> Core_kernel.Bigstring.unsafe_destroy buffer;
+                           Lwt.return_unit)
+              >>= fun () ->
+              Lwt_unix.fsync fd_out
+            )
+        )
+      >>= fun () ->
+      rename tmp_file target >>= fun () ->
+      Lwt.return_true
     end
 
 let safe_rename src dest =

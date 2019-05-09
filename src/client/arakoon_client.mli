@@ -27,6 +27,7 @@ type change =
   | Assert of (key * value option)
   | Assert_exists of (key)
   | Assert_range of key * Update.Range_assertion.t
+  | Delete_prefix of key
   | TestAndSet of key * value option * value option
   | UserFunction of string * string option
   | Sequence of change list
@@ -87,15 +88,18 @@ class type client = object
   method nop : unit -> unit Lwt.t
   (** [nop ()] is a paxos no-operation.
    *)
+
   method confirm: key -> value -> unit Lwt.t
   (** [confirm key value] does nothing if this value was already
       associated to the key, otherwise, it behaves as [set key value]
   *)
+
   method aSSert: ?consistency:consistency -> key -> value option -> unit Lwt.t
   (**
      [aSSert key vo] throws Arakoon_exc.Exception (E_ASSERTION_FAILED,_) if
      the value associated with the key is not what was expected.
   *)
+
   method aSSert_exists: ?consistency:consistency -> key -> unit Lwt.t
 
   method delete: key -> unit Lwt.t

@@ -17,9 +17,10 @@ limitations under the License.
 
 
 from .. import system_tests_common as C
-
+from Compat import X
 from nose.tools import *
-from arakoon.ArakoonExceptions import *
+import time
+import logging
 
 @C.with_custom_setup(C.setup_1_node, C.basic_teardown)
 def test_read_only():
@@ -30,7 +31,16 @@ def test_read_only():
    cluster.stop()
    cluster.setReadOnly()
    cluster.start()
-   assert_raises(ArakoonException, client.set, 'xxx','yyy')
+   time.sleep(10)
+   client = C.get_client()
+   try:
+      client.set('xxx','yyy')
+      logging.fatal("we should not get here")
+      raise Exception ("should fail")
+   except Exception, e:
+      logging.info("exception :%s class:%s", e, e.__class__)
+      assert_true(isinstance(e,X.arakoon_client.ArakoonException))
+                  
    xxx = client['xxx']
    assert_equals(xxx,v)
    

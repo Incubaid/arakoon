@@ -17,7 +17,7 @@ limitations under the License.
 
 
 open Lwt
-open Interval
+open Arakoon_interval
 open Update
 open Routing
 open Client_cfg
@@ -83,6 +83,7 @@ type client_command =
   | GET_TXID
   | COPY_DB_TO_HEAD
   | USER_HOOK
+  | LAST_ENTRIES3
 
 
 let code2int = [
@@ -133,6 +134,7 @@ let code2int = [
   GET_TXID                , 0x43l;
   COPY_DB_TO_HEAD         , 0x44l;
   USER_HOOK               , 0x45l;
+  LAST_ENTRIES3           , 0x46l;
 ]
 
 let int2code =
@@ -415,8 +417,9 @@ let rec change_to_update c =
   | TestAndSet (k,vo,v) -> Update.TestAndSet (k,vo,v)
   | Sequence cs -> Update.Sequence (List.map change_to_update cs)
   | Assert(k,vo) -> Update.Assert(k,vo)
-  | Assert_exists(k) -> Update.Assert_exists(k)
+  | Assert_exists k -> Update.Assert_exists k
   | Assert_range(p,a) -> Update.Assert_range(p,a)
+  | Delete_prefix k  -> Update.DeletePrefix k
   | UserFunction(name,vo) -> Update.UserFunction(name, vo)
 
 let _build_sequence_request buf changes =
@@ -476,6 +479,14 @@ let optimize_db (ic,oc) =
 
 let defrag_db (ic,oc) =
   let outgoing buf = command_to buf DEFRAG_DB in
+  request oc outgoing >>= fun () ->
+  response ic nothing
+
+let copy_db_to_head (ic, oc) tlogs_to_keep =
+  let outgoing buf =
+    command_to buf COPY_DB_TO_HEAD;
+    Llio.int_to buf tlogs_to_keep
+  in
   request oc outgoing >>= fun () ->
   response ic nothing
 

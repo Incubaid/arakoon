@@ -5,13 +5,10 @@ let dependencies = [ "lwt";
                      "snappy";
                      "ssl";
                      "bz2";
-                     "quickcheck";
-                     "nocrypto";
-                     "zarith";
-                     "cstruct";
-                     "ctypes";
                      "ocplib-endian";
-                     "uuidm";
+                     "redis";
+                     "uri";
+                     "core";
                    ]
 
 (* Enabled compiler warnings, argument for '-w', see `man ocamlc` *)
@@ -60,7 +57,7 @@ let list_dependencies () =
   let pkgs = List.map query dependencies in
   let lines = List.map (fun (pkg, version, descr) ->
     let tabs = if String.length pkg < 8 then "\t\t" else "\t" in
-    Printf.sprintf "%s%s%s\t%s" pkg tabs version descr)
+    Printf.sprintf "%s%s%12s\t%s" pkg tabs version descr)
     pkgs
   in
   String.concat "\n" lines
@@ -72,7 +69,7 @@ let time () =
     tm.tm_hour tm.tm_min tm.tm_sec
 
 let major_minor_patch () =
-  let tag_version = run_cmd "git describe --tags --exact-match --dirty"
+  let tag_version = run_cmd "git describe --tags --exact-match --dirty 2>/dev/null"
   and branch_version = run_cmd "git describe --all" in
 
   let (major, minor, patch) =
@@ -116,6 +113,8 @@ let path_to_bisect () =
 
 
 let _ = dispatch & function
+     | Before_options ->
+        Options.use_ocamlfind := true
     | After_rules ->
       rule "arakoon_version.ml" ~prod:"arakoon_version.ml" make_version;
 
@@ -128,6 +127,7 @@ let _ = dispatch & function
             A"-ccopt"; A"-Wextra";
             A"-ccopt"; A"-Werror";
             A"-ccopt"; A"-ggdb3";
+            A"-ccopt"; A"-Wcast-align";
             A"-ccopt"; A"-O2";
             (* Optionally add something like -march=core2 -mtune=corei7-avx for
              * a minor extra performance gain in CRC32 calculations *)
@@ -138,10 +138,6 @@ let _ = dispatch & function
       flag ["ocaml";"link";"is_main"](
         S[A"-linkpkg"; A"src/libcutil.a";
          ]);
-
-      flag ["ocaml";"link";"is_main"](
-        S[A"-package"; A"nocrypto";]
-      );
 
       flag ["ocaml";"byte";"link"] (S[A"-custom";]);
 

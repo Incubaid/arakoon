@@ -125,6 +125,11 @@ def _getCluster( c_id = None):
     mgmt = ArakoonManagement.ArakoonManagement()
     return mgmt.getCluster(c_id)
 
+def call_arakoon(*params):
+    cmd = [CONFIG.binary_full_path] + list(params)
+    r = X.subprocess.check_output(cmd)
+    return r
+
 def dump_tlog (node_id, tlog_number) :
     cluster = _getCluster()
     node_home_dir = cluster.getNodeConfig(node_id ) ['home']
@@ -161,15 +166,11 @@ def dump_store( node_id ):
 
     db_file = get_node_db_file ( node_id )
     dump_file = '/'.join([X.tmpDir,"%s.dump" % node_id])
-    cmd = get_tcbmgr_path() + " list -pv " + db_file
-    try:
-        dump_fd = open( dump_file, 'w' )
-        logging.info( "Dumping store of %s to %s" % (node_id, dump_file) )
-        stdout= X.subprocess.check_output( cmd , captureOutput=True, stdout=dump_fd )
-        dump_fd.close()
-    except:
-        logging.info("Unexpected error: %s" % sys.exc_info()[0])
+    cmd = [CONFIG.binary_full_path, "--dump-store", db_file, "-dump-values"]
 
+    with open( dump_file, 'w' ) as dump_fd:
+        logging.info( "Dumping store of %s to %s" % (node_id, dump_file) )
+        rc = X.subprocess.check_call(cmd, stdout = dump_fd)
     return dump_file
 
 def flush_store(node_name):
@@ -193,8 +194,14 @@ def get_i(node_id, head=False):
         db_file = head_dir + "/head.db"
     else:
         db_file = get_node_db_file(node_id)
+
+    logging.debug("%s exists: %s" % (db_file, os.path.exists(db_file)))
+
     cmd = [get_arakoon_binary(), "--dump-store", db_file]
+    logging.debug("get_i:cmd = %s" % str(cmd))
     stdout=  X.subprocess.check_output(cmd)
+    print "\nstdout=\n"
+    print stdout
     i_line = stdout.split("\n") [0]
     logging.info("i_line='%s'", i_line)
 
@@ -366,11 +373,6 @@ def last_entry_code(node_id):
 def get_last_i_tlog ( node_id ):
     tlog_dump = dump_tlog ( node_id, get_last_tlog_id(node_id) )
     tlog_dump_list = tlog_dump.split("\n")
-    tlog_first_entry = tlog_dump_list[0]
-    tlog_first_i = int(tlog_first_entry.split(":") [0].lstrip(" "))
-    if tlog_first_i % tlog_entries_per_tlog != 0 :
-        test_failed = True
-        raise Exception( "Problem with tlog rollover, first entry (%d) incorrect" % tlog_first_i )
     tlog_last_entry = tlog_dump_list [-2]
     tlog_last_i = tlog_last_entry.split(":") [0].lstrip( " 0" )
     return tlog_last_i
@@ -380,9 +382,9 @@ def stopOne(name):
     rc = cluster.stopOne(name)
     assert (rc == 0)
 
-def startOne(name):
+def startOne(name, extraParams = None):
     cluster = _getCluster()
-    cluster.startOne(name)
+    cluster.startOne(name, extraParams)
 
 def dropMaster(name):
     cluster = _getCluster()
@@ -400,9 +402,9 @@ def defragDb(name):
     cluster = _getCluster()
     cluster.defragDb(name)
 
-def catchupOnly(name):
+def catchupOnly(name, sourceNode = None):
     cluster = _getCluster()
-    cluster.catchupOnly(name)
+    cluster.catchupOnly(name, sourceNode)
 
 def restart_all():
     cluster = _getCluster()
@@ -496,11 +498,11 @@ def get_memory_usage(node_name):
     pid = cluster._getPid(node_name )
     if pid is None:
         return 0
-    cmd = ["ps", "-p", pid, "-o", "vsz"]
+    cmd = ["ps", "-p", str(pid), "-o", "vsz"]
     try:
         stdout = X.subprocess.check_output( cmd )
-    except:
-        logging.error( "Coud not determine memory usage: %s" % stderr )
+    except Exception,e:
+        logging.error( "Coud not determine memory usage: %s" % e)
         return 0
 
     try:
@@ -516,6 +518,13 @@ def collapse(name, n = 1):
     ip = config['ip']
     port = config['client_port']
     rc = X.subprocess.call([CONFIG.binary_full_path, '--collapse-remote',cluster_id,ip,port,str(n)])
+    return rc
+
+def local_collapse(name, n=1):
+    cluster = _getCluster()
+    cfg = "%s.cfg" % cluster._getConfigFileName()
+    rc = X.subprocess.call([ CONFIG.binary_full_path, '--collapse-local', name, str(n),
+                             '-config', cfg ])
     return rc
 
 def add_node ( i ):
@@ -628,8 +637,14 @@ def build_node_dir_names ( nodeName, base_dir = None ):
 
 def setup_n_nodes_base(c_id, node_names, force_master,
                        base_dir, base_msg_port, base_client_port,
-                       extra = None, witness_nodes = False, useIPV6=False,
+                       extra = None, nodes_extra = None,
+                       witness_nodes = False, useIPV6=False,
                        slowCollapser = False):
+
+    running_arakoons = X.subprocess.check_output("pgrep -c arakoon || true",
+                                                 shell = True).strip()
+    print "\n\tpgrep -c arakoon =>%s" % running_arakoons
+    logging.info("pgrep -c arakoon =>%s", running_arakoons)
 
     X.subprocess.check_call("sudo /sbin/iptables -F".split(' ') )
 
@@ -680,6 +695,9 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     for i in range (n):
         nodeName = node_names[ i ]
         config.set(nodeName, '__tainted_fsync_tlog_dir', 'false')
+        if nodes_extra and nodes_extra.get(nodeName):
+            for k,v in nodes_extra[nodeName].items():
+                config.set(nodeName, k, v)
 
     #
     #
@@ -703,16 +721,18 @@ def setup_n_nodes_base(c_id, node_names, force_master,
     lease = int(lease_duration)
     logging.info( "Setting lease expiration to %d" % lease)
     cluster.setMasterLease( lease )
+    return cluster
 
 
-def setup_n_nodes ( n, force_master, home_dir , extra = None,
+def setup_n_nodes ( n, force_master, home_dir,
+                    extra = None, nodes_extra = None,
                     witness_nodes = False, useIPV6 = False,
                     slowCollapser = False):
 
     setup_n_nodes_base(cluster_id, node_names[0:n], force_master, data_base_dir,
                        node_msg_base_port, node_client_base_port,
-                       extra = extra, witness_nodes = witness_nodes,
-                       useIPV6 = useIPV6,
+                       extra = extra, nodes_extra = nodes_extra,
+                       witness_nodes = witness_nodes, useIPV6 = useIPV6,
                        slowCollapser = slowCollapser)
 
     logging.info( "Starting cluster" )
@@ -735,8 +755,19 @@ def setup_2_nodes_forced_master (home_dir):
     setup_n_nodes( 2, True, home_dir, witness_nodes = True)
 
 def setup_2_nodes_forced_master_mini (home_dir):
-    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    extra = {'tlog_max_entries':'500'}
     setup_n_nodes( 2, True, home_dir, extra)
+
+def setup_3_nodes_forced_master_mini_rollover_on_size(home_dir):
+    extra = {'tlog_max_entries': '100_000',
+             'tlog_max_size'   : '64000'
+            }
+
+    setup_n_nodes( 3, True, home_dir, extra)
+
+def setup_3_nodes_forced_master_mini (home_dir):
+    extra = {'tlog_max_entries':'1000'}
+    setup_n_nodes( 3, True, home_dir, extra)
 
 def setup_2_nodes_forced_master_normal_slaves (home_dir):
     setup_n_nodes( 2, True, home_dir)
@@ -748,15 +779,15 @@ def setup_3_nodes_witness_slave (home_dir):
     setup_n_nodes( 3, False, home_dir, witness_nodes = True)
 
 def setup_3_nodes_mini(home_dir):
-    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    extra = {'tlog_max_entries':'1000'}
     setup_n_nodes( 3, False, home_dir, extra)
 
 def setup_2_nodes_mini(home_dir):
-    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    extra = {'tlog_max_entries':'1000'}
     setup_n_nodes(2, False, home_dir, extra)
 
 def setup_3_nodes_mini_forced_master(home_dir):
-    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    extra = {'tlog_max_entries':'1000'}
     setup_n_nodes( 3, True, home_dir, extra)
 
 def setup_3_nodes (home_dir) :
@@ -769,7 +800,7 @@ def setup_1_node (home_dir):
     setup_n_nodes( 1, False, home_dir )
 
 def setup_1_node_mini (home_dir):
-    extra = {'__tainted_tlog_entries_per_file':'1000'}
+    extra = {'tlog_max_entries':'1000'}
     setup_n_nodes(1, False, home_dir, extra)
 
 default_setup = setup_3_nodes
@@ -1003,17 +1034,18 @@ def generic_retrying_set_get_and_delete( client, key, value, is_valid_ex ):
         pass
 
 def retrying_set_get_and_delete( client, key, value ):
+    valids = (X.arakoon_client.ArakoonSockNotReadable,
+              X.arakoon_client.ArakoonSockReadNoBytes,
+              X.arakoon_client.ArakoonSockRecvError,
+              X.arakoon_client.ArakoonSockRecvClosed,
+              X.arakoon_client.ArakoonSockSendError,
+              X.arakoon_client.ArakoonNotConnected,
+              X.arakoon_client.ArakoonNodeNotMaster,
+              X.arakoon_client.ArakoonNodeNoLongerMaster,
+              )
     def validate_ex ( ex, tryCnt ):
         ex_msg = "%s" % ex
-        valids = (X.arakoon_client.ArakoonSockNotReadable,
-                  X.arakoon_client.ArakoonSockReadNoBytes,
-                  X.arakoon_client.ArakoonSockRecvError,
-                  X.arakoon_client.ArakoonSockRecvClosed,
-                  X.arakoon_client.ArakoonSockSendError,
-                  X.arakoon_client.ArakoonNotConnected,
-                  X.arakoon_client.ArakoonNodeNotMaster,
-                  X.arakoon_client.ArakoonNodeNoLongerMaster,
-              )
+
         validEx = isinstance(ex, valids)
         if validEx:
             logging.debug( "Ignoring exception: %s", ex_msg )
@@ -1062,13 +1094,26 @@ def assert_last_i_in_sync ( node_1, node_2 ):
         pass
 
 
-def assert_running_nodes ( n ):
+def assert_running_nodes(n):
     try:
-        count = int(X.subprocess.check_output(['pgrep', '-c', daemon_name]))
-    except subprocess.CalledProcessError:
+        output = X.subprocess.check_output(['pgrep',
+                                            '-a',
+                                            '-f', "%s --node" % (daemon_name)],
+                                           stderr = X.subprocess.STDOUT
+        )
+        lines = output.strip().split('\n')
+        logging.info("assert_running_nodes:%s", lines)
+        lines2=filter(lambda x : x.find('/bin/bash') == -1, lines)
+        logging.info("lines2:%s", lines2)
+        count = len(lines2)
+    except subprocess.CalledProcessError,ex:
+        logging.info("ex:%s => count = 0" % ex)
         count = 0
 
-    assert_equals(count, n, "Number of expected running nodes mismatch")
+    assert_equals(
+        count, n,
+        "Number of expected running nodes mismatch: expected=%s, actual=%s" % (n,count)
+    )
 
 def assert_value_list ( start_suffix, list_size, list ) :
     assert_list( value_format_str, start_suffix, list_size, list )
@@ -1104,8 +1149,10 @@ def delayed_master_restart_loop ( iter_cnt, delay ) :
             master_id = cli.whoMaster()
             cli.dropConnections()
             stopOne( master_id )
+            logging.info("stopped master %s", master_id)
             cli.set('delayed_master_restart_loop', 'slaves elect new master and can make progress')
             startOne( master_id )
+            logging.info("started ex-master %s", master_id)
         except:
             logging.critical("!!!! Failing test. Exception in restart loop.")
             test_failed = True
@@ -1288,3 +1335,49 @@ def reverse_range_entries_scenario(start_suffix):
         assert_equals(kv_list[0][0], 'key_000000001099')
     except Exception, ex:
         raise ex
+
+
+def compare_files(fn0, fn1):
+    with open(fn0, 'r') as f0:
+        with open(fn1, 'r') as f1:
+            go_on = True
+            count = 0
+            while go_on:
+                f0_line = f0.readline()
+                f1_line = f1.readline()
+                #logging.debug("l0:%s\nl1:%s\n", f0_line.strip(), f1_line.strip())
+                if f0_line <> f1_line :
+                    raise Exception("%s and %s diff on line %i" % (fn0,fn1, count))
+                if len(f0_line) == 0:
+                    assert(len(f1_line) == 0)
+                    go_on = False
+                count = count + 1
+
+
+def inspect_cluster(cluster):
+
+    # cleanup inspect dumps
+    cluster_id = cluster._getClusterId()
+    node_names = cluster.listLocalNodes()
+    for node_name in node_names:
+        dn = '%s/%s/' % (cluster_id, node_name,)
+        logging.info( "deleting %s", dn)
+        X.removeDirTree(dn)
+
+    cfg_fn = cluster._getConfigFileName()
+    r = call_arakoon("--inspect-cluster", "-config", "%s.cfg" % cfg_fn)
+
+
+    dump_paths = []
+    for node_name in node_names:
+        dump_path = './%s/%s/store.db.dump' % (cluster_id, node_name)
+        dump_paths.append(dump_path)
+
+    size = len(node_names)
+    for i in xrange(size -1):
+        for j in xrange(i+1, size):
+            fn0 = dump_paths[i]
+            fn1 = dump_paths[j]
+            compare_files(fn0,fn1)
+            logging.info("%s == %s",fn0,fn1)
+    logging.info("inspect_cluster(%s): ok", cluster_id)

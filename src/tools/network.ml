@@ -28,14 +28,16 @@ let a2s = function
   | Unix.ADDR_INET (sa,p) -> Printf.sprintf "(%s,%i)" (Unix.string_of_inet_addr sa) p
   | Unix.ADDR_UNIX s      -> Printf.sprintf "ADDR_UNIX(%s)" s
 
+
 let __open_connection ?(ssl_context : [> `Client ] Typed_ssl.t option)
+                      ~tcp_keepalive
                       socket_address =
-  (* Lwt_io.open_connection socket_address *)
   let domain = Unix.domain_of_sockaddr socket_address in
   let socket = Lwt_unix.socket domain Unix.SOCK_STREAM 0  in
-  let () = Lwt_unix.setsockopt socket Lwt_unix.TCP_NODELAY true in
   Lwt.catch
     (fun () ->
+       let () = Lwt_unix.setsockopt socket Lwt_unix.TCP_NODELAY true in
+       let () = Tcp_keepalive.apply socket tcp_keepalive in
        Lwt_unix.connect socket socket_address >>= fun () ->
        let a2 = Lwt_unix.getsockname socket in
        let peer = Lwt_unix.getpeername socket in
@@ -45,8 +47,7 @@ let __open_connection ?(ssl_context : [> `Client ] Typed_ssl.t option)
          else Lwt.return ()
        end
        >>= fun () ->
-       let fd_field = Obj.field (Obj.repr socket) 0 in
-       let (fdi:int) = Obj.magic (fd_field) in
+       let fdi = Unix_fd.lwt_unix_fd_to_fd socket in
        let peer_s = a2s peer in
        Logger.info_f_ "__open_connection SUCCEEDED (fd=%i) %s %s" fdi
          (a2s a2) peer_s
@@ -71,7 +72,9 @@ let __open_connection ?(ssl_context : [> `Client ] Typed_ssl.t option)
              Lwt.return (socket, ic, oc)
        )
     (fun exn ->
-       Logger.info_f_ ~exn "__open_connection to %s failed" (a2s socket_address)
+      Logger.info_f_ "__open_connection to %s failed: %S"
+                     (a2s socket_address)
+                     (Printexc.to_string exn)
        >>= fun () ->
        Lwt_unix.close socket >>= fun () ->
        Lwt.fail exn)

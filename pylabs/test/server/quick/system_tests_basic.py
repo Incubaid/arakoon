@@ -25,7 +25,6 @@ from nose.tools import *
 from Compat import X
 
 CONFIG = C.CONFIG
-from arakoon.ArakoonProtocol import AtLeast
 
 try:
     assert_in
@@ -56,35 +55,47 @@ def test_start_stop_three_nodes_forced () :
 
 def test_start_stop_wrapper():
     cluster = C._getCluster()
-    fn = "/tmp/my_wrapper.sh"
-    with open(fn,'w') as f:
-        f.write('#!/bin/bash\n')
-        f.write("logger wrapper called with '$@'\n")
-        f.write('$@\n')
-    subprocess.call(['chmod','+x',fn])
-    nn = "wrapper"
-    cluster.addNode(nn, "127.0.0.1", 8000, wrapper = fn)
-    cluster.addLocalNode(nn)
-    cluster.createDirs(nn)
-    C.assert_running_nodes(0)
-    cluster.start()
-    C.assert_running_nodes(1)
-    cluster.stop()
-    C.assert_running_nodes(0)
-    cluster.tearDown()
+    fn = "%s/my_wrapper.sh" % X.tmpDir
+    X.createDir(X.tmpDir)
+    try:
+        with open(fn,'w') as f:
+            f.write('#!/bin/bash -xue\n')
+            f.write("logger wrapper called with '$@'\n")
+            f.write('$@\n')
+        subprocess.call(['chmod','+x',fn])
+        nn = "wrapper"
+        cluster.addNode(nn, "127.0.0.1", 8000, wrapper = fn)
+        cluster.addLocalNode(nn)
+        cluster.createDirs(nn)
+        C.assert_running_nodes(0)
+        cluster.start()
+        time.sleep(1)
+
+        C.assert_running_nodes(1)
+        cluster.stop()
+        C.assert_running_nodes(0)
+    finally:
+        cluster.remove()
 
 def test_start_arakoon383():
     cluster = C._getCluster()
-    wrapper = 'false'
-    name = 'wrapper'
-    cluster.addNode(name, '127.0.0.1', 8000, wrapper=wrapper)
-    cluster.addLocalNode(name)
-    C.assert_running_nodes(0)
-    assert_equals(cluster.startOne(name), 1)
-    C.assert_running_nodes(0)
-    assert_equals(cluster.restartOne(name), 1)
-    C.assert_running_nodes(0)
-    cluster.tearDown()
+    try:
+        wrapper = 'false'
+        name = 'wrapper'
+        cluster.addNode(name, '127.0.0.1', 8000, wrapper=wrapper)
+        cluster.addLocalNode(name)
+        C.assert_running_nodes(0)
+        p = cluster.startOne(name)
+        rc = p.wait()
+        assert_equals(rc, 1)
+        C.assert_running_nodes(0)
+        p = cluster.restartOne(name)
+        rc = p.wait()
+        assert_equals(rc, 1)
+        C.assert_running_nodes(0)
+    finally:
+        cluster.remove()
+
 
 @C.with_custom_setup(C.setup_1_node, C.basic_teardown)
 def test_max_value_size_tinkering ():
@@ -106,22 +117,98 @@ def test_max_value_size_tinkering ():
     assert_raises (X.arakoon_client.ArakoonException, client.set, key, value)
 
 
-@C.with_custom_setup(C.setup_1_node,C.basic_teardown)
-def test_marker_presence_required ():
+def _remove_marker(cluster, nn):
+    cfg = cluster.getNodeConfig(nn)
+    home = cfg['home']
+    tlog = home + '/000.tlog'
     _arakoon = CONFIG.binary_full_path
-    C.assert_running_nodes(1)
+    subprocess.call([_arakoon,'--strip-tlog', tlog])
+
+def _truncate_tlog(cluster, nn, n_bytes):
+    cfg = cluster.getNodeConfig(nn)
+    home = cfg['home']
+    tlog = home + '/000.tlog'
+    _arakoon = CONFIG.binary_full_path
+    subprocess.call(['truncate', tlog, '-s', str(n_bytes)])
+
+def _mini_fill(cluster):
     client = C.get_client()
     for x in xrange(100):
         client.set("x%i" % x,"X%i" % x)
+
+def _wait_for_master(cluster):
+    start = time.time()
+    end = start + 10
+    interval = 1
+    cfg = "%s.cfg" % cluster._getConfigFileName()
+    print cfg
+    args = [
+        CONFIG.binary_full_path,
+        '-config', cfg,
+        '--who-master'
+    ]
+    while time.time() < end:
+        logging.info('Retrieving master')
+
+        proc = subprocess.Popen(args, close_fds=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        rc = proc.wait()
+
+        logging.info('rc: %s', rc)
+
+        if rc == 0:
+            return proc.stdout.read().strip()
+        else:
+            e = proc.stderr.read()
+            logging.info('`--who-master` returned %r: %r', rc, e)
+
+        time.sleep(interval)
+
+    raise Exception('Unable to find master')
+
+@C.with_custom_setup(C.setup_1_node, C.basic_teardown)
+def test_autofix_missing_marker():
+    cluster = C._getCluster()
+    C.assert_running_nodes(1)
+
+    _mini_fill(cluster)
+
+    cluster.stop()
+    nn = C.node_names[0]
+    _remove_marker(cluster, nn)
+    cluster.startOne(nn, ["-autofix"])
+    _wait_for_master(cluster)
+
+@C.with_custom_setup(C.setup_1_node,C.basic_teardown)
+def test_autofix_unexpected_end():
+    cluster = C._getCluster()
+    C.assert_running_nodes(1)
+
+    _mini_fill(cluster)
+
+    cluster.stop()
+    nn = C.node_names[0]
+    _truncate_tlog(cluster, nn, -1)
+
+    cluster.startOne(nn, ["-autofix"])
+    _wait_for_master(cluster)
+
+
+
+@C.with_custom_setup(C.setup_1_node,C.basic_teardown)
+def test_marker_presence_required ():
+
+    cluster = C._getCluster()
+    C.assert_running_nodes(1)
+    _mini_fill(cluster)
     cluster = C._getCluster()
     cluster.stop()
 
     # remove the marker
     nn = C.node_names[0]
-    cfg = cluster.getNodeConfig(nn)
-    home = cfg['home']
-    tlog = home + '/000.tlog'
-    subprocess.call([_arakoon,'--strip-tlog', tlog])
+    _remove_marker(cluster, nn)
+
 
     # this will fail
     cluster.start()
@@ -131,12 +218,16 @@ def test_marker_presence_required ():
     #check the exit code:
     cfgp = "%s.cfg" % (cluster._getConfigFileName()) # OMG
     logging.debug("cfgp=%s",cfgp)
+    _arakoon = CONFIG.binary_full_path
     try:
        subprocess.check_call([_arakoon, '--node', nn, '-config', cfgp])
     except subprocess.CalledProcessError,e:
         assert_equals(e.returncode,42)
 
     # add the marker and start again:
+    cfg = cluster.getNodeConfig(nn)
+    home = cfg['home']
+    tlog = home + '/000.tlog'
     subprocess.call([_arakoon,'--mark-tlog', tlog, 'closed:%s' % nn])
     cluster.start()
     time.sleep(1.0)
@@ -193,6 +284,16 @@ def test_large_value ():
 def test_range_entries ():
     C.range_entries_scenario( 1000 )
 
+@C.with_custom_setup(C.setup_1_node, C.basic_teardown)
+def test_range_0():
+    client = C.get_client()
+    k = 'xey001'
+    client.set(k,k)
+    results = client.range(None, False, None, False,-1)
+    assert_equals(results,[k], 'should have 1 element')
+    results = client.range(None, False, None, False, 0)
+    assert_equals(results,[])
+
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_scenario_1():
     client = C.get_client()
@@ -201,7 +302,7 @@ def test_aSSert_scenario_1():
         client.aSSert('x','x')
     except X.arakoon_client.ArakoonException as ex:
         logging.error ( "Bad stuff happened: %s" % ex)
-        assert_equals(True,False)
+        assert_true(False)
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_scenario_2():
@@ -255,7 +356,7 @@ def test_aSSert_exists_scenario_1():
         client.aSSert_exists('x_e')
     except X.arakoon_client.ArakoonException as ex:
         logging.error ( "Bad stuff happened: %s" % ex)
-        assert_equals(True,False)
+        assert_true(False)
 
 @C.with_custom_setup(C.default_setup, C.basic_teardown)
 def test_aSSert_exists_scenario_2():
@@ -299,6 +400,24 @@ def test_aSSert_exists_sequences():
     v = client.get('test_assert')
     assert_equals(v, 'changed', 'second_sequence: %s <> %s' % (v,'changed'))
 
+@C.with_custom_setup(C.setup_1_node_forced_master, C.basic_teardown)
+def test_assert_range():
+    client = C.get_client()
+    client.set("test_assert_range_sequence", "bla bla bla")
+
+    seq = client.makeSequence()
+    seq.addSet("ok","BAD")
+    seq.addAssertPrefixContainsExactly("test_assert_range", ["test_assert_range_sequence_XXXX"])
+    assert_raises(X.arakoon_client.ArakoonAssertionFailed, client.sequence, seq)
+
+    
+    seq2 = client.makeSequence()
+    seq2.addAssertPrefixContainsExactly("test_assert_range", ["test_assert_range_sequence"])
+    seq2.addSet("ok","OK")
+    client.sequence(seq2)
+    v = client.get("ok")
+    assert_equals(v,"OK")
+    
 @C.with_custom_setup( C.default_setup, C.basic_teardown )
 def test_prefix ():
     C.prefix_scenario(1000)
@@ -368,7 +487,7 @@ def test_replace():
     old3 = client.replace("xxx",None)
     assert_equals(old3,"yyy")
     e = client.exists("xxx")
-    assert_equals(e,False)
+    assert_false(e)
 
 
 @C.with_custom_setup( C.setup_3_nodes_forced_master , C.basic_teardown )
@@ -398,13 +517,15 @@ def test_consistency():
     client.set('x','X')
     client.set('z','Z')
     m = client.get_txid()
-    logging.debug("m = %s", m)
+    logging.debug("m = %s,class:%s", m, m.__class__)
     assert_equals(str(m).find("AtLeast"),0)
     time.sleep(5)
     client.setConsistency(m)
     v = client.get('x')
     assert_equals(v,'X')
-    m2 = AtLeast(1000)
+
+
+    m2 = X.arakoon_client.AtLeast(1000)
     client.setConsistency(m2)
     try:
         v2 = client.get('z')
@@ -422,7 +543,7 @@ def test_get_version():
     vt = client.getVersion()
     logging.debug("tuple = %s", str(vt))
     (major,minor,patch, info) = vt
-    majors = [1, 2 ** 32 - 1] # 2 ** 32 - 1 ~= -1
+    majors = [1, 2 ** 32 - 1, -1] # 2 ** 32 - 1 ~= -1
     assert_in(major, majors)
     #then on specific level:
     vt2 = client.getVersion(C.node_names[0])
@@ -645,7 +766,7 @@ def test_close_on_sigterm():
         tail = lines[-40:]
         found = False
         for l in tail:
-            print l
+            print l.strip()
             if l.find("fatal") > 0 and l.find ("OK") >0:
                 found = True
                 break
@@ -680,11 +801,13 @@ def test_download_db():
 
     C.flush_store(n0)
     C.stop_all()
-    C.compare_stores(n0,n1)
+    C.compare_stores(n0, n1)
 
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_delete_prefix():
-    """ deletion of all key value pairs with same prefix """
+
+    # deletion of all key value pairs with same prefix
+
     cli = C.get_client()
     for i in xrange(100):
         cli.set("key_%04i" % i, "whatever")
@@ -696,6 +819,37 @@ def test_delete_prefix():
     l3 = cli.deletePrefix(prefix)
     assert_equals(l3,0)
     logging.debug("done")
+
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_delete_prefix_sequence():
+
+    # deletion of all key value pairs with same prefix in a sequence
+
+    cli = C.get_client()
+    for i in xrange(100):
+        cli.set("key_%04i" % i, "whatever")
+
+    cli .set("count", "100")
+
+    prefix = "key_"
+    keys = cli.prefix(prefix)
+    l = len(keys)
+    assert_equals(l, 100, "wrong number of keys")
+    sequence = cli.makeSequence()
+    sequence.addDeletePrefix(prefix)
+    sequence.addSet("count","0")
+    cli.sequence(sequence)
+
+    keys2 = cli.prefix(prefix)
+    l2 = len(keys2)
+    assert_equals(l2,0, "wrong number of keys deleted")
+
+    count2 = cli["count"]
+    assert_equals(count2, "0", "wrong count")
+    l3 = cli.deletePrefix(prefix)
+    assert_equals(l3,0)
+    logging.debug("done")
+
 
 @C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
 def test_multi_get():
@@ -730,6 +884,40 @@ def test_multi_get_option():
             assert_true(v is None)
     logging.debug("done")
 
+
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_client_when_master_dies():
+    client = C.get_client ()
+    master = client.whoMaster()
+    print "master=", master
+    v0 = "the_value"
+    key = "they_key"
+    client[key] = v0
+
+    C.stopOne(master)
+    cluster = C._getCluster()
+    _wait_for_master(cluster)
+    master = client.whoMaster()
+    print "new master:", master
+    try:
+        v1 = client[key]
+        print "got value",v1
+    except Exception as ex:
+        print "EXCEPTION:"
+        print ex
+        print ex.__class__
+        assert_true(isinstance(ex, X.arakoon_client.ArakoonException))
+        assert_true(False, "should not throw")
+
+    master = client.whoMaster()
+    print "master", master
+    client2 = C.get_client ()
+    v2 = client2[key]
+    print "so far so good"
+    v1 = client[key]
+    print v1
+
+
 @C.with_custom_setup(C.setup_3_nodes_ipv6, C.basic_teardown)
 def test_ipv6():
     cli = C.get_client()
@@ -748,8 +936,28 @@ def test_rev_range_entries_arakoon368():
     correct = [("key2","value2"), ("key1","value1"), ("key0","value0") ]
     assert_equals(l1, correct)
 
+@C.with_custom_setup(C.setup_3_nodes, C.basic_teardown)
+def test_harvest_limited():
+    logging.info("test_harvest_limited")
+    c = C.get_client()
+    value = 'xxxxxxxxxx' * (1000 * 1000)
+    seq = c.makeSequence()
+    for i in range(4):
+        seq.addSet("key_%02i" % i, value)
+    try:
+        logging.info("very fat sequence")
+        c.sequence(seq)
+        raise Exception("should not get here")
+    except X.arakoon_client.ArakoonBadInput as ex:
+        print "Exception:"
+        logging.info("ok:%s ", ex)
+
+
 @C.with_custom_setup( C.setup_3_nodes, C.basic_teardown )
 def test_statistics():
+    cluster = C._getCluster()
+    _wait_for_master(cluster)
+
     cli = C.get_client()
     stat_dict = cli.statistics()
 
@@ -829,3 +1037,25 @@ def test_statistics():
                     "Wrong value for var timing of %s == 0.0" % k)
                 assert_not_equals( timing["min"], 0.0,
                     "Wrong value for min timing of %s == 0.0" % k)
+
+def setup_redis_arakoon(home_dir):
+    proc = subprocess.Popen(["redis-server"], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
+    C.setup_n_nodes(3, False, home_dir,
+                    nodes_extra =
+                    {"sturdy_0": {"log_sinks":"redis://127.0.0.1/logs/sturdy_0"},
+                     "sturdy_1": {"log_sinks":"redis://127.0.0.1/logs/sturdy_1"}})
+
+def redis_arakoon_teardown(removeDirs):
+    X.subprocess.call(["pkill", "redis-server"])
+    C.basic_teardown(removeDirs)
+
+@C.with_custom_setup(setup_redis_arakoon, redis_arakoon_teardown)
+def test_redis_logging():
+    cli = C.get_client()
+    key = "my-very-unique-key-which-should-be-in-there"
+    cli.set(key,"X")
+    time.sleep(1)
+    cmd = ["redis-cli", "lrange", "/logs/sturdy_0", "0", "100000"]
+    stdout = subprocess.check_output(cmd)
+    print "redis-cli output: ", stdout
+    assert(stdout.find(key) > 0)

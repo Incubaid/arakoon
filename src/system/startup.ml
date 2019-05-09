@@ -28,12 +28,16 @@ let section = Logger.Section.main
 
 module LS = (val (Store.make_store_module (module Mem_store)))
 
+let cluster_id = "cluster_id"
+
 let _make_log_cfg () =
   ("log_cfg",
    {
      client_protocol = None;
      paxos = None;
      tcp_messaging = None;
+     tlog_map = None;
+     server = None;
    })
 
 let _make_batched_transaction_cfg () =
@@ -53,7 +57,8 @@ let _make_cfg name n lease_period =
     tlog_dir = name;
     tlx_dir = name;
     head_dir = name;
-    log_dir = "none";
+    log_sinks = [];
+    crash_log_sinks = [];
     log_level = "DEBUG";
     log_config = Some "log_cfg";
     batched_transaction_config = Some "batched_transaction_config";
@@ -62,26 +67,39 @@ let _make_cfg name n lease_period =
     is_laggy = false;
     is_learner = false;
     is_witness = false;
-    targets = [];
     compressor = Compression.Snappy;
-    fsync = false;
+    fsync = Some false;
+    fsync_entries = None;
+    fsync_interval = None;
     _fsync_tlog_dir = false;
     is_test = true;
     reporting = 300;
     node_tls = None;
     collapse_slowdown = None;
     head_copy_throttling = 0.0;
+    optimize_db_slowdown = 0.0;
   }
 
-let _make_tlog_coll ~compressor tlcs values tlc_name tlf_dir head_dir
-                    ~fsync node_id ~fsync_tlog_dir =
+let _make_tlog_coll
+      ?cluster_id
+      ~tlcs ~values
+      ~compressor ?(tlog_max_entries:int option) ?(tlog_max_size:int option)
+      tlc_name tlf_dir head_dir
+      ~(should_fsync:Sn.t -> float -> bool)
+      (node_id:string)
+      ~(fsync_tlog_dir:bool)
+  =
   let () = ignore compressor in
-  Mem_tlogcollection.make_mem_tlog_collection tlc_name tlf_dir head_dir ~fsync node_id ~fsync_tlog_dir >>= fun tlc ->
+  Mem_tlogcollection.make_mem_tlog_collection
+    ?tlog_max_entries ?tlog_max_size
+    tlc_name tlf_dir head_dir ~should_fsync node_id ~fsync_tlog_dir
+    ?cluster_id
+  >>= fun tlc ->
   let rec loop i = function
     | [] -> Lwt.return ()
     | v :: vs ->
       begin
-        tlc # log_value i v >>= fun () ->
+        tlc # log_value i v >>= fun _ ->
         loop (Sn.succ i) vs
       end
   in
@@ -94,26 +112,33 @@ let node_ts = ref []
 
 let _make_run ~stores ~tlcs ~now ~values ~get_cfgs name () =
   let module S =
-  struct
-    include LS
-    let make_store
-        ~lcnum ~ncnum
-        ?(read_only=false) (db_name:string) =
-      LS.make_store ~lcnum ~ncnum ~read_only db_name >>= fun store ->
-      LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () ->
-      Hashtbl.add stores db_name store;
-      Lwt.return store
-  end in
-  let t = Node_main._main_2
-    (module S)
-    (_make_tlog_coll tlcs values)
-    get_cfgs
-    (fun () -> "DUMMY")
-    ~name
-    ~daemonize:false
-    ~catchup_only:false
-    ~stop:!stop
-          >>= fun _ -> Lwt.return () in
+    struct
+      include LS
+      let make_store
+            ~lcnum ~ncnum
+            ?(read_only=false) ?cluster_id (db_name:string) =
+        LS.make_store ~lcnum ~ncnum ~read_only db_name ?cluster_id >>= fun store ->
+        LS.with_transaction store (fun tx -> LS.set_master store tx name now) >>= fun () ->
+        Hashtbl.add stores db_name store;
+        Lwt.return store
+    end
+  in
+  let (tlc_factory:Tlogcollection.tlc_factory) = _make_tlog_coll ~tlcs ~values in
+  let t =
+    Node_main._main_2
+      (module S)
+      (tlc_factory)
+      get_cfgs
+      (fun () -> "DUMMY")
+      ~name
+      ~daemonize:false
+      ~catchup_only:false
+      ~source_node:None
+      ~autofix:false
+      ~stop:!stop
+      ~lock:false
+    >>= fun _ -> Lwt.return ()
+  in
   node_ts := t :: !node_ts;
   t
 
@@ -125,7 +150,8 @@ let _dump_tlc ~tlcs node =
     Logger.debug_f_ "%s:%s" (Sn.string_of i) (Value.value2s v)
   in
   Logger.debug_f_ "--- %s ---" node >>= fun () ->
-  tlc0 # iterate Sn.start 20L printer >>= fun () ->
+  let cb _ = Lwt.return_unit in
+  tlc0 # iterate Sn.start 20L printer cb >>= fun () ->
   Lwt.return ()
 
 
@@ -147,16 +173,18 @@ let post_failure () =
     cluster_id = "ricky";
     plugins = [];
     nursery_cfg = None;
-    overwrite_tlog_entries = None;
+    tlog_max_entries = 10_000;
+    tlog_max_size = 100_000;
     max_value_size = Node_cfg.default_max_value_size;
     max_buffer_size = Node_cfg.default_max_buffer_size;
     client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
     lcnum = 8192;
     ncnum = 4096;
     tls = None;
+    tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
   }
   in
-  let get_cfgs () = cluster_cfg in
+  let get_cfgs () = cluster_cfg |> Lwt.return in
   let v0 = Value.create_master_value ~lease_start:0. node0 in
   let v1 = Value.create_client_value [Update.Set("x","y")] false in
   let tlcs = Hashtbl.create 5 in
@@ -207,16 +235,18 @@ let restart_slaves () =
      cluster_id = "ricky";
      plugins = [];
      nursery_cfg = None;
-     overwrite_tlog_entries = None;
+     tlog_max_entries = 10_000;
+     tlog_max_size = 100_000;
      max_value_size = Node_cfg.default_max_value_size;
      max_buffer_size = Node_cfg.default_max_buffer_size;
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
      lcnum = Node_cfg.default_lcnum;
      ncnum = Node_cfg.default_ncnum;
      tls = None;
+     tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
     }
   in
-  let get_cfgs () = cluster_cfg in
+  let get_cfgs () = cluster_cfg |> Lwt.return in
   let v0 = Value.create_master_value ~lease_start:0. node2 in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let tlcs = Hashtbl.create 5 in
@@ -265,23 +295,27 @@ let ahead_master_loses_role () =
      cluster_id = "ricky";
      plugins = [];
      nursery_cfg = None;
-     overwrite_tlog_entries = None;
+     tlog_max_entries = 10_000;
+     tlog_max_size = 100_000;
      max_value_size = Node_cfg.default_max_value_size;
      max_buffer_size = Node_cfg.default_max_buffer_size;
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
      lcnum = 8192;
      ncnum = 4096;
      tls = None;
+     tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
     }
   in
-  let get_cfgs () = cluster_cfg in
+  let get_cfgs () = cluster_cfg |> Lwt.return in
+
   let v0 = Value.create_master_value ~lease_start:0. node0 in
   let v1 = Value.create_client_value [Update.Set("xxx","xxx")] false in
   let v2 = Value.create_client_value [Update.Set("invalidkey", "shouldnotbepresent")] false in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
   let now = Unix.gettimeofday () in
-
+  let dump_tlogs () = Lwt_list.iter_s (_dump_tlc ~tlcs) [node0;node1;node2]
+  in
   let t_node0 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0] node0 () in
   let t_node1 = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1] node1 () in
   let run_previous_master = _make_run ~stores ~tlcs ~now ~get_cfgs ~values:[v0;v0;v1;v2] node2 in
@@ -289,7 +323,16 @@ let ahead_master_loses_role () =
   Lwt.ignore_result t_node0;
   Lwt.ignore_result t_node1;
   (* sleep a bit so the previous 2 slaves can make progress *)
-  Lwt_unix.sleep ((float lease_period) *. 1.5) >>= fun () ->
+  Lwt_unix.sleep ((float lease_period) *. 3.0) >>= fun () ->
+  Lwt.catch
+    (fun () -> Client_main.find_master (to_client_cfg cluster_cfg) >>= fun _master ->
+               Lwt.return_unit)
+    (fun exn ->
+      Logger.fatal_f_ ~exn "NO MASTER" >>= fun () ->
+      dump_tlogs () >>= fun () ->
+      Lwt.fail exn
+    )
+  >>= fun () ->
   let t_previous_master = run_previous_master () in
   Lwt.ignore_result t_previous_master;
   (* allow previous master to catch up with the others *)
@@ -305,7 +348,7 @@ let ahead_master_loses_role () =
     OUnit.assert_bool (Printf.sprintf "value for '%s' should not be in store" key) (not exists);
     Lwt.return ()
   in
-  Lwt_list.iter_s (_dump_tlc ~tlcs)   [node0;node1;node2]>>= fun () ->
+  dump_tlogs () >>= fun () ->
   Lwt_list.iter_s check_store [node0;node1;node2]
 
 
@@ -336,16 +379,18 @@ let interrupted_election () =
      cluster_id;
      plugins = [];
      nursery_cfg = None;
-     overwrite_tlog_entries = None;
+     tlog_max_entries = 10_000;
+     tlog_max_size = 100_000;
      max_value_size = Node_cfg.default_max_value_size;
      max_buffer_size = Node_cfg.default_max_buffer_size;
      client_buffer_capacity = Node_cfg.default_client_buffer_capacity;
      lcnum = 8192;
      ncnum = 4096;
      tls = None;
+     tcp_keepalive = Tcp_keepalive.default_tcp_keepalive;
     }
   in
-  let get_cfgs () = cluster_cfg in
+  let get_cfgs () = cluster_cfg |> Lwt.return in
   let v0 = Value.create_master_value ~lease_start:0. wannabe_master in
   let tlcs = Hashtbl.create 5 in
   let stores = Hashtbl.create 5 in
@@ -359,8 +404,10 @@ let interrupted_election () =
      and a timeout on all this
    *)
   let get_master_from cfg =
-    Client_main.with_client
-      cfg ~tls:None cluster_id
+    Client_helper.with_client'
+      (node_cfg_to_node_client_cfg cfg)
+      ~tls:None ~tcp_keepalive:Tcp_keepalive.default_tcp_keepalive
+      cluster_id
       (fun client -> client # who_master ())
   in
   let rec phase1 () =
@@ -396,12 +443,12 @@ let interrupted_election () =
   let rec phase2 () =
     Lwt.catch
       (fun () ->
-       Client_main.find_master ~tls:None cluster_cfg >>= fun m ->
+       Client_main.find_master (to_client_cfg cluster_cfg) >>= fun m ->
        if m <> wannabe_master
        then Lwt.return true
        else Lwt.return false)
       (function
-        | Failure "No Master" ->
+        | Failure x when x = "No Master" ->
            Lwt.return false
         | exn -> Lwt.fail exn) >>= fun continue ->
     if continue

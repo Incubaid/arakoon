@@ -31,6 +31,7 @@ import select
 import operator
 import cStringIO
 import types
+from abc import ABCMeta, abstractmethod
 
 FILTER = ''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
@@ -295,6 +296,7 @@ ARA_CMD_CURRENT_STATE            = 0x00000032 | ARA_CMD_MAG
 ARA_CMD_REPLACE                  = 0x00000033 | ARA_CMD_MAG
 ARA_CMD_NOP                      = 0x00000041 | ARA_CMD_MAG
 ARA_CMD_GET_TXID                 = 0x00000043 | ARA_CMD_MAG
+ARA_CMD_COLLAPSE                 = 0x00000014 | ARA_CMD_MAG
 
 # Arakoon error codes
 # Success
@@ -532,6 +534,7 @@ class AtLeast(Consistency):
 
 class Update(object):
     pass
+
 class Set(Update):
     def __init__(self,key,value):
         self._key = key
@@ -548,6 +551,13 @@ class Delete(Update):
 
     def write(self, fob):
         fob.write(_packInt(2))
+        fob.write(_packString(self._key))
+
+class DeletePrefix(Update):
+    def __init__(self, key):
+        self._key = key
+    def write(self, fob):
+        fob.write(_packInt(14))
         fob.write(_packString(self._key))
 
 class Assert(Update):
@@ -568,6 +578,33 @@ class AssertExists(Update):
         fob.write(_packInt(15))
         fob.write(_packString(self._key))
 
+class RangeAssertion:
+    __metaclass__ = ABCMeta
+
+    def write(self, fob):
+        raise NotImplementedError()
+
+class ContainsExactly(RangeAssertion):
+    def __init__(self, keys):
+        self._keys = keys
+
+    def write(self, fob):
+        fob.write(_packInt(1))
+        fob.write(_packInt(len(self._keys)))
+        for s in self._keys:
+            fob.write(_packString(s))
+
+class AssertRange(Update):
+    def __init__(self, prefix, rangeAssertion):
+        self._prefix = prefix
+        self._rangeAssertion = rangeAssertion
+
+    def write(self, fob):
+      fob.write(_packInt(17))
+      fob.write(_packString(self._prefix))
+      self._rangeAssertion.write(fob)
+
+
 class Sequence(Update):
     def __init__(self):
         self._updates = []
@@ -583,11 +620,19 @@ class Sequence(Update):
     def addDelete(self, key):
         self._updates.append(Delete(key))
 
-    def addAssert(self, key,vo):
+    @SignatureValidator( 'string' )
+    def addDeletePrefix(self, prefix):
+        self._updates.append(DeletePrefix(prefix))
+
+    def addAssert(self, key, vo):
         self._updates.append(Assert(key,vo))
 
     def addAssertExists(self, key):
         self._updates.append(AssertExists(key))
+
+    def addAssertPrefixContainsExactly(self, prefix, keys):
+        ar = AssertRange(prefix, ContainsExactly(keys))
+        self.addUpdate(ar)
 
     def write(self, fob):
         fob.write( _packInt(5))
@@ -762,6 +807,12 @@ class ArakoonProtocol :
         return retVal
 
     @staticmethod
+    def encodeCollapse(n):
+        retVal = _packInt(ARA_CMD_COLLAPSE)
+        retVal += _packInt(n)
+        return retVal
+    
+    @staticmethod
     def _evaluateErrorCode( con ):
         errorCode = _recvInt ( con )
         # """ ArakoonException( "Received invalid response from the server" )"""
@@ -792,6 +843,7 @@ class ArakoonProtocol :
         if errorCode != ARA_ERR_SUCCESS:
             raise ArakoonException( "EC=%d. %s" % (errorCode, errorMsg) )
 
+    
     @staticmethod
     def decodeInt64Result( con ) :
         ArakoonProtocol._evaluateErrorCode( con )

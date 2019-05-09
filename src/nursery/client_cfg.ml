@@ -69,8 +69,7 @@ module ClientCfg = struct
   let get (t:t) name = Hashtbl.find t name
 
 
-  let from_file section fn =  (* This is the format as defined in the extension *)
-    let inifile = new Inifiles.inifile fn in
+  let from_ini section inifile =
     let cfg = make () in
     let _ips node_name = Ini.get inifile node_name "ip" Ini.p_string_list Ini.required in
     let _get s n p = Ini.get inifile s n p Ini.required in
@@ -83,5 +82,9 @@ module ClientCfg = struct
                ) nodes
     in
     cfg
+
+  let _from_txt section txt =
+    let inifile = new Arakoon_inifiles.inifile txt in
+    from_ini section inifile
 
 end

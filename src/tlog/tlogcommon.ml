@@ -39,9 +39,6 @@ exception TLogCheckSumError of Int64.t
 exception TLogUnexpectedEndOfFile of Int64.t
 exception TLogSabotage
 
-let tlogEntriesPerFile =
-  ref (IFDEF SMALLTLOG THEN 1000 ELSE (100 * 1000) END)
-
 let tlogExtension = ".tlog"
 let tlogFileRegex =
   let qex = Str.quote tlogExtension in
@@ -132,7 +129,10 @@ let write_entry oc i value =
   let cmd = Buffer.contents b in
   let chksum = Crc32c.calculate_crc32c cmd 0 (String.length cmd) in
   Llio.output_int32 oc chksum >>= fun() ->
-  Llio.output_string oc cmd
+  Llio.output_string oc cmd >>= fun () ->
+  let extra_size = 16 (* i:8 + chksum:4 + string:4 *) in
+  let total_size = Bytes.length cmd + extra_size in
+  Lwt.return total_size
 
 let write_marker oc i value m =
   Sn.output_sn oc i >>= fun () ->

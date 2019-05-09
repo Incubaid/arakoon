@@ -37,6 +37,7 @@ end
 module S = (val (module Make(Batched_store.Local_store) : Test_STORE with type ss = Batched_store.Local_store.t))
 
 let _dir_name = "/tmp/store_test"
+let cluster_id = "cluster_id"
 
 let setup () =
   Logger.info_ "Store_test.setup" >>= fun () ->
@@ -63,7 +64,7 @@ let teardown () =
 
 let with_store name f =
   let db_name = _dir_name ^ "/" ^ name ^ ".db" in
-  S.make_store ~lcnum:1024 ~ncnum:512 db_name >>= fun store ->
+  S.make_store ~lcnum:1024 ~ncnum:512 db_name ~cluster_id >>= fun store ->
   f store >>= fun () ->
   S.close store
 

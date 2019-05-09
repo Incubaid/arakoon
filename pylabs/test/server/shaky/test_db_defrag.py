@@ -57,7 +57,7 @@ def test_db_defrag():
         v = "xxxxxxxxxx" * vs
         client.set(key_s,key_s)
         client.set(key_s,v)
-        print i, key_s, vs
+        #print i, key_s, vs
         if i == 65537:
             seed = 1
 

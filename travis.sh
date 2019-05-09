@@ -1,71 +1,71 @@
 #!/bin/bash -xue
+OUTPUT=temp_file.txt
 
-APT_DEPENDS="libev-dev libssl-dev libsnappy-dev libgmp3-dev"
-APT_OCAML_DEPENDS="ocaml ocaml-native-compilers camlp4-extra opam"
-OPAM_DEPENDS="ssl conf-libev lwt camlbz2 camltc.999 snappy quickcheck ocplib-endian uuidm nocrypto"
+timeout_with_progress () (
+    set +x
+    
+    timeout "$@" > $OUTPUT 2>&1 &
+    PID=$!
 
-export OPAMYES=1
-export OPAMVERBOSE=1
+    echo $PID
 
-before_install () {
-    echo "Running 'before_install' phase"
+    while kill -0 $PID 2>/dev/null
+    do
+	echo -ne .
+	sleep 1
+    done
 
-    echo "Adding PPA '$PPA'"
-    echo "yes" | sudo add-apt-repository ppa:$PPA
-    echo "Updating Apt cache"
-    sudo apt-get update -qq
-    echo "Installing general dependencies"
-    sudo apt-get install -qq ${APT_DEPENDS}
-    echo "Installing dependencies"
-    sudo apt-get install -qq ${APT_OCAML_DEPENDS}
+    wait $PID
+    RESULT=$?
 
-    echo "OCaml versions:"
-    ocaml -version
-    ocamlopt -version
+    tail -n512 $OUTPUT
 
-    echo "Opam versions:"
-    opam --version
-    opam --git-version
-}
+    return $RESULT
+)
 
 install () {
     echo "Running 'install' phase"
 
-    opam init
-    eval `opam config -env`
+    date
 
-    opam remote add incubaid-devel -k git git://github.com/Incubaid/opam-repository-devel.git
-    opam update
+    START_BUILD=$(date +%s.%N)
+    echo $START_BUILD
 
-    opam install ${OPAM_DEPENDS}
+    timeout_with_progress 9000 ./docker/run.sh ubuntu-16.04 clean
+
+    END_BUILD=$(date +%s.%N)
+    echo "build stopped after $END_BUILD"
+
 }
 
 script () {
     echo "Running 'script' phase"
-    eval `opam config -env`
 
-    echo "Building 'arakoon.native'"
-    ocamlbuild -use-ocamlfind -classic-display arakoon.native
+    date
 
-    echo "Arakoon version:"
-    ./arakoon.native --version
+    timeout_with_progress 9000 ./docker/run.sh ubuntu-16.04 unit
 
-    echo "Executing tests"
-    ./arakoon.native --run-all-tests 2>&1 | tail -n256
-    exit ${PIPESTATUS[0]}
+    date
 }
 
-case "$1" in
-    before_install)
-        before_install
-        ;;
+
+after_failure () {
+    echo "Something went wrong"
+    url= `cat temp_file.txt | nc termbin.com 9999`
+    echo $url
+}
+
+case "${1-undefined}" in
     install)
         install
         ;;
     script)
         script
         ;;
+    after_failure)
+        after_failure
+        ;;
     *)
-        echo "Usage: $0 {before_install|install|script}"
+        echo "Usage: $0 {install|script}"
         exit 1
 esac

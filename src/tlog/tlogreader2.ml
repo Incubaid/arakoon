@@ -22,12 +22,10 @@ let section = Logger.Section.main
 let _uncompress_bz2 compressed =
   (* it exploded on the monkey when I did a Lwt_preemptive detach here *)
   let lc = String.length compressed in
-  let r = Bz2.uncompress compressed 0 lc in
-  Lwt.return r
+  Bz2.uncompress compressed 0 lc
 
 let _uncompress_snappy compressed =
-  let u = Snappy.uncompress compressed in
-  Lwt.return u
+  Snappy.uncompress compressed
 
 module Index = struct
   type index_r = { filename: string;
@@ -247,7 +245,7 @@ module C = struct
         begin
           Logger.debug_f_ "uncompressing: %i bytes"
             (String.length compressed) >>= fun () ->
-          inflate compressed >>= fun buffer ->
+          let buffer = inflate compressed in
           Logger.debug_f_ "uncompressed size: %i bytes"
             (String.length buffer) >>= fun () ->
           _fold_block a buffer 0 >>= fun a' ->
@@ -256,7 +254,7 @@ module C = struct
     in
     _skip_blocks () >>= fun compressed ->
     Logger.debug_f_ "... to _skip_in_block %i" (String.length compressed) >>= fun () ->
-    inflate compressed >>= fun buffer ->
+    let buffer = inflate compressed in
     Logger.debug_f_ "uncompressed (size=%i)" (String.length buffer) >>= fun () ->
     let maybe_first, pos = _skip_in_block buffer 0 in
     begin
@@ -353,14 +351,14 @@ module O = struct (* correct but slow folder for .tlc (aka Old) format *)
       | Some compressed ->
         begin
           Logger.debug_f_ "compressed: %i" (String.length compressed) >>= fun () ->
-          inflate compressed >>= fun buffer ->
+          let buffer = inflate compressed in
           _fold_block a buffer 0 >>= fun a' ->
           _fold_blocks a'
         end
     in
     _read_block () >>= fun compressed ->
     Logger.debug_f_ "... to _skip_in_block %i" (String.length compressed) >>= fun () ->
-    inflate compressed >>= fun buffer ->
+    let buffer = inflate compressed in
     Logger.debug_f_ "uncompressed (size=%i)" (String.length buffer) >>= fun () ->
     let maybe_first, pos = _skip_in_block buffer 0 in
     begin

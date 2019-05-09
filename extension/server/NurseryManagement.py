@@ -14,11 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-try:
-    from pymonkey import q
-except ImportError:
-    from pylabs import q
-
+from Compat import X
 import ArakoonManagement
 
 class NurseryManagement:
@@ -35,7 +31,7 @@ class NurseryManagement:
 
     @staticmethod
     def getConfigLocation(clusterId):
-        cfg = q.config.getConfig( "arakoonclusters" )
+        cfg = X.getConfig( "arakoonclusters" )
         if cfg.has_key( clusterId ):
             return "%s/%s.cfg" % (cfg[ clusterId ]["path"], clusterId)
         else:
@@ -103,9 +99,9 @@ class NurseryManager:
         self.__runCmd( cmd )
 
     def __runCmd(self, cmd):
-        (exit, stdout, stderr) = q.system.process.run( commandline = cmd, stopOnError=False)
-        if exit :
-            raise RuntimeError( stderr )
+        rc  = X.subprocess.check_call(cmd)
+        if rc :
+            raise RuntimeError("rc=%i", rc)
 
     def __which(self):
         return ArakoonManagement.which_arakoon()

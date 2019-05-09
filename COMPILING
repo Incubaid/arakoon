@@ -1,49 +1,28 @@
-We use opam
+We use docker to build arakoon, so the easiest way to get started is to use our docker images.
 
-Some of the packages we use are not in the main opam repository (yet). So it's easiest if you add our devel repo:
+Preliminary steps
 
-opam remote --kind git add devel git://github.com/Incubaid/opam-repository-devel.git
+Install docker for your system, see https://docs.docker.com/engine/installation for instructions.
+After that make sure your user belongs to the docker group: sudo usermod -a -G docker your_user
 
-Packages we use:
+Building
 
-ocamlfind.1.3.3
-snappy.0.1.0
-camlbz2.0.6.0
-ssl
-lwt with SSL support
-camltc
-quickcheck
+Run
+./docker/run.sh ubuntu-16.04 build
+from the root of the repository.
 
-When it's been a while you might want to run `opam update` first to get the latest versions.
+Running the tests
 
+./docker/run.sh ubuntu-16.04 unit
+./docker/run.sh ubuntu-16.04 b
+./docker/run.sh ubuntu-16.04 c
+./docker/run.sh ubuntu-16.04 d
 
-COMPILING:
+Enter the docker container
 
-make
-(you can inspect the makefile for more fine grained targets)
-(if you get errors and you've built arakoon before you could try a `make clean` first)
+./docker/run.sh ubuntu-16.04 bash
 
-RUNNING THE TESTS:
+Build packages
 
-	./arakoon.native --run-all-tests
-
-COVERAGE:
-Bisect needs to be installed. (get it from http://bisect.x9c.fr/)
-
-	ocamlbuild -tag use_bisect -tag use_macro arakoon.d.byte
-	./report.sh
-
-DEBIAN packages:
-	fakeroot debian/rules clean
-	fakeroot debian/rules build
-	fakeroot debian/rules binary
-
-Python egg:
-	python setup.py bdist_egg
-
-
-
-have fun,
-
-The arakoon team
+./docker/run.sh ubuntu-16.04 package_deb
 

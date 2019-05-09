@@ -20,18 +20,18 @@ open Lwt
 open Routing
 open Client_cfg
 open Ncfg
-open Interval
+open Arakoon_interval
 open Arakoon_client
 
 let section = Logger.Section.main
 
 let so2s = Log_extra.string_option2s
 
-let try_connect (ips, port) =
+let try_connect ~tcp_keepalive (ips, port) =
   Lwt.catch
     (fun () ->
        let sa = Network.make_address ips port in
-       Network.__open_connection sa >>= fun (_, ic, oc) ->
+       Network.__open_connection ~tcp_keepalive sa >>= fun (_, ic, oc) ->
        let r = Some (ic,oc) in
        Lwt.return r
     )
@@ -50,12 +50,13 @@ module NC = struct
 
   type t = {
     rc : NCFG.t;
+    tcp_keepalive : Tcp_keepalive.t;
     keeper_cn: string;
     connections : (nn ,lc) Hashtbl.t;
     masters: (string, string option) Hashtbl.t;
   }
 
-  let make rc keeper_cn =
+  let make rc keeper_cn tcp_keepalive =
     let masters = Hashtbl.create 5 in
     let () = NCFG.iter_cfgs rc (fun k _ -> Hashtbl.add masters k None) in
     let connections = Hashtbl.create 13 in
@@ -66,7 +67,7 @@ module NC = struct
                       let a = Address (ip,port) in
                       Hashtbl.add connections nn a) v)
     in
-    {rc; connections;masters;keeper_cn}
+    { rc; connections; masters; keeper_cn; tcp_keepalive; }
 
   let _get_connection t nn =
     let (cn,_node) = nn in
@@ -74,11 +75,18 @@ module NC = struct
       | Address (ips,port) ->
         begin
           let ip = List.hd ips in
-          try_connect (ip,port) >>= function
+          try_connect ~tcp_keepalive:t.tcp_keepalive (ip,port) >>= function
           | Some conn ->
-            Protocol_common.prologue cn conn >>= fun () ->
-            let () = Hashtbl.add t.connections nn (Connection conn) in
-            Lwt.return conn
+             Lwt.catch
+               (fun () ->
+                Protocol_common.prologue cn conn >>= fun () ->
+                let () = Hashtbl.add t.connections nn (Connection conn) in
+                Lwt.return conn)
+               (fun exn ->
+                let ic, oc = conn in
+                Lwt_io.close ic >>= fun () ->
+                Lwt_io.close oc >>= fun () ->
+                Lwt.fail exn)
           | None -> Llio.lwt_failfmt "Connection to (%s,%i) failed" ip port
         end
       | Connection conn -> Lwt.return conn
@@ -174,7 +182,7 @@ module NC = struct
     get_interval from_cn >>= fun from_i ->
     Logger.debug_f_ "Getting initial interval from %s" to_cn >>= fun () ->
     get_interval to_cn >>= fun to_i ->
-    let open Interval in
+    let open Arakoon_interval in
     let rec loop (from_i:Interval.t) (to_i:Interval.t) =
       pull () >>= fun fringe ->
       match fringe with
@@ -267,7 +275,7 @@ module NC = struct
       end
     in
     let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
-    let open Interval in
+    let open Arakoon_interval in
     let finalize (from_i: Interval.t) (to_i: Interval.t) =
       Logger.debug_ "Setting final intervals en routing" >>= fun () ->
 
@@ -329,7 +337,7 @@ module NC = struct
       end
     in
     let set_interval cn i = force_interval t (cn: string) (i: Interval.t) in
-    let open Interval in
+    let open Arakoon_interval in
     let finalize from_cn to_cn direction (from_i: Interval.t) (to_i: Interval.t) =
       Logger.debug_ "Setting final intervals en routing" >>= fun () ->
       let fpu_b = from_i.pu_b
@@ -435,7 +443,7 @@ let nursery_test_main () =
   let () = NCFG.add_cluster nursery_cfg "left" left_cfg in
   let () = NCFG.add_cluster nursery_cfg "right" right_cfg in
   let keeper = "left" in
-  let nc = NC.make nursery_cfg keeper in
+  let nc = NC.make nursery_cfg keeper Tcp_keepalive.default_tcp_keepalive in
   (*
   let test k v =
     NC.set client k v >>= fun () ->

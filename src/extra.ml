@@ -27,7 +27,11 @@ open Lwt
 
 let lwt_bracket setup testcase teardown () =
   let try_lwt_ f =
-    Lwt.catch f (fun exn -> Lwt.fail exn)
+    Lwt.catch
+      f
+      (fun exn ->
+        Lwt_log.fatal ~exn "test failed" >>= fun () ->
+        Lwt.fail exn)
   in
   Lwt_main.run
     begin
