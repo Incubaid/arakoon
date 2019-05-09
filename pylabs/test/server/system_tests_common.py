@@ -1345,7 +1345,7 @@ def compare_files(fn0, fn1):
             while go_on:
                 f0_line = f0.readline()
                 f1_line = f1.readline()
-                logging.debug("l0:%s\nl1:%s\n", f0_line.strip(), f1_line.strip())
+                #logging.debug("l0:%s\nl1:%s\n", f0_line.strip(), f1_line.strip())
                 if f0_line <> f1_line :
                     raise Exception("%s and %s diff on line %i" % (fn0,fn1, count))
                 if len(f0_line) == 0:
